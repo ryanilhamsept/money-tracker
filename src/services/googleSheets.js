@@ -1,5 +1,5 @@
 const GOOGLE_SHEET_API_URL =
-    "https://script.google.com/macros/s/AKfycbzLYlvrxN0jLBT39qhNaCa1Dg8s6T_zHhrDbo07ieQ2OytFV3R7iX5aJRJUF0YNSH299Q/exec";
+    "https://script.google.com/macros/s/AKfycbzJ3SQSSHO-1y1nGkzCn2u8RyWk_YND6XjYrwaQd5Bp1GBOHI-7SO28axhRLGsn7m3-qQ/exec";
 
 export const getTransactionsFromGoogleSheet = async () => {
     const response = await fetch(GOOGLE_SHEET_API_URL);
@@ -49,15 +49,9 @@ export const getBudgetFromGoogleSheet = async () => {
 };
 
 export const saveBudgetToGoogleSheet = async (budget) => {
-    await fetch(GOOGLE_SHEET_API_URL, {
-        method: "POST",
-        mode: "no-cors",
-        headers: {
-            "Content-Type": "text/plain;charset=utf-8",
-        },
-        body: JSON.stringify({
-            action: "saveBudget",
-            budget: Number(budget),
-        }),
-    });
+    const response = await fetch(
+        `${GOOGLE_SHEET_API_URL}?action=saveBudget&budget=${Number(budget)}`
+    );
+
+    return response.json();
 };

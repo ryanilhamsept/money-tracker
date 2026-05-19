@@ -12,6 +12,7 @@ export const useBudget = () => {
     const loadBudget = async () => {
         try {
             const data = await getBudgetFromGoogleSheet();
+
             setBudget(Number(data.budget) || 0);
         } catch {
             setBudget(0);
@@ -26,16 +27,18 @@ export const useBudget = () => {
         event.preventDefault();
 
         const newBudget = parseAmountInput(budgetInput);
+
         if (!newBudget) return;
 
+        // langsung update UI
         setBudget(newBudget);
+
         setBudgetInput("");
 
         try {
             await saveBudgetToGoogleSheet(newBudget);
-            await loadBudget();
-        } catch {
-            console.log("Failed to save budget to Google Sheets");
+        } catch (err) {
+            console.log(err);
         }
     };
 

@@ -3,6 +3,7 @@ const GOOGLE_SHEET_API_URL =
 
 export const getTransactionsFromGoogleSheet = async () => {
     const response = await fetch(GOOGLE_SHEET_API_URL);
+
     return response.json();
 };
 
@@ -48,8 +49,9 @@ export const getBudgetFromGoogleSheet = async () => {
 };
 
 export const saveBudgetToGoogleSheet = async (budget) => {
-    const response = await fetch(GOOGLE_SHEET_API_URL, {
+    await fetch(GOOGLE_SHEET_API_URL, {
         method: "POST",
+        mode: "no-cors",
         headers: {
             "Content-Type": "text/plain;charset=utf-8",
         },
@@ -58,6 +60,4 @@ export const saveBudgetToGoogleSheet = async (budget) => {
             budget: Number(budget),
         }),
     });
-
-    return response.text();
 };

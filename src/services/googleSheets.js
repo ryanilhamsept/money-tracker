@@ -1,5 +1,5 @@
 const GOOGLE_SHEET_API_URL =
-    "https://script.google.com/macros/s/AKfycbzJ3SQSSHO-1y1nGkzCn2u8RyWk_YND6XjYrwaQd5Bp1GBOHI-7SO28axhRLGsn7m3-qQ/exec";
+    "https://script.google.com/macros/s/AKfycbzeU8QlaoyfkRsspensFtTXi740ictD0b7zfOTvPKWFL3hTZ9rFfML-IrZYk7dWS6cruw/exec";
 
 export const getTransactionsFromGoogleSheet = async () => {
     const response = await fetch(GOOGLE_SHEET_API_URL);
@@ -8,22 +8,22 @@ export const getTransactionsFromGoogleSheet = async () => {
 };
 
 export const syncTransactionToGoogleSheet = async (transaction) => {
-    await fetch(GOOGLE_SHEET_API_URL, {
-        method: "POST",
-        mode: "no-cors",
-        headers: {
-            "Content-Type": "text/plain;charset=utf-8",
-        },
-        body: JSON.stringify({
-            id: transaction.id,
-            date: transaction.date,
-            notes: transaction.title,
-            category: transaction.category,
-            nominal: transaction.amount,
-            ambil: transaction.danaDipakai,
-            sof: transaction.source,
-        }),
+    const params = new URLSearchParams({
+        action: "add",
+        id: transaction.id,
+        date: transaction.date,
+        notes: transaction.title,
+        category: transaction.category,
+        nominal: String(transaction.amount),
+        ambil: transaction.danaDipakai,
+        sof: transaction.source,
     });
+
+    const response = await fetch(
+        `${GOOGLE_SHEET_API_URL}?${params.toString()}`
+    );
+
+    return response.json();
 };
 
 export const deleteTransactionFromGoogleSheet = async (id) => {

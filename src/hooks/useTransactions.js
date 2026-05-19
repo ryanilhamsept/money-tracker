@@ -1,40 +1,45 @@
 import { useEffect, useState } from "react";
-import { today, normalizeDate } from "../utils/date";
+import { normalizeDate } from "../utils/date";
 import { parseAmountInput } from "../utils/parser";
 import {
     syncTransactionToGoogleSheet,
     deleteTransactionFromGoogleSheet,
+    getTransactionsFromGoogleSheet,
 } from "../services/googleSheets";
 
-const STORAGE_KEY = "pwa-money-tracker-transactions-v6";
-
-const sampleTransactions = [
-    {
-        id: crypto.randomUUID(),
-        title: "Lunch",
-        amount: 45000,
-        category: "Food",
-        source: "BCA",
-        danaDipakai: "Spend Bulanan",
-        date: today(),
-    },
-];
-
 export const useTransactions = () => {
-    const [transactions, setTransactions] = useState(() => {
-        try {
-            const stored = localStorage.getItem(STORAGE_KEY);
-            return stored ? JSON.parse(stored) : sampleTransactions;
-        } catch {
-            return sampleTransactions;
-        }
-    });
+    const [transactions, setTransactions] = useState([]);
+    const [syncStatus, setSyncStatus] = useState("Loading data from Google Sheets...");
 
-    const [syncStatus, setSyncStatus] = useState("");
+    const loadTransactions = async () => {
+        try {
+            const data = await getTransactionsFromGoogleSheet();
+
+            if (Array.isArray(data)) {
+                const normalizedData = data
+                    .filter((item) => item.title)
+                    .map((item) => ({
+                        id: item.id || crypto.randomUUID(),
+                        title: item.title,
+                        amount: Number(item.amount) || 0,
+                        category: item.category || "Food",
+                        source: item.source || "Mandiri",
+                        danaDipakai: item.danaDipakai || "Spend Bulanan",
+                        date: normalizeDate(item.date),
+                    }))
+                    .sort((a, b) => normalizeDate(b.date).localeCompare(normalizeDate(a.date)));
+
+                setTransactions(normalizedData);
+                setSyncStatus("");
+            }
+        } catch {
+            setSyncStatus("Failed to load data from Google Sheets.");
+        }
+    };
 
     useEffect(() => {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(transactions));
-    }, [transactions]);
+        loadTransactions();
+    }, []);
 
     const addTransaction = async (form) => {
         const amount = parseAmountInput(form.amount);
@@ -71,7 +76,8 @@ export const useTransactions = () => {
         try {
             setSyncStatus("Syncing to Google Sheets...");
             await syncTransactionToGoogleSheet(newTransaction);
-            setSyncStatus("Request sent to Google Sheets. Check your Sheet tab 'Bulan'.");
+            await loadTransactions();
+            setSyncStatus("Saved to Google Sheets.");
         } catch {
             setSyncStatus("Failed to sync to Google Sheets.");
         }
@@ -93,6 +99,7 @@ export const useTransactions = () => {
         try {
             setSyncStatus("Deleting from Google Sheets...");
             await deleteTransactionFromGoogleSheet(id);
+            await loadTransactions();
             setSyncStatus(
                 deletedTransaction
                     ? `Deleted "${deletedTransaction.title}" from Google Sheets.`

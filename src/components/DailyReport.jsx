@@ -1,7 +1,12 @@
 import { useMemo, useState } from "react";
 import { Card, CardContent } from "./ui/card";
 import { formatCurrency } from "../utils/currency";
-import { currentMonth, formatDisplayDate, getTransactionMonth, normalizeDate } from "../utils/date";
+import {
+    currentMonth,
+    formatDisplayDate,
+    getTransactionMonth,
+    normalizeDate,
+} from "../utils/date";
 
 export default function DailyReport({ transactions }) {
     const [dailyReportMonth, setDailyReportMonth] = useState(currentMonth());
@@ -25,29 +30,40 @@ export default function DailyReport({ transactions }) {
             .sort((a, b) => b[0].localeCompare(a[0]))
             .map(([date, list]) => ({
                 date,
-                transactions: list.sort((a, b) => Number(b.amount) - Number(a.amount)),
-                amount: list.reduce((sum, item) => sum + Number(item.amount), 0),
+                transactions: list.sort(
+                    (a, b) => Number(b.amount) - Number(a.amount)
+                ),
+                amount: list.reduce(
+                    (sum, item) => sum + Number(item.amount),
+                    0
+                ),
             }));
     }, [dailyReportTransactions]);
 
     return (
-        <section className="space-y-6">
+        <section className="space-y-6 overflow-hidden">
             <Card className="rounded-2xl shadow-sm">
                 <CardContent className="p-5">
-                    <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-                        <div>
-                            <h2 className="text-xl font-semibold">Daily Report</h2>
+                    <div className="flex min-w-0 flex-col gap-4 overflow-hidden md:flex-row md:items-end md:justify-between">
+                        <div className="min-w-0">
+                            <h2 className="text-xl font-semibold">
+                                Daily Report
+                            </h2>
                             <p className="text-sm text-muted-foreground">
                                 Klik tanggal untuk melihat detail transaksi hari itu.
                             </p>
                         </div>
-                        <label className="block space-y-2 md:w-64">
+
+                        <label className="block min-w-0 max-w-full space-y-2 md:w-64">
                             <span className="text-sm font-medium">Month</span>
                             <input
                                 type="month"
                                 value={dailyReportMonth}
-                                onChange={(event) => setDailyReportMonth(event.target.value)}
-                                className="w-full rounded-2xl border bg-background px-4 py-3 outline-none focus:ring-2"
+                                onChange={(event) =>
+                                    setDailyReportMonth(event.target.value)
+                                }
+                                style={{ WebkitAppearance: "none" }}
+                                className="w-full min-w-0 max-w-full appearance-none rounded-2xl border bg-background px-4 py-3 outline-none focus:ring-2"
                             />
                         </label>
                     </div>
@@ -63,23 +79,31 @@ export default function DailyReport({ transactions }) {
                     ) : (
                         <div className="space-y-3">
                             {dailySpendingData.map((item) => (
-                                <div key={item.date} className="rounded-2xl border p-4">
+                                <div
+                                    key={item.date}
+                                    className="rounded-2xl border p-4"
+                                >
                                     <button
                                         type="button"
                                         onClick={() =>
                                             setExpandedDailyReportDate((current) =>
-                                                current === item.date ? "" : item.date
+                                                current === item.date
+                                                    ? ""
+                                                    : item.date
                                             )
                                         }
-                                        className="flex w-full items-center justify-between gap-4 text-left"
+                                        className="flex w-full min-w-0 items-center justify-between gap-4 text-left"
                                     >
-                                        <div>
-                                            <p className="font-semibold">{formatDisplayDate(item.date)}</p>
+                                        <div className="min-w-0">
+                                            <p className="font-semibold">
+                                                {formatDisplayDate(item.date)}
+                                            </p>
                                             <p className="text-sm text-muted-foreground">
                                                 {item.transactions.length} transaksi
                                             </p>
                                         </div>
-                                        <p className="text-lg font-bold text-rose-600">
+
+                                        <p className="shrink-0 text-lg font-bold text-rose-600">
                                             -{formatCurrency(item.amount)}
                                         </p>
                                     </button>
@@ -89,16 +113,23 @@ export default function DailyReport({ transactions }) {
                                             {item.transactions.map((transaction) => (
                                                 <div
                                                     key={transaction.id}
-                                                    className="flex items-center justify-between gap-3 rounded-xl bg-muted p-3"
+                                                    className="flex min-w-0 items-center justify-between gap-3 rounded-xl bg-muted p-3"
                                                 >
                                                     <div className="min-w-0">
-                                                        <p className="truncate font-medium">{transaction.title}</p>
+                                                        <p className="truncate font-medium">
+                                                            {transaction.title}
+                                                        </p>
                                                         <p className="text-xs text-muted-foreground">
-                                                            {transaction.category} • {transaction.source} • {transaction.danaDipakai}
+                                                            {transaction.category} •{" "}
+                                                            {transaction.source} •{" "}
+                                                            {transaction.danaDipakai}
                                                         </p>
                                                     </div>
+
                                                     <p className="shrink-0 font-bold text-rose-600">
-                                                        -{formatCurrency(transaction.amount)}
+                                                        -{formatCurrency(
+                                                            transaction.amount
+                                                        )}
                                                     </p>
                                                 </div>
                                             ))}

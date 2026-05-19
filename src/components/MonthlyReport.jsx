@@ -14,6 +14,7 @@ export default function MonthlyReport({ transactions }) {
             const matchesMonth = getTransactionMonth(item.date) === selectedMonth;
             const matchesDana =
                 monthlyDanaFilter === "all" || item.danaDipakai === monthlyDanaFilter;
+
             return matchesMonth && matchesDana;
         });
     }, [transactions, selectedMonth, monthlyDanaFilter]);
@@ -28,6 +29,7 @@ export default function MonthlyReport({ transactions }) {
                 const total = monthlyTransactions
                     .filter((item) => item.category === category)
                     .reduce((sum, item) => sum + Number(item.amount), 0);
+
                 return {
                     category,
                     total,
@@ -44,6 +46,7 @@ export default function MonthlyReport({ transactions }) {
                 const total = monthlyTransactions
                     .filter((item) => item.source === source)
                     .reduce((sum, item) => sum + Number(item.amount), 0);
+
                 return { source, total };
             })
             .filter((item) => item.total > 0)
@@ -51,9 +54,12 @@ export default function MonthlyReport({ transactions }) {
     }, [monthlyTransactions]);
 
     const pieChart = useMemo(() => {
-        if (!categoryReport.length) return "conic-gradient(#e5e7eb 0deg 360deg)";
+        if (!categoryReport.length) {
+            return "conic-gradient(#e5e7eb 0deg 360deg)";
+        }
 
         let start = 0;
+
         const colors = [
             "#ef4444",
             "#f97316",
@@ -76,35 +82,39 @@ export default function MonthlyReport({ transactions }) {
     }, [categoryReport, monthlyTotal]);
 
     return (
-        <section className="grid gap-6 lg:grid-cols-[380px_1fr]">
+        <section className="grid min-w-0 gap-6 overflow-hidden lg:grid-cols-[380px_1fr]">
             <Card className="rounded-2xl shadow-sm">
                 <CardContent className="space-y-5 p-5">
-                    <div>
+                    <div className="min-w-0">
                         <h2 className="text-xl font-semibold">Monthly Report</h2>
                         <p className="text-sm text-muted-foreground">
                             See spending summary by month and category.
                         </p>
                     </div>
 
-                    <div className="grid gap-3 md:grid-cols-2">
-                        <label className="block space-y-2">
+                    <div className="grid min-w-0 gap-3 overflow-hidden md:grid-cols-2">
+                        <label className="block min-w-0 max-w-full space-y-2">
                             <span className="text-sm font-medium">Month</span>
+
                             <input
                                 type="month"
                                 value={selectedMonth}
                                 onChange={(event) => setSelectedMonth(event.target.value)}
-                                className="w-full rounded-2xl border bg-background px-4 py-3 outline-none focus:ring-2"
+                                style={{ WebkitAppearance: "none" }}
+                                className="w-full min-w-0 max-w-full appearance-none rounded-2xl border bg-background px-4 py-3 outline-none focus:ring-2"
                             />
                         </label>
 
-                        <label className="block space-y-2">
+                        <label className="block min-w-0 max-w-full space-y-2">
                             <span className="text-sm font-medium">Dana Dipakai</span>
+
                             <select
                                 value={monthlyDanaFilter}
                                 onChange={(event) => setMonthlyDanaFilter(event.target.value)}
-                                className="w-full rounded-2xl border bg-background px-4 py-3 outline-none focus:ring-2"
+                                className="w-full min-w-0 max-w-full rounded-2xl border bg-background px-4 py-3 outline-none focus:ring-2"
                             >
                                 <option value="all">All</option>
+
                                 {danaDipakaiOptions.map((item) => (
                                     <option key={item} value={item}>
                                         {item}
@@ -114,9 +124,9 @@ export default function MonthlyReport({ transactions }) {
                         </label>
                     </div>
 
-                    <div className="flex justify-center">
+                    <div className="flex justify-center overflow-hidden">
                         <div
-                            className="h-56 w-56 rounded-full border shadow-inner"
+                            className="h-56 w-56 shrink-0 rounded-full border shadow-inner"
                             style={{ background: pieChart }}
                             aria-label="Spending pie chart"
                         />
@@ -124,17 +134,24 @@ export default function MonthlyReport({ transactions }) {
 
                     <div className="rounded-2xl bg-muted p-4 text-center">
                         <p className="text-sm text-muted-foreground">
-                            Total this month · {monthlyDanaFilter === "all" ? "All" : monthlyDanaFilter}
+                            Total this month ·{" "}
+                            {monthlyDanaFilter === "all" ? "All" : monthlyDanaFilter}
                         </p>
-                        <p className="text-2xl font-bold">{formatCurrency(monthlyTotal)}</p>
+
+                        <p className="text-2xl font-bold">
+                            {formatCurrency(monthlyTotal)}
+                        </p>
                     </div>
                 </CardContent>
             </Card>
 
-            <div className="space-y-6">
+            <div className="min-w-0 space-y-6 overflow-hidden">
                 <Card className="rounded-2xl shadow-sm">
                     <CardContent className="p-5">
-                        <h3 className="mb-4 text-lg font-semibold">Spending by Category</h3>
+                        <h3 className="mb-4 text-lg font-semibold">
+                            Spending by Category
+                        </h3>
+
                         {categoryReport.length === 0 ? (
                             <div className="rounded-2xl border border-dashed p-8 text-center text-muted-foreground">
                                 No spending data for this month.
@@ -147,24 +164,34 @@ export default function MonthlyReport({ transactions }) {
                                     );
 
                                     return (
-                                        <div key={item.category} className="space-y-2 rounded-2xl border p-4">
+                                        <div
+                                            key={item.category}
+                                            className="space-y-2 rounded-2xl border p-4"
+                                        >
                                             <button
                                                 type="button"
                                                 onClick={() =>
                                                     setExpandedMonthlyCategory((current) =>
-                                                        current === item.category ? "" : item.category
+                                                        current === item.category
+                                                            ? ""
+                                                            : item.category
                                                     )
                                                 }
-                                                className="w-full text-left"
+                                                className="w-full min-w-0 text-left"
                                             >
-                                                <div className="flex items-center justify-between gap-4">
-                                                    <div>
-                                                        <p className="font-semibold">{item.category}</p>
+                                                <div className="flex min-w-0 items-center justify-between gap-4">
+                                                    <div className="min-w-0">
+                                                        <p className="truncate font-semibold">
+                                                            {item.category}
+                                                        </p>
                                                         <p className="text-sm text-muted-foreground">
                                                             {item.percentage}% of monthly spending
                                                         </p>
                                                     </div>
-                                                    <p className="font-bold">{formatCurrency(item.total)}</p>
+
+                                                    <p className="shrink-0 font-bold">
+                                                        {formatCurrency(item.total)}
+                                                    </p>
                                                 </div>
 
                                                 <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
@@ -180,15 +207,19 @@ export default function MonthlyReport({ transactions }) {
                                                     {detailTransactions.map((transaction) => (
                                                         <div
                                                             key={transaction.id}
-                                                            className="flex items-center justify-between rounded-xl bg-muted p-3"
+                                                            className="flex min-w-0 items-center justify-between gap-3 rounded-xl bg-muted p-3"
                                                         >
-                                                            <div>
-                                                                <p className="font-medium">{transaction.title}</p>
+                                                            <div className="min-w-0">
+                                                                <p className="truncate font-medium">
+                                                                    {transaction.title}
+                                                                </p>
                                                                 <p className="text-xs text-muted-foreground">
-                                                                    {formatDisplayDate(transaction.date)} • {transaction.source}
+                                                                    {formatDisplayDate(transaction.date)} •{" "}
+                                                                    {transaction.source}
                                                                 </p>
                                                             </div>
-                                                            <p className="font-bold text-rose-600">
+
+                                                            <p className="shrink-0 font-bold text-rose-600">
                                                                 -{formatCurrency(transaction.amount)}
                                                             </p>
                                                         </div>
@@ -205,7 +236,10 @@ export default function MonthlyReport({ transactions }) {
 
                 <Card className="rounded-2xl shadow-sm">
                     <CardContent className="p-5">
-                        <h3 className="mb-4 text-lg font-semibold">Spending by Sumber Dana</h3>
+                        <h3 className="mb-4 text-lg font-semibold">
+                            Spending by Sumber Dana
+                        </h3>
+
                         {sourceReport.length === 0 ? (
                             <div className="rounded-2xl border border-dashed p-8 text-center text-muted-foreground">
                                 No fund source data for this month.
@@ -215,10 +249,15 @@ export default function MonthlyReport({ transactions }) {
                                 {sourceReport.map((item) => (
                                     <div
                                         key={item.source}
-                                        className="flex items-center justify-between rounded-2xl border p-4"
+                                        className="flex min-w-0 items-center justify-between gap-3 rounded-2xl border p-4"
                                     >
-                                        <p className="font-semibold">{item.source}</p>
-                                        <p className="font-bold">{formatCurrency(item.total)}</p>
+                                        <p className="truncate font-semibold">
+                                            {item.source}
+                                        </p>
+
+                                        <p className="shrink-0 font-bold">
+                                            {formatCurrency(item.total)}
+                                        </p>
                                     </div>
                                 ))}
                             </div>

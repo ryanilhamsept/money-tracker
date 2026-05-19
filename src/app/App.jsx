@@ -19,6 +19,7 @@ export default function App() {
 
     const {
         transactions,
+        isLoading,
         syncStatus,
         addTransaction,
         updateTransactionDate,
@@ -50,10 +51,29 @@ export default function App() {
         },
     ];
 
+    if (isLoading) {
+        return (
+            <main className="flex min-h-screen items-center justify-center bg-background p-4 text-foreground">
+                <div className="space-y-4 text-center">
+                    <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-muted border-t-foreground" />
+
+                    <div>
+                        <p className="text-base font-semibold">
+                            Loading transactions...
+                        </p>
+
+                        <p className="mt-1 text-sm text-muted-foreground">
+                            Syncing data from Google Sheets.
+                        </p>
+                    </div>
+                </div>
+            </main>
+        );
+    }
+
     return (
         <main className="min-h-screen bg-background p-4 text-foreground md:p-8">
             <div className="mx-auto max-w-7xl space-y-6">
-
                 <motion.header
                     initial={{ opacity: 0, y: -12 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -84,8 +104,8 @@ export default function App() {
                                 key={item.id}
                                 onClick={() => setActivePage(item.id)}
                                 className={`flex min-w-0 items-center justify-center gap-2 rounded-xl px-2 py-3 text-xs font-semibold transition sm:px-4 sm:text-sm ${activePage === item.id
-                                    ? "bg-background border-2 border-primary shadow-lg scale-[1.02]"
-                                    : "text-muted-foreground hover:bg-background/60"
+                                        ? "scale-[1.02] border-2 border-primary bg-background shadow-lg"
+                                        : "text-muted-foreground hover:bg-background/60"
                                     }`}
                             >
                                 <Icon className="h-4 w-4 shrink-0" />
@@ -118,17 +138,12 @@ export default function App() {
                 )}
 
                 {activePage === "daily-report" && (
-                    <DailyReport
-                        transactions={transactions}
-                    />
+                    <DailyReport transactions={transactions} />
                 )}
 
                 {activePage === "report" && (
-                    <MonthlyReport
-                        transactions={transactions}
-                    />
+                    <MonthlyReport transactions={transactions} />
                 )}
-
             </div>
         </main>
     );

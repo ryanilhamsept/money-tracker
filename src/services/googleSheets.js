@@ -1,5 +1,5 @@
 const GOOGLE_SHEET_API_URL =
-    "https://script.google.com/macros/s/AKfycbyszqpFu4mnc-ZCVg6f8P1k2pj-p7cOHiAtotUBBnbhRfsLI0beJcbPWSD7Eaf1fR0VPA/exec";
+    "https://script.google.com/macros/s/AKfycbz9SBhoKmC-3L1EUwVdDvhbwGuTdz71OI1YQdWhZHHAOTtAPEGBhv-wC83VMKlZWbtv9A/exec";
 
 export const getTransactionsFromGoogleSheet = async () => {
     const response = await fetch(GOOGLE_SHEET_API_URL);
@@ -15,6 +15,7 @@ export const syncTransactionToGoogleSheet = async (transaction) => {
         },
         body: JSON.stringify({
             id: transaction.id,
+            date: transaction.date,
             notes: transaction.title,
             category: transaction.category,
             nominal: transaction.amount,

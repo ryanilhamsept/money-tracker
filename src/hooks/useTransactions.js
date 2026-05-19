@@ -11,6 +11,16 @@ export const useTransactions = () => {
     const [transactions, setTransactions] = useState([]);
     const [syncStatus, setSyncStatus] = useState("Loading data from Google Sheets...");
 
+    const sortTransactions = (items) => {
+        return [...items].sort((a, b) => {
+            const dateCompare = normalizeDate(b.date).localeCompare(normalizeDate(a.date));
+
+            if (dateCompare !== 0) return dateCompare;
+
+            return (b.id || "").localeCompare(a.id || "");
+        });
+    };
+
     const loadTransactions = async () => {
         try {
             const data = await getTransactionsFromGoogleSheet();
@@ -26,10 +36,9 @@ export const useTransactions = () => {
                         source: item.source || "Mandiri",
                         danaDipakai: item.danaDipakai || "Spend Bulanan",
                         date: normalizeDate(item.date),
-                    }))
-                    .sort((a, b) => normalizeDate(b.date).localeCompare(normalizeDate(a.date)));
+                    }));
 
-                setTransactions(normalizedData);
+                setTransactions(sortTransactions(normalizedData));
                 setSyncStatus("");
             }
         } catch {
@@ -71,7 +80,7 @@ export const useTransactions = () => {
             return;
         }
 
-        setTransactions((current) => [newTransaction, ...current]);
+        setTransactions((current) => sortTransactions([newTransaction, ...current]));
 
         try {
             setSyncStatus("Syncing to Google Sheets...");
@@ -85,8 +94,10 @@ export const useTransactions = () => {
 
     const updateTransactionDate = (id, newDate) => {
         setTransactions((current) =>
-            current.map((item) =>
-                item.id === id ? { ...item, date: normalizeDate(newDate) } : item
+            sortTransactions(
+                current.map((item) =>
+                    item.id === id ? { ...item, date: normalizeDate(newDate) } : item
+                )
             )
         );
     };

@@ -1,9 +1,8 @@
 const GOOGLE_SHEET_API_URL =
-    "https://script.google.com/macros/s/AKfycbzeU8QlaoyfkRsspensFtTXi740ictD0b7zfOTvPKWFL3hTZ9rFfML-IrZYk7dWS6cruw/exec";
+    "https://script.google.com/macros/s/AKfycbzJ3SQSSHO-1y1nGkzCn2u8RyWk_YND6XjYrwaQd5Bp1GBOHI-7SO28axhRLGsn7m3-qQ/exec";
 
 export const getTransactionsFromGoogleSheet = async () => {
     const response = await fetch(GOOGLE_SHEET_API_URL);
-
     return response.json();
 };
 
@@ -19,32 +18,20 @@ export const syncTransactionToGoogleSheet = async (transaction) => {
         sof: transaction.source,
     });
 
+    const response = await fetch(`${GOOGLE_SHEET_API_URL}?${params.toString()}`);
+    return response.json();
+};
+
+export const deleteTransactionFromGoogleSheet = async (id) => {
     const response = await fetch(
-        `${GOOGLE_SHEET_API_URL}?${params.toString()}`
+        `${GOOGLE_SHEET_API_URL}?action=delete&id=${encodeURIComponent(id)}`
     );
 
     return response.json();
 };
 
-export const deleteTransactionFromGoogleSheet = async (id) => {
-    await fetch(GOOGLE_SHEET_API_URL, {
-        method: "POST",
-        mode: "no-cors",
-        headers: {
-            "Content-Type": "text/plain;charset=utf-8",
-        },
-        body: JSON.stringify({
-            action: "delete",
-            id,
-        }),
-    });
-};
-
 export const getBudgetFromGoogleSheet = async () => {
-    const response = await fetch(
-        `${GOOGLE_SHEET_API_URL}?type=budget`
-    );
-
+    const response = await fetch(`${GOOGLE_SHEET_API_URL}?type=budget`);
     return response.json();
 };
 

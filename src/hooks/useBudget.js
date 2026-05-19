@@ -1,24 +1,28 @@
 import { useEffect, useState } from "react";
 import { parseAmountInput } from "../utils/parser";
-
-const BUDGET_STORAGE_KEY = "pwa-money-tracker-budget-v1";
+import {
+    getBudgetFromGoogleSheet,
+    saveBudgetToGoogleSheet,
+} from "../services/googleSheets";
 
 export const useBudget = () => {
-    const [budget, setBudget] = useState(() => {
-        try {
-            return Number(localStorage.getItem(BUDGET_STORAGE_KEY)) || 0;
-        } catch {
-            return 0;
-        }
-    });
-
+    const [budget, setBudget] = useState(0);
     const [budgetInput, setBudgetInput] = useState("");
 
-    useEffect(() => {
-        localStorage.setItem(BUDGET_STORAGE_KEY, String(budget));
-    }, [budget]);
+    const loadBudget = async () => {
+        try {
+            const data = await getBudgetFromGoogleSheet();
+            setBudget(Number(data.budget) || 0);
+        } catch {
+            setBudget(0);
+        }
+    };
 
-    const saveBudget = (event) => {
+    useEffect(() => {
+        loadBudget();
+    }, []);
+
+    const saveBudget = async (event) => {
         event.preventDefault();
 
         const newBudget = parseAmountInput(budgetInput);
@@ -26,6 +30,13 @@ export const useBudget = () => {
 
         setBudget(newBudget);
         setBudgetInput("");
+
+        try {
+            await saveBudgetToGoogleSheet(newBudget);
+            await loadBudget();
+        } catch {
+            console.log("Failed to save budget to Google Sheets");
+        }
     };
 
     return {

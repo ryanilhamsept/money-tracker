@@ -38,3 +38,25 @@ export const deleteTransactionFromGoogleSheet = async (id) => {
         }),
     });
 };
+
+export const getBudgetFromGoogleSheet = async () => {
+    const response = await fetch(
+        `${GOOGLE_SHEET_API_URL}?type=budget`
+    );
+
+    return response.json();
+};
+
+export const saveBudgetToGoogleSheet = async (budget) => {
+    await fetch(GOOGLE_SHEET_API_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: {
+            "Content-Type": "text/plain;charset=utf-8",
+        },
+        body: JSON.stringify({
+            action: "saveBudget",
+            budget,
+        }),
+    });
+};

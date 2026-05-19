@@ -232,8 +232,8 @@ export default function Tracker({
 
                                 <p
                                     className={`text-3xl font-bold tracking-tight ${totals.remainingBudget < 0
-                                            ? "text-rose-600"
-                                            : "text-foreground"
+                                        ? "text-rose-600"
+                                        : "text-foreground"
                                         }`}
                                 >
                                     {formatCurrency(totals.remainingBudget)}
@@ -347,7 +347,8 @@ export default function Tracker({
                                         }))
                                     }
                                     type="date"
-                                    className="w-full rounded-2xl border bg-background px-4 py-3 outline-none focus:ring-2"
+                                    style={{ WebkitAppearance: "none" }}
+                                    className="w-full min-w-0 max-w-full appearance-none rounded-2xl border bg-background px-4 py-3 text-base outline-none focus:ring-2"
                                 />
                             </label>
 

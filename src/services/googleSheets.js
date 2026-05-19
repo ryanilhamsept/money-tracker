@@ -1,5 +1,5 @@
 const GOOGLE_SHEET_API_URL =
-    "https://script.google.com/macros/s/AKfycbyO9SyeVE6tB0VtzpvnrLDQLh_xKxFpVuXXQqWKKgI33BU84mcyO_Whey3ZAdt97TihGg/exec";
+    "https://script.google.com/macros/s/AKfycbyszqpFu4mnc-ZCVg6f8P1k2pj-p7cOHiAtotUBBnbhRfsLI0beJcbPWSD7Eaf1fR0VPA/exec";
 
 export const syncTransactionToGoogleSheet = async (transaction) => {
     await fetch(GOOGLE_SHEET_API_URL, {

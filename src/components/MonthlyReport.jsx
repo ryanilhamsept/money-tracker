@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { FileText } from "lucide-react";
 import { Card, CardContent } from "./ui/card";
 import { categories, danaDipakaiOptions, fundSources } from "../constants/options";
 import { currentMonth, formatDisplayDate, getTransactionMonth } from "../utils/date";
@@ -6,7 +7,7 @@ import { formatCurrency } from "../utils/currency";
 
 export default function MonthlyReport({ transactions }) {
     const [selectedMonth, setSelectedMonth] = useState(currentMonth());
-    const [monthlyDanaFilter, setMonthlyDanaFilter] = useState("Spend Bulanan");
+    const [monthlyDanaFilter, setMonthlyDanaFilter] = useState("all");
     const [expandedMonthlyCategory, setExpandedMonthlyCategory] = useState("");
 
     const monthlyTransactions = useMemo(() => {
@@ -132,15 +133,27 @@ export default function MonthlyReport({ transactions }) {
                         />
                     </div>
 
-                    <div className="rounded-2xl bg-muted p-4 text-center">
-                        <p className="text-sm text-muted-foreground">
-                            Total this month ·{" "}
-                            {monthlyDanaFilter === "all" ? "All" : monthlyDanaFilter}
-                        </p>
+                    <div className="rounded-2xl border p-5">
+                        <div className="flex items-start gap-4">
+                            <div className="rounded-2xl bg-muted p-3">
+                                <FileText className="h-6 w-6" />
+                            </div>
 
-                        <p className="text-2xl font-bold">
-                            {formatCurrency(monthlyTotal)}
-                        </p>
+                            <div className="min-w-0">
+                                <p className="text-sm text-muted-foreground">
+                                    Total this month ·{" "}
+                                    {monthlyDanaFilter === "all" ? "All" : monthlyDanaFilter}
+                                </p>
+
+                                <p className="mt-1 text-2xl font-bold">
+                                    {formatCurrency(monthlyTotal)}
+                                </p>
+
+                                <p className="mt-2 text-lg font-bold">
+                                    {monthlyTransactions.length} items
+                                </p>
+                            </div>
+                        </div>
                     </div>
                 </CardContent>
             </Card>
@@ -172,9 +185,7 @@ export default function MonthlyReport({ transactions }) {
                                                 type="button"
                                                 onClick={() =>
                                                     setExpandedMonthlyCategory((current) =>
-                                                        current === item.category
-                                                            ? ""
-                                                            : item.category
+                                                        current === item.category ? "" : item.category
                                                     )
                                                 }
                                                 className="w-full min-w-0 text-left"

@@ -184,9 +184,9 @@ export default function Tracker({
                                 ) : (
                                     <form
                                         onSubmit={handleBudgetSave}
-                                        className="flex min-w-0 items-center gap-2"
+                                        className="grid min-w-0 gap-2 sm:grid-cols-[1fr_auto_auto]"
                                     >
-                                        <div className="flex min-w-0 flex-1 items-center overflow-hidden rounded-2xl border bg-background px-4 py-3">
+                                        <div className="flex min-w-0 w-full items-center overflow-hidden rounded-2xl border bg-background px-4 py-3">
                                             <span className="mr-2 shrink-0 text-xl font-semibold">
                                                 Rp
                                             </span>
@@ -205,7 +205,7 @@ export default function Tracker({
 
                                         <button
                                             type="submit"
-                                            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-foreground text-background"
+                                            className="inline-flex h-11 w-full items-center justify-center rounded-full bg-foreground text-background sm:w-11"
                                             aria-label="Save budget"
                                         >
                                             <Check className="h-4 w-4" />
@@ -214,7 +214,7 @@ export default function Tracker({
                                         <button
                                             type="button"
                                             onClick={handleBudgetCancel}
-                                            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border bg-background"
+                                            className="inline-flex h-11 w-full items-center justify-center rounded-full border bg-background sm:w-11"
                                             aria-label="Cancel edit budget"
                                         >
                                             <X className="h-4 w-4" />

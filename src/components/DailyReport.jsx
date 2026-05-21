@@ -7,17 +7,14 @@ import {
     getTransactionMonth,
     normalizeDate,
 } from "../utils/date";
-
 export default function DailyReport({ transactions }) {
     const [dailyReportMonth, setDailyReportMonth] = useState(currentMonth());
     const [expandedDailyReportDate, setExpandedDailyReportDate] = useState("");
-
     const dailyReportTransactions = useMemo(() => {
         return transactions.filter(
             (item) => getTransactionMonth(item.date) === dailyReportMonth
         );
     }, [transactions, dailyReportMonth]);
-
     const dailySpendingData = useMemo(() => {
         const grouped = dailyReportTransactions.reduce((acc, item) => {
             const key = normalizeDate(item.date);
@@ -25,13 +22,14 @@ export default function DailyReport({ transactions }) {
             acc[key].push(item);
             return acc;
         }, {});
-
         return Object.entries(grouped)
             .sort((a, b) => b[0].localeCompare(a[0]))
             .map(([date, list]) => ({
                 date,
                 transactions: list.sort(
-                    (a, b) => Number(b.amount) - Number(a.amount)
+                    (a, b) =>
+                        Number(b.rowNumber || 0) -
+                        Number(a.rowNumber || 0)
                 ),
                 amount: list.reduce(
                     (sum, item) => sum + Number(item.amount),
@@ -39,7 +37,6 @@ export default function DailyReport({ transactions }) {
                 ),
             }));
     }, [dailyReportTransactions]);
-
     return (
         <section className="space-y-6 overflow-hidden">
             <Card className="rounded-2xl shadow-sm">
@@ -53,7 +50,6 @@ export default function DailyReport({ transactions }) {
                                 Klik tanggal untuk melihat detail transaksi hari itu.
                             </p>
                         </div>
-
                         <label className="block min-w-0 max-w-full space-y-2 md:w-64">
                             <span className="text-sm font-medium">Month</span>
                             <input
@@ -69,7 +65,6 @@ export default function DailyReport({ transactions }) {
                     </div>
                 </CardContent>
             </Card>
-
             <Card className="rounded-2xl shadow-sm">
                 <CardContent className="p-5">
                     {dailySpendingData.length === 0 ? (
@@ -102,12 +97,10 @@ export default function DailyReport({ transactions }) {
                                                 {item.transactions.length} transaksi
                                             </p>
                                         </div>
-
                                         <p className="shrink-0 text-lg font-bold text-rose-600">
                                             -{formatCurrency(item.amount)}
                                         </p>
                                     </button>
-
                                     {expandedDailyReportDate === item.date && (
                                         <div className="mt-4 space-y-2 border-t pt-4">
                                             {item.transactions.map((transaction) => (
@@ -125,7 +118,6 @@ export default function DailyReport({ transactions }) {
                                                             {transaction.danaDipakai}
                                                         </p>
                                                     </div>
-
                                                     <p className="shrink-0 font-bold text-rose-600">
                                                         -{formatCurrency(
                                                             transaction.amount

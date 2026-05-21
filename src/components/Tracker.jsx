@@ -154,8 +154,8 @@ export default function Tracker({
 
                 <Card className="rounded-2xl shadow-sm">
                     <CardContent className="space-y-5 p-5">
-                        <div className="flex items-start gap-4">
-                            <div className="rounded-2xl bg-muted p-3">
+                        <div className="flex min-w-0 items-start gap-4">
+                            <div className="shrink-0 rounded-2xl bg-muted p-3">
                                 <PiggyBank className="h-6 w-6" />
                             </div>
 
@@ -169,7 +169,7 @@ export default function Tracker({
                                         <button
                                             type="button"
                                             onClick={handleBudgetEditOpen}
-                                            className="inline-flex h-11 w-11 items-center justify-center rounded-full border bg-background transition hover:bg-muted"
+                                            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border bg-background transition hover:bg-muted"
                                             aria-label="Edit budget"
                                         >
                                             <Pencil className="h-5 w-5 text-muted-foreground" />
@@ -178,16 +178,16 @@ export default function Tracker({
                                 </div>
 
                                 {!isEditingBudget ? (
-                                    <p className="text-4xl font-bold tracking-tight">
+                                    <p className="break-words text-3xl font-bold tracking-tight md:text-4xl">
                                         {formatCurrency(budget)}
                                     </p>
                                 ) : (
                                     <form
                                         onSubmit={handleBudgetSave}
-                                        className="flex items-center gap-2"
+                                        className="flex min-w-0 items-center gap-2"
                                     >
-                                        <div className="flex min-w-0 flex-1 items-center rounded-2xl border bg-background px-4 py-3">
-                                            <span className="mr-2 text-xl font-semibold">
+                                        <div className="flex min-w-0 flex-1 items-center overflow-hidden rounded-2xl border bg-background px-4 py-3">
+                                            <span className="mr-2 shrink-0 text-xl font-semibold">
                                                 Rp
                                             </span>
 
@@ -199,13 +199,13 @@ export default function Tracker({
                                                 autoFocus
                                                 inputMode="numeric"
                                                 placeholder="5000000"
-                                                className="min-w-0 flex-1 bg-transparent text-3xl font-bold outline-none"
+                                                className="min-w-0 flex-1 bg-transparent text-xl font-bold outline-none md:text-3xl"
                                             />
                                         </div>
 
                                         <button
                                             type="submit"
-                                            className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-foreground text-background"
+                                            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-foreground text-background"
                                             aria-label="Save budget"
                                         >
                                             <Check className="h-4 w-4" />
@@ -214,7 +214,7 @@ export default function Tracker({
                                         <button
                                             type="button"
                                             onClick={handleBudgetCancel}
-                                            className="inline-flex h-11 w-11 items-center justify-center rounded-full border bg-background"
+                                            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border bg-background"
                                             aria-label="Cancel edit budget"
                                         >
                                             <X className="h-4 w-4" />
@@ -225,13 +225,13 @@ export default function Tracker({
                         </div>
 
                         <div className="border-t pt-5">
-                            <div className="flex items-center justify-between">
+                            <div className="flex min-w-0 items-center justify-between gap-3">
                                 <p className="text-base font-medium text-muted-foreground">
                                     Sisa Budget
                                 </p>
 
                                 <p
-                                    className={`text-3xl font-bold tracking-tight ${totals.remainingBudget < 0
+                                    className={`shrink-0 text-2xl font-bold tracking-tight md:text-3xl ${totals.remainingBudget < 0
                                         ? "text-rose-600"
                                         : "text-foreground"
                                         }`}

@@ -4,7 +4,11 @@ import { Check, Pencil, Trash2, X } from "lucide-react";
 import { Button } from "./ui/button";
 import { formatCurrency } from "../utils/currency";
 import { formatDisplayDate, normalizeDate } from "../utils/date";
-import { categories, danaDipakaiOptions, fundSources } from "../constants/options";
+import {
+    categories,
+    danaDipakaiOptions,
+    fundSources,
+} from "../constants/options";
 
 export default function TransactionList({
     transactions,
@@ -12,6 +16,7 @@ export default function TransactionList({
     updateTransaction,
 }) {
     const [editingId, setEditingId] = useState("");
+
     const [editForm, setEditForm] = useState({
         title: "",
         amount: "",
@@ -23,6 +28,7 @@ export default function TransactionList({
 
     const openEdit = (item) => {
         setEditingId(item.id);
+
         setEditForm({
             title: item.title,
             amount: String(item.amount),
@@ -35,6 +41,7 @@ export default function TransactionList({
 
     const closeEdit = () => {
         setEditingId("");
+
         setEditForm({
             title: "",
             amount: "",
@@ -68,7 +75,7 @@ export default function TransactionList({
                         key={item.id}
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="rounded-2xl border p-4"
+                        className="overflow-hidden rounded-2xl border p-4"
                     >
                         {!isEditing ? (
                             <>
@@ -126,7 +133,7 @@ export default function TransactionList({
                                 </div>
                             </>
                         ) : (
-                            <div className="space-y-3">
+                            <div className="min-w-0 space-y-3 overflow-hidden">
                                 <input
                                     value={editForm.title}
                                     onChange={(event) =>
@@ -136,7 +143,7 @@ export default function TransactionList({
                                         }))
                                     }
                                     placeholder="Nama transaksi"
-                                    className="w-full rounded-xl border bg-background px-3 py-2 outline-none focus:ring-2"
+                                    className="w-full min-w-0 max-w-full rounded-xl border bg-background px-3 py-2 outline-none focus:ring-2"
                                 />
 
                                 <input
@@ -149,7 +156,7 @@ export default function TransactionList({
                                     }
                                     inputMode="numeric"
                                     placeholder="Nominal"
-                                    className="w-full rounded-xl border bg-background px-3 py-2 outline-none focus:ring-2"
+                                    className="w-full min-w-0 max-w-full rounded-xl border bg-background px-3 py-2 outline-none focus:ring-2"
                                 />
 
                                 <input
@@ -161,7 +168,8 @@ export default function TransactionList({
                                         }))
                                     }
                                     type="date"
-                                    className="w-full rounded-xl border bg-background px-3 py-2 outline-none focus:ring-2"
+                                    style={{ WebkitAppearance: "none" }}
+                                    className="w-full min-w-0 max-w-full appearance-none rounded-xl border bg-background px-3 py-2 text-base outline-none focus:ring-2"
                                 />
 
                                 <select
@@ -172,7 +180,7 @@ export default function TransactionList({
                                             category: event.target.value,
                                         }))
                                     }
-                                    className="w-full rounded-xl border bg-background px-3 py-2 outline-none focus:ring-2"
+                                    className="w-full min-w-0 max-w-full rounded-xl border bg-background px-3 py-2 outline-none focus:ring-2"
                                 >
                                     {categories.map((item) => (
                                         <option key={item} value={item}>
@@ -189,7 +197,7 @@ export default function TransactionList({
                                             source: event.target.value,
                                         }))
                                     }
-                                    className="w-full rounded-xl border bg-background px-3 py-2 outline-none focus:ring-2"
+                                    className="w-full min-w-0 max-w-full rounded-xl border bg-background px-3 py-2 outline-none focus:ring-2"
                                 >
                                     {fundSources.map((item) => (
                                         <option key={item} value={item}>
@@ -206,7 +214,7 @@ export default function TransactionList({
                                             danaDipakai: event.target.value,
                                         }))
                                     }
-                                    className="w-full rounded-xl border bg-background px-3 py-2 outline-none focus:ring-2"
+                                    className="w-full min-w-0 max-w-full rounded-xl border bg-background px-3 py-2 outline-none focus:ring-2"
                                 >
                                     {danaDipakaiOptions.map((item) => (
                                         <option key={item} value={item}>

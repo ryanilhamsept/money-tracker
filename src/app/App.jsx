@@ -22,7 +22,7 @@ export default function App() {
         isLoading,
         syncStatus,
         addTransaction,
-        updateTransactionDate,
+        updateTransaction,
         deleteTransaction,
     } = useTransactions();
 
@@ -103,10 +103,11 @@ export default function App() {
                             <button
                                 key={item.id}
                                 onClick={() => setActivePage(item.id)}
-                                className={`flex min-w-0 items-center justify-center gap-2 rounded-xl px-2 py-3 text-xs font-semibold transition sm:px-4 sm:text-sm ${activePage === item.id
+                                className={`flex min-w-0 items-center justify-center gap-2 rounded-xl px-2 py-3 text-xs font-semibold transition sm:px-4 sm:text-sm ${
+                                    activePage === item.id
                                         ? "scale-[1.02] border-2 border-primary bg-background shadow-lg"
                                         : "text-muted-foreground hover:bg-background/60"
-                                    }`}
+                                }`}
                             >
                                 <Icon className="h-4 w-4 shrink-0" />
 
@@ -129,7 +130,7 @@ export default function App() {
                         transactions={transactions}
                         addTransaction={addTransaction}
                         deleteTransaction={deleteTransaction}
-                        updateTransactionDate={updateTransactionDate}
+                        updateTransaction={updateTransaction}
                         budget={budget}
                         budgetInput={budgetInput}
                         setBudgetInput={setBudgetInput}

@@ -36,7 +36,7 @@ export default function Tracker({
     transactions,
     addTransaction,
     deleteTransaction,
-    updateTransactionDate,
+    updateTransaction,
     budget,
     budgetInput,
     setBudgetInput,
@@ -231,10 +231,11 @@ export default function Tracker({
                                 </p>
 
                                 <p
-                                    className={`shrink-0 text-2xl font-bold tracking-tight md:text-3xl ${totals.remainingBudget < 0
-                                        ? "text-rose-600"
-                                        : "text-foreground"
-                                        }`}
+                                    className={`shrink-0 text-2xl font-bold tracking-tight md:text-3xl ${
+                                        totals.remainingBudget < 0
+                                            ? "text-rose-600"
+                                            : "text-foreground"
+                                    }`}
                                 >
                                     {formatCurrency(totals.remainingBudget)}
                                 </p>
@@ -417,7 +418,7 @@ export default function Tracker({
                         <TransactionList
                             transactions={paginatedTransactions}
                             deleteTransaction={deleteTransaction}
-                            updateTransactionDate={updateTransactionDate}
+                            updateTransaction={updateTransaction}
                         />
 
                         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border p-3 text-sm">

@@ -1,5 +1,5 @@
 const GOOGLE_SHEET_API_URL =
-    "https://script.google.com/macros/s/AKfycbyyWl7zSO4GCIYgiMXB2uJs29w2Xh2853wZRt4wwmPVzDzMXx0gNiSnwVzKBKtWr96lQw/exec";
+    "https://script.google.com/macros/s/AKfycbwdl0vkWx0o8G1aeLa0SVzFhGnEUM54S73HRfY6yu0znMaAB_gnSJS-bqyH9r-PrgVxkA/exec";
 
 export const getTransactionsFromGoogleSheet = async () => {
     const response = await fetch(GOOGLE_SHEET_API_URL);
@@ -9,6 +9,22 @@ export const getTransactionsFromGoogleSheet = async () => {
 export const syncTransactionToGoogleSheet = async (transaction) => {
     const params = new URLSearchParams({
         action: "add",
+        id: transaction.id,
+        date: transaction.date,
+        notes: transaction.title,
+        category: transaction.category,
+        nominal: String(transaction.amount),
+        ambil: transaction.danaDipakai,
+        sof: transaction.source,
+    });
+
+    const response = await fetch(`${GOOGLE_SHEET_API_URL}?${params.toString()}`);
+    return response.json();
+};
+
+export const updateTransactionToGoogleSheet = async (transaction) => {
+    const params = new URLSearchParams({
+        action: "update",
         id: transaction.id,
         date: transaction.date,
         notes: transaction.title,

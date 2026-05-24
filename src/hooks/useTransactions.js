@@ -5,15 +5,13 @@ import {
     syncTransactionToGoogleSheet,
     deleteTransactionFromGoogleSheet,
     getTransactionsFromGoogleSheet,
+    updateTransactionToGoogleSheet,
 } from "../services/googleSheets";
 
 export const useTransactions = () => {
     const [transactions, setTransactions] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
-
-    const [syncStatus, setSyncStatus] = useState(
-        "Loading data from Google Sheets..."
-    );
+    const [syncStatus, setSyncStatus] = useState("Loading data from Google Sheets...");
 
     const loadTransactions = async () => {
         try {
@@ -31,8 +29,7 @@ export const useTransactions = () => {
                         amount: Number(item.amount) || 0,
                         category: item.category || "Food",
                         source: item.source || "Mandiri",
-                        danaDipakai:
-                            item.danaDipakai || "Spend Bulanan",
+                        danaDipakai: item.danaDipakai || "Spend Bulanan",
                         date: normalizeDate(item.date),
                     }))
                     .sort((a, b) => b.rowNumber - a.rowNumber);
@@ -41,9 +38,7 @@ export const useTransactions = () => {
                 setSyncStatus("");
             }
         } catch {
-            setSyncStatus(
-                "Failed to load data from Google Sheets."
-            );
+            setSyncStatus("Failed to load data from Google Sheets.");
         } finally {
             setIsLoading(false);
         }
@@ -55,7 +50,6 @@ export const useTransactions = () => {
 
     const addTransaction = async (form) => {
         const amount = parseAmountInput(form.amount);
-
         if (!form.title.trim() || !amount) return;
 
         const newTransaction = {
@@ -66,77 +60,56 @@ export const useTransactions = () => {
             date: normalizeDate(form.date),
         };
 
-        const isDuplicate = transactions.some((item) => {
-            return (
-                item.title.trim().toLowerCase() ===
-                newTransaction.title.trim().toLowerCase() &&
-                Number(item.amount) ===
-                Number(newTransaction.amount) &&
-                item.category === newTransaction.category &&
-                item.source === newTransaction.source &&
-                item.danaDipakai ===
-                newTransaction.danaDipakai &&
-                item.date === newTransaction.date
-            );
-        });
-
-        if (isDuplicate) {
-            setSyncStatus(
-                "Duplicate transaction detected. Data not saved."
-            );
-
-            return;
-        }
-
-        setTransactions((current) => [
-            newTransaction,
-            ...current,
-        ]);
+        setTransactions((current) => [newTransaction, ...current]);
 
         try {
             setSyncStatus("Syncing to Google Sheets...");
-
-            await syncTransactionToGoogleSheet(
-                newTransaction
-            );
-
+            await syncTransactionToGoogleSheet(newTransaction);
             await loadTransactions();
-
             setSyncStatus("Saved to Google Sheets.");
         } catch {
-            setSyncStatus(
-                "Failed to sync to Google Sheets."
-            );
+            setSyncStatus("Failed to sync to Google Sheets.");
         }
     };
 
-    const updateTransactionDate = (id, newDate) => {
+    const updateTransaction = async (id, updatedForm) => {
+        const amount = parseAmountInput(String(updatedForm.amount));
+        if (!updatedForm.title.trim() || !amount) return;
+
+        const updatedTransaction = {
+            id,
+            title: updatedForm.title.trim(),
+            amount,
+            category: updatedForm.category,
+            source: updatedForm.source,
+            danaDipakai: updatedForm.danaDipakai,
+            date: normalizeDate(updatedForm.date),
+        };
+
         setTransactions((current) =>
             current.map((item) =>
-                item.id === id
-                    ? {
-                        ...item,
-                        date: normalizeDate(newDate),
-                    }
-                    : item
+                item.id === id ? { ...item, ...updatedTransaction } : item
             )
-        );
-    };
-
-    const deleteTransaction = async (id) => {
-        const deletedTransaction = transactions.find(
-            (item) => item.id === id
-        );
-
-        setTransactions((current) =>
-            current.filter((item) => item.id !== id)
         );
 
         try {
+            setSyncStatus("Updating transaction...");
+            await updateTransactionToGoogleSheet(updatedTransaction);
+            await loadTransactions();
+            setSyncStatus("Transaction updated.");
+        } catch {
+            setSyncStatus("Failed to update transaction.");
+        }
+    };
+
+    const deleteTransaction = async (id) => {
+        const deletedTransaction = transactions.find((item) => item.id === id);
+
+        setTransactions((current) => current.filter((item) => item.id !== id));
+
+        try {
             setSyncStatus("Deleting from Google Sheets...");
-
             await deleteTransactionFromGoogleSheet(id);
-
             await loadTransactions();
 
             setSyncStatus(
@@ -145,9 +118,7 @@ export const useTransactions = () => {
                     : "Deleted from Google Sheets."
             );
         } catch {
-            setSyncStatus(
-                "Failed to delete from Google Sheets."
-            );
+            setSyncStatus("Failed to delete from Google Sheets.");
         }
     };
 
@@ -156,7 +127,7 @@ export const useTransactions = () => {
         isLoading,
         syncStatus,
         addTransaction,
-        updateTransactionDate,
+        updateTransaction,
         deleteTransaction,
     };
 };

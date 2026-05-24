@@ -41,12 +41,12 @@ export default function App() {
         },
         {
             id: "daily-report",
-            label: "Daily Report",
+            label: "Daily",
             icon: CalendarDays,
         },
         {
             id: "report",
-            label: "Monthly Report",
+            label: "Monthly",
             icon: PieChart,
         },
     ];

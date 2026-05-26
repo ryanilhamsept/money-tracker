@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import {
-    Plus,
+    PlusCircle,
     Search,
     Wallet,
     FileText,
@@ -300,15 +300,15 @@ export default function Tracker({
                 />
             </section>
 
-            <section className="grid gap-6 lg:grid-cols-[380px_1fr]">
-                <Card className="rounded-2xl shadow-sm">
+            <section className="grid w-full min-w-0 gap-6 lg:grid-cols-[380px_1fr]">
+                <Card className="w-full min-w-0 overflow-hidden rounded-2xl shadow-sm">
                     <CardContent className="p-5">
                         <h2 className="mb-4 text-xl font-semibold">
                             Add transaction
                         </h2>
 
                         <form onSubmit={handleSubmit} className="space-y-4">
-                            <label className="block space-y-2">
+                            <label className="block min-w-0 space-y-2">
                                 <span className="text-sm font-medium">Title</span>
 
                                 <input
@@ -320,11 +320,11 @@ export default function Tracker({
                                         }))
                                     }
                                     placeholder="e.g. Groceries"
-                                    className="w-full rounded-2xl border bg-background px-4 py-3 outline-none focus:ring-2"
+                                    className="w-full min-w-0 rounded-2xl border bg-background px-4 py-3 outline-none focus:ring-2"
                                 />
                             </label>
 
-                            <label className="block space-y-2">
+                            <label className="block min-w-0 space-y-2">
                                 <span className="text-sm font-medium">Amount</span>
 
                                 <input
@@ -337,11 +337,11 @@ export default function Tracker({
                                     }
                                     inputMode="numeric"
                                     placeholder="50000"
-                                    className="w-full rounded-2xl border bg-background px-4 py-3 outline-none focus:ring-2"
+                                    className="w-full min-w-0 rounded-2xl border bg-background px-4 py-3 outline-none focus:ring-2"
                                 />
                             </label>
 
-                            <div className="grid gap-3 md:grid-cols-3">
+                            <div className="grid min-w-0 gap-3 md:grid-cols-3">
                                 <SelectField
                                     label="Category"
                                     value={form.category}
@@ -379,7 +379,7 @@ export default function Tracker({
                                 />
                             </div>
 
-                            <label className="block space-y-2">
+                            <label className="block min-w-0 space-y-2">
                                 <span className="text-sm font-medium">Tanggal</span>
 
                                 <input
@@ -398,16 +398,16 @@ export default function Tracker({
 
                             <Button
                                 type="submit"
-                                className="w-full rounded-2xl py-6 text-base"
+                                className="flex w-full items-center justify-center rounded-2xl bg-slate-950 py-6 text-base font-semibold text-white hover:bg-slate-900"
                             >
-                                <Plus className="mr-2 h-5 w-5" />
+                                <PlusCircle className="mr-2 h-5 w-5" />
                                 Add transaction
                             </Button>
                         </form>
                     </CardContent>
                 </Card>
 
-                <Card className="rounded-2xl shadow-sm">
+                <Card className="w-full min-w-0 overflow-hidden rounded-2xl shadow-sm">
                     <CardContent className="p-5">
                         <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                             <h2 className="text-xl font-semibold">Transactions</h2>
@@ -420,7 +420,7 @@ export default function Tracker({
                                         value={query}
                                         onChange={(event) => setQuery(event.target.value)}
                                         placeholder="Search"
-                                        className="w-full rounded-2xl border bg-background py-2 pl-9 pr-3 outline-none focus:ring-2 md:w-48"
+                                        className="w-full min-w-0 rounded-2xl border bg-background py-2 pl-9 pr-3 outline-none focus:ring-2 md:w-48"
                                     />
                                 </div>
 

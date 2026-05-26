@@ -87,7 +87,7 @@ export default function MonthlyReport({ transactions }) {
             <Card className="rounded-2xl shadow-sm">
                 <CardContent className="space-y-5 p-5">
                     <div className="min-w-0">
-                        <h2 className="text-xl font-semibold">Monthly Report</h2>
+                        <h2 className="text-xl font-semibold">Monthly</h2>
                         <p className="text-sm text-muted-foreground">
                             See spending summary by month and category.
                         </p>

@@ -255,6 +255,7 @@ export default function Tracker({
                                         <button
                                             type="submit"
                                             className="inline-flex h-11 w-full items-center justify-center rounded-full bg-foreground text-background sm:w-11"
+                                            aria-label="Save budget"
                                         >
                                             <Check className="h-4 w-4" />
                                         </button>
@@ -263,6 +264,7 @@ export default function Tracker({
                                             type="button"
                                             onClick={handleBudgetCancel}
                                             className="inline-flex h-11 w-full items-center justify-center rounded-full border bg-background sm:w-11"
+                                            aria-label="Cancel edit budget"
                                         >
                                             <X className="h-4 w-4" />
                                         </button>
@@ -296,6 +298,212 @@ export default function Tracker({
                     label="Transactions"
                     value={`${totals.currentMonthTransactionCount} items`}
                 />
+            </section>
+
+            <section className="grid gap-6 lg:grid-cols-[380px_1fr]">
+                <Card className="rounded-2xl shadow-sm">
+                    <CardContent className="p-5">
+                        <h2 className="mb-4 text-xl font-semibold">
+                            Add transaction
+                        </h2>
+
+                        <form onSubmit={handleSubmit} className="space-y-4">
+                            <label className="block space-y-2">
+                                <span className="text-sm font-medium">Title</span>
+
+                                <input
+                                    value={form.title}
+                                    onChange={(event) =>
+                                        setForm((prev) => ({
+                                            ...prev,
+                                            title: event.target.value,
+                                        }))
+                                    }
+                                    placeholder="e.g. Groceries"
+                                    className="w-full rounded-2xl border bg-background px-4 py-3 outline-none focus:ring-2"
+                                />
+                            </label>
+
+                            <label className="block space-y-2">
+                                <span className="text-sm font-medium">Amount</span>
+
+                                <input
+                                    value={form.amount}
+                                    onChange={(event) =>
+                                        setForm((prev) => ({
+                                            ...prev,
+                                            amount: event.target.value,
+                                        }))
+                                    }
+                                    inputMode="numeric"
+                                    placeholder="50000"
+                                    className="w-full rounded-2xl border bg-background px-4 py-3 outline-none focus:ring-2"
+                                />
+                            </label>
+
+                            <div className="grid gap-3 md:grid-cols-3">
+                                <SelectField
+                                    label="Category"
+                                    value={form.category}
+                                    options={categories}
+                                    onChange={(value) =>
+                                        setForm((prev) => ({
+                                            ...prev,
+                                            category: value,
+                                        }))
+                                    }
+                                />
+
+                                <SelectField
+                                    label="Sumber Dana"
+                                    value={form.source}
+                                    options={fundSources}
+                                    onChange={(value) =>
+                                        setForm((prev) => ({
+                                            ...prev,
+                                            source: value,
+                                        }))
+                                    }
+                                />
+
+                                <SelectField
+                                    label="Dana Dipakai"
+                                    value={form.danaDipakai}
+                                    options={danaDipakaiOptions}
+                                    onChange={(value) =>
+                                        setForm((prev) => ({
+                                            ...prev,
+                                            danaDipakai: value,
+                                        }))
+                                    }
+                                />
+                            </div>
+
+                            <label className="block space-y-2">
+                                <span className="text-sm font-medium">Tanggal</span>
+
+                                <input
+                                    value={form.date}
+                                    onChange={(event) =>
+                                        setForm((prev) => ({
+                                            ...prev,
+                                            date: event.target.value,
+                                        }))
+                                    }
+                                    type="date"
+                                    style={{ WebkitAppearance: "none" }}
+                                    className="w-full min-w-0 max-w-full appearance-none rounded-2xl border bg-background px-4 py-3 text-base outline-none focus:ring-2"
+                                />
+                            </label>
+
+                            <Button
+                                type="submit"
+                                className="w-full rounded-2xl py-6 text-base"
+                            >
+                                <Plus className="mr-2 h-5 w-5" />
+                                Add transaction
+                            </Button>
+                        </form>
+                    </CardContent>
+                </Card>
+
+                <Card className="rounded-2xl shadow-sm">
+                    <CardContent className="p-5">
+                        <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                            <h2 className="text-xl font-semibold">Transactions</h2>
+
+                            <div className="flex flex-wrap gap-2">
+                                <div className="relative">
+                                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+
+                                    <input
+                                        value={query}
+                                        onChange={(event) => setQuery(event.target.value)}
+                                        placeholder="Search"
+                                        className="w-full rounded-2xl border bg-background py-2 pl-9 pr-3 outline-none focus:ring-2 md:w-48"
+                                    />
+                                </div>
+
+                                <select
+                                    value={categoryFilter}
+                                    onChange={(event) =>
+                                        setCategoryFilter(event.target.value)
+                                    }
+                                    className="rounded-2xl border bg-background px-3 py-2 outline-none focus:ring-2"
+                                >
+                                    <option value="all">All categories</option>
+
+                                    {categories.map((category) => (
+                                        <option key={category} value={category}>
+                                            {category}
+                                        </option>
+                                    ))}
+                                </select>
+
+                                <select
+                                    value={sourceFilter}
+                                    onChange={(event) =>
+                                        setSourceFilter(event.target.value)
+                                    }
+                                    className="rounded-2xl border bg-background px-3 py-2 outline-none focus:ring-2"
+                                >
+                                    <option value="all">All sources</option>
+
+                                    {fundSources.map((source) => (
+                                        <option key={source} value={source}>
+                                            {source}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+
+                        <TransactionList
+                            transactions={paginatedTransactions}
+                            deleteTransaction={deleteTransaction}
+                            updateTransaction={updateTransaction}
+                        />
+
+                        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border p-3 text-sm">
+                            <p className="text-muted-foreground">
+                                Showing {paginatedTransactions.length} of{" "}
+                                {filteredTransactions.length} current month transactions
+                            </p>
+
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="rounded-xl"
+                                    disabled={historyPage === 1}
+                                    onClick={() =>
+                                        setHistoryPage((page) => Math.max(1, page - 1))
+                                    }
+                                >
+                                    Previous
+                                </Button>
+
+                                <span className="text-muted-foreground">
+                                    Page {historyPage} / {totalHistoryPages}
+                                </span>
+
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="rounded-xl"
+                                    disabled={historyPage === totalHistoryPages}
+                                    onClick={() =>
+                                        setHistoryPage((page) =>
+                                            Math.min(totalHistoryPages, page + 1)
+                                        )
+                                    }
+                                >
+                                    Next
+                                </Button>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
             </section>
         </>
     );

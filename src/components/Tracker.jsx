@@ -9,29 +9,25 @@ import {
     Pencil,
     Check,
     X,
+    AlertTriangle,
 } from "lucide-react";
-
 import { Card, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
 import StatCard from "./StatCard";
 import SelectField from "./SelectField";
 import TransactionList from "./TransactionList";
-
 import {
     categories,
     danaDipakaiOptions,
     fundSources,
 } from "../constants/options";
-
 import {
     currentMonth,
     getTransactionMonth,
     normalizeDate,
     today,
 } from "../utils/date";
-
 import { formatCurrency } from "../utils/currency";
-
 export default function Tracker({
     transactions,
     addTransaction,
@@ -47,9 +43,8 @@ export default function Tracker({
     const [sourceFilter, setSourceFilter] = useState("all");
     const [historyPage, setHistoryPage] = useState(1);
     const [isEditingBudget, setIsEditingBudget] = useState(false);
-
     const historyPageSize = 20;
-
+    const DAILY_LIMIT = 300000;
     const [form, setForm] = useState({
         title: "",
         amount: "",
@@ -58,30 +53,37 @@ export default function Tracker({
         danaDipakai: "Spend Bulanan",
         date: today(),
     });
-
     const currentMonthTransactions = useMemo(() => {
         return transactions.filter(
             (item) => getTransactionMonth(item.date) === currentMonth()
         );
     }, [transactions]);
-
+    const selectedDateSpending = useMemo(() => {
+        const selectedDate = normalizeDate(form.date);
+        return transactions
+            .filter((item) => normalizeDate(item.date) === selectedDate)
+            .reduce((sum, item) => sum + Number(item.amount), 0);
+    }, [transactions, form.date]);
+    const previewAmount = Number(String(form.amount || "").replace(/[^\d]/g, "")) || 0;
+    const selectedDateTotalAfterInput = selectedDateSpending + previewAmount;
+    const isNearDailyLimit =
+        selectedDateTotalAfterInput >= DAILY_LIMIT * 0.8 &&
+        selectedDateTotalAfterInput < DAILY_LIMIT;
+    const isOverDailyLimit = selectedDateTotalAfterInput >= DAILY_LIMIT;
     const totals = useMemo(() => {
         const totalSpending = currentMonthTransactions.reduce(
             (sum, item) => sum + Number(item.amount),
             0
         );
-
         const budgetSpending = currentMonthTransactions
             .filter((item) => item.danaDipakai === "Spend Bulanan")
             .reduce((sum, item) => sum + Number(item.amount), 0);
-
         return {
             totalSpending,
             remainingBudget: budget - budgetSpending,
             currentMonthTransactionCount: currentMonthTransactions.length,
         };
     }, [currentMonthTransactions, budget]);
-
     const filteredTransactions = useMemo(() => {
         return currentMonthTransactions
             .filter((item) => {
@@ -89,35 +91,27 @@ export default function Tracker({
                     `${item.title} ${item.category} ${item.source} ${item.danaDipakai}`
                         .toLowerCase()
                         .includes(query.toLowerCase());
-
                 const matchesCategory =
                     categoryFilter === "all" || item.category === categoryFilter;
-
                 const matchesSource =
                     sourceFilter === "all" || item.source === sourceFilter;
-
                 return matchesQuery && matchesCategory && matchesSource;
             })
             .sort((a, b) =>
                 normalizeDate(b.date).localeCompare(normalizeDate(a.date))
             );
     }, [currentMonthTransactions, query, categoryFilter, sourceFilter]);
-
     const totalHistoryPages = Math.max(
         1,
         Math.ceil(filteredTransactions.length / historyPageSize)
     );
-
     const paginatedTransactions = filteredTransactions.slice(
         (historyPage - 1) * historyPageSize,
         historyPage * historyPageSize
     );
-
     const handleSubmit = async (event) => {
         event.preventDefault();
-
         await addTransaction(form);
-
         setForm({
             title: "",
             amount: "",
@@ -127,44 +121,61 @@ export default function Tracker({
             date: today(),
         });
     };
-
     const handleBudgetEditOpen = () => {
         setBudgetInput(String(budget || ""));
         setIsEditingBudget(true);
     };
-
     const handleBudgetSave = (event) => {
         saveBudget(event);
         setIsEditingBudget(false);
     };
-
     const handleBudgetCancel = () => {
         setBudgetInput("");
         setIsEditingBudget(false);
     };
-
     return (
         <>
+            {(isNearDailyLimit || isOverDailyLimit) && (
+                <div
+                    className={`rounded-2xl border p-4 text-sm font-semibold ${
+                        isOverDailyLimit
+                            ? "border-rose-300 bg-rose-100 text-rose-700"
+                            : "border-yellow-300 bg-yellow-100 text-yellow-700"
+                    }`}
+                >
+                    <div className="flex items-start gap-3">
+                        <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
+                        <div>
+                            <p>
+                                {isOverDailyLimit
+                                    ? "Pengeluaran pada tanggal ini sudah melewati limit harian."
+                                    : "Pengeluaran pada tanggal ini sudah mendekati limit harian."}
+                            </p>
+                            <p className="mt-1 text-xs font-medium">
+                                Total: {formatCurrency(selectedDateTotalAfterInput)} / Limit:{" "}
+                                {formatCurrency(DAILY_LIMIT)}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
             <section className="grid gap-4 lg:grid-cols-[1fr_1.4fr_1fr_1fr]">
                 <StatCard
                     icon={Wallet}
                     label="Total Spending"
                     value={formatCurrency(totals.totalSpending)}
                 />
-
                 <Card className="rounded-2xl shadow-sm">
                     <CardContent className="space-y-5 p-5">
                         <div className="flex min-w-0 items-start gap-4">
                             <div className="shrink-0 rounded-2xl bg-muted p-3">
                                 <PiggyBank className="h-6 w-6" />
                             </div>
-
                             <div className="min-w-0 flex-1">
                                 <div className="mb-2 flex items-center justify-between gap-3">
                                     <p className="text-sm text-muted-foreground">
                                         Budget Manual
                                     </p>
-
                                     {!isEditingBudget && (
                                         <button
                                             type="button"
@@ -176,7 +187,6 @@ export default function Tracker({
                                         </button>
                                     )}
                                 </div>
-
                                 {!isEditingBudget ? (
                                     <p className="break-words text-3xl font-bold tracking-tight md:text-4xl">
                                         {formatCurrency(budget)}
@@ -190,7 +200,6 @@ export default function Tracker({
                                             <span className="mr-2 shrink-0 text-xl font-semibold">
                                                 Rp
                                             </span>
-
                                             <input
                                                 value={budgetInput}
                                                 onChange={(event) =>
@@ -202,7 +211,6 @@ export default function Tracker({
                                                 className="min-w-0 flex-1 bg-transparent text-xl font-bold outline-none md:text-3xl"
                                             />
                                         </div>
-
                                         <button
                                             type="submit"
                                             className="inline-flex h-11 w-full items-center justify-center rounded-full bg-foreground text-background sm:w-11"
@@ -210,7 +218,6 @@ export default function Tracker({
                                         >
                                             <Check className="h-4 w-4" />
                                         </button>
-
                                         <button
                                             type="button"
                                             onClick={handleBudgetCancel}
@@ -223,13 +230,11 @@ export default function Tracker({
                                 )}
                             </div>
                         </div>
-
                         <div className="border-t pt-5">
                             <div className="flex min-w-0 items-center justify-between gap-3">
                                 <p className="text-base font-medium text-muted-foreground">
                                     Sisa Budget
                                 </p>
-
                                 <p
                                     className={`shrink-0 text-2xl font-bold tracking-tight md:text-3xl ${
                                         totals.remainingBudget < 0
@@ -243,31 +248,26 @@ export default function Tracker({
                         </div>
                     </CardContent>
                 </Card>
-
                 <StatCard
                     icon={TrendingDown}
                     label="This Month"
                     value={formatCurrency(totals.totalSpending)}
                 />
-
                 <StatCard
                     icon={FileText}
                     label="Transactions"
                     value={`${totals.currentMonthTransactionCount} items`}
                 />
             </section>
-
             <section className="grid gap-6 lg:grid-cols-[380px_1fr]">
                 <Card className="rounded-2xl shadow-sm">
                     <CardContent className="p-5">
                         <h2 className="mb-4 text-xl font-semibold">
                             Add transaction
                         </h2>
-
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <label className="block space-y-2">
                                 <span className="text-sm font-medium">Title</span>
-
                                 <input
                                     value={form.title}
                                     onChange={(event) =>
@@ -280,10 +280,8 @@ export default function Tracker({
                                     className="w-full rounded-2xl border bg-background px-4 py-3 outline-none focus:ring-2"
                                 />
                             </label>
-
                             <label className="block space-y-2">
                                 <span className="text-sm font-medium">Amount</span>
-
                                 <input
                                     value={form.amount}
                                     onChange={(event) =>
@@ -297,7 +295,6 @@ export default function Tracker({
                                     className="w-full rounded-2xl border bg-background px-4 py-3 outline-none focus:ring-2"
                                 />
                             </label>
-
                             <div className="grid gap-3 md:grid-cols-3">
                                 <SelectField
                                     label="Category"
@@ -310,7 +307,6 @@ export default function Tracker({
                                         }))
                                     }
                                 />
-
                                 <SelectField
                                     label="Sumber Dana"
                                     value={form.source}
@@ -322,7 +318,6 @@ export default function Tracker({
                                         }))
                                     }
                                 />
-
                                 <SelectField
                                     label="Dana Dipakai"
                                     value={form.danaDipakai}
@@ -335,10 +330,8 @@ export default function Tracker({
                                     }
                                 />
                             </div>
-
                             <label className="block space-y-2">
                                 <span className="text-sm font-medium">Tanggal</span>
-
                                 <input
                                     value={form.date}
                                     onChange={(event) =>
@@ -352,7 +345,6 @@ export default function Tracker({
                                     className="w-full min-w-0 max-w-full appearance-none rounded-2xl border bg-background px-4 py-3 text-base outline-none focus:ring-2"
                                 />
                             </label>
-
                             <Button
                                 type="submit"
                                 className="w-full rounded-2xl py-6 text-base"
@@ -363,16 +355,13 @@ export default function Tracker({
                         </form>
                     </CardContent>
                 </Card>
-
                 <Card className="rounded-2xl shadow-sm">
                     <CardContent className="p-5">
                         <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                             <h2 className="text-xl font-semibold">Transactions</h2>
-
                             <div className="flex flex-wrap gap-2">
                                 <div className="relative">
                                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-
                                     <input
                                         value={query}
                                         onChange={(event) => setQuery(event.target.value)}
@@ -380,7 +369,6 @@ export default function Tracker({
                                         className="w-full rounded-2xl border bg-background py-2 pl-9 pr-3 outline-none focus:ring-2 md:w-48"
                                     />
                                 </div>
-
                                 <select
                                     value={categoryFilter}
                                     onChange={(event) =>
@@ -389,14 +377,12 @@ export default function Tracker({
                                     className="rounded-2xl border bg-background px-3 py-2 outline-none focus:ring-2"
                                 >
                                     <option value="all">All categories</option>
-
                                     {categories.map((category) => (
                                         <option key={category} value={category}>
                                             {category}
                                         </option>
                                     ))}
                                 </select>
-
                                 <select
                                     value={sourceFilter}
                                     onChange={(event) =>
@@ -405,7 +391,6 @@ export default function Tracker({
                                     className="rounded-2xl border bg-background px-3 py-2 outline-none focus:ring-2"
                                 >
                                     <option value="all">All sources</option>
-
                                     {fundSources.map((source) => (
                                         <option key={source} value={source}>
                                             {source}
@@ -414,19 +399,16 @@ export default function Tracker({
                                 </select>
                             </div>
                         </div>
-
                         <TransactionList
                             transactions={paginatedTransactions}
                             deleteTransaction={deleteTransaction}
                             updateTransaction={updateTransaction}
                         />
-
                         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border p-3 text-sm">
                             <p className="text-muted-foreground">
                                 Showing {paginatedTransactions.length} of{" "}
                                 {filteredTransactions.length} current month transactions
                             </p>
-
                             <div className="flex items-center gap-2">
                                 <Button
                                     type="button"
@@ -439,11 +421,9 @@ export default function Tracker({
                                 >
                                     Previous
                                 </Button>
-
                                 <span className="text-muted-foreground">
                                     Page {historyPage} / {totalHistoryPages}
                                 </span>
-
                                 <Button
                                     type="button"
                                     variant="outline"

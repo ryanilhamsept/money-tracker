@@ -29,17 +29,71 @@ import {
 } from "../constants/options";
 
 const categoryIcons = {
-    "Account Transfer": ArrowLeftRight,
-    Food: UtensilsCrossed,
-    Transportation: Car,
-    Groceries: ShoppingCart,
-    Utilities: Zap,
-    Entertainment: Gamepad2,
-    Internet: Wifi,
-    Shopping: ShoppingBag,
-    Health: HeartPulse,
-    Education: GraduationCap,
-    Miscellaneous: Receipt,
+    "Account Transfer": {
+        icon: ArrowLeftRight,
+        bg: "bg-green-100",
+        color: "text-green-700",
+    },
+
+    Food: {
+        icon: UtensilsCrossed,
+        bg: "bg-orange-100",
+        color: "text-orange-600",
+    },
+
+    Transportation: {
+        icon: Car,
+        bg: "bg-blue-100",
+        color: "text-blue-600",
+    },
+
+    Groceries: {
+        icon: ShoppingCart,
+        bg: "bg-yellow-100",
+        color: "text-yellow-700",
+    },
+
+    Utilities: {
+        icon: Zap,
+        bg: "bg-amber-100",
+        color: "text-amber-600",
+    },
+
+    Entertainment: {
+        icon: Gamepad2,
+        bg: "bg-pink-100",
+        color: "text-pink-600",
+    },
+
+    Internet: {
+        icon: Wifi,
+        bg: "bg-cyan-100",
+        color: "text-cyan-600",
+    },
+
+    Shopping: {
+        icon: ShoppingBag,
+        bg: "bg-violet-100",
+        color: "text-violet-600",
+    },
+
+    Health: {
+        icon: HeartPulse,
+        bg: "bg-rose-100",
+        color: "text-rose-600",
+    },
+
+    Education: {
+        icon: GraduationCap,
+        bg: "bg-indigo-100",
+        color: "text-indigo-600",
+    },
+
+    Miscellaneous: {
+        icon: Receipt,
+        bg: "bg-gray-100",
+        color: "text-gray-600",
+    },
 };
 
 export default function TransactionList({
@@ -101,7 +155,12 @@ export default function TransactionList({
         <div className="space-y-4">
             {transactions.map((item) => {
                 const isEditing = editingId === item.id;
-                const Icon = categoryIcons[item.category] || Receipt;
+
+                const categoryData =
+                    categoryIcons[item.category] ||
+                    categoryIcons["Miscellaneous"];
+
+                const Icon = categoryData.icon;
 
                 return (
                     <motion.div
@@ -114,8 +173,12 @@ export default function TransactionList({
                             <>
                                 <div className="flex items-start justify-between gap-3">
                                     <div className="flex min-w-0 flex-1 items-start gap-3">
-                                        <div className="mt-1 shrink-0 rounded-full bg-muted p-3">
-                                            <Icon className="h-5 w-5 text-foreground" />
+                                        <div
+                                            className={`mt-1 shrink-0 rounded-full p-3 ${categoryData.bg}`}
+                                        >
+                                            <Icon
+                                                className={`h-5 w-5 ${categoryData.color}`}
+                                            />
                                         </div>
 
                                         <div className="min-w-0 flex-1">
@@ -129,7 +192,7 @@ export default function TransactionList({
                                                 </span>
 
                                                 <span className="text-sm text-muted-foreground">
-                                                    {item.source}
+                                                    • {item.source}
                                                 </span>
                                             </div>
 

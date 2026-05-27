@@ -24,17 +24,71 @@ import {
 } from "../utils/date";
 
 const categoryIcons = {
-    "Account Transfer": ArrowLeftRight,
-    Food: UtensilsCrossed,
-    Transportation: Car,
-    Groceries: ShoppingCart,
-    Utilities: Zap,
-    Entertainment: Gamepad2,
-    Internet: Wifi,
-    Shopping: ShoppingBag,
-    Health: HeartPulse,
-    Education: GraduationCap,
-    Miscellaneous: Receipt,
+    "Account Transfer": {
+        icon: ArrowLeftRight,
+        bg: "bg-green-100",
+        color: "text-green-700",
+    },
+
+    Food: {
+        icon: UtensilsCrossed,
+        bg: "bg-orange-100",
+        color: "text-orange-600",
+    },
+
+    Transportation: {
+        icon: Car,
+        bg: "bg-blue-100",
+        color: "text-blue-600",
+    },
+
+    Groceries: {
+        icon: ShoppingCart,
+        bg: "bg-yellow-100",
+        color: "text-yellow-700",
+    },
+
+    Utilities: {
+        icon: Zap,
+        bg: "bg-amber-100",
+        color: "text-amber-600",
+    },
+
+    Entertainment: {
+        icon: Gamepad2,
+        bg: "bg-pink-100",
+        color: "text-pink-600",
+    },
+
+    Internet: {
+        icon: Wifi,
+        bg: "bg-cyan-100",
+        color: "text-cyan-600",
+    },
+
+    Shopping: {
+        icon: ShoppingBag,
+        bg: "bg-violet-100",
+        color: "text-violet-600",
+    },
+
+    Health: {
+        icon: HeartPulse,
+        bg: "bg-rose-100",
+        color: "text-rose-600",
+    },
+
+    Education: {
+        icon: GraduationCap,
+        bg: "bg-indigo-100",
+        color: "text-indigo-600",
+    },
+
+    Miscellaneous: {
+        icon: Receipt,
+        bg: "bg-gray-100",
+        color: "text-gray-600",
+    },
 };
 
 export default function DailyReport({ transactions }) {
@@ -51,7 +105,9 @@ export default function DailyReport({ transactions }) {
         const grouped = dailyReportTransactions.reduce((acc, item) => {
             const key = normalizeDate(item.date);
 
-            if (!acc[key]) acc[key] = [];
+            if (!acc[key]) {
+                acc[key] = [];
+            }
 
             acc[key].push(item);
 
@@ -150,10 +206,15 @@ export default function DailyReport({ transactions }) {
                                     {expandedDailyReportDate === item.date && (
                                         <div className="mt-4 space-y-2 border-t pt-4">
                                             {item.transactions.map((transaction) => {
-                                                const Icon =
+                                                const categoryData =
                                                     categoryIcons[
                                                         transaction.category
-                                                    ] || Receipt;
+                                                    ] ||
+                                                    categoryIcons[
+                                                        "Miscellaneous"
+                                                    ];
+
+                                                const Icon = categoryData.icon;
 
                                                 return (
                                                     <div
@@ -161,8 +222,12 @@ export default function DailyReport({ transactions }) {
                                                         className="flex min-w-0 items-center justify-between gap-3 rounded-xl bg-muted p-3"
                                                     >
                                                         <div className="flex min-w-0 items-center gap-3">
-                                                            <div className="rounded-full bg-background p-2">
-                                                                <Icon className="h-4 w-4" />
+                                                            <div
+                                                                className={`shrink-0 rounded-full p-2 ${categoryData.bg}`}
+                                                            >
+                                                                <Icon
+                                                                    className={`h-4 w-4 ${categoryData.color}`}
+                                                                />
                                                             </div>
 
                                                             <div className="min-w-0">

@@ -32,26 +32,77 @@ import {
 import { formatCurrency } from "../utils/currency";
 
 const categoryIcons = {
-    "Account Transfer": ArrowLeftRight,
-    Food: UtensilsCrossed,
-    Transportation: Car,
-    Groceries: ShoppingCart,
-    Utilities: Zap,
-    Entertainment: Gamepad2,
-    Internet: Wifi,
-    Shopping: ShoppingBag,
-    Health: HeartPulse,
-    Education: GraduationCap,
-    Miscellaneous: Receipt,
+    "Account Transfer": {
+        icon: ArrowLeftRight,
+        bg: "bg-green-100",
+        color: "text-green-700",
+    },
+
+    Food: {
+        icon: UtensilsCrossed,
+        bg: "bg-orange-100",
+        color: "text-orange-600",
+    },
+
+    Transportation: {
+        icon: Car,
+        bg: "bg-blue-100",
+        color: "text-blue-600",
+    },
+
+    Groceries: {
+        icon: ShoppingCart,
+        bg: "bg-yellow-100",
+        color: "text-yellow-700",
+    },
+
+    Utilities: {
+        icon: Zap,
+        bg: "bg-amber-100",
+        color: "text-amber-600",
+    },
+
+    Entertainment: {
+        icon: Gamepad2,
+        bg: "bg-pink-100",
+        color: "text-pink-600",
+    },
+
+    Internet: {
+        icon: Wifi,
+        bg: "bg-cyan-100",
+        color: "text-cyan-600",
+    },
+
+    Shopping: {
+        icon: ShoppingBag,
+        bg: "bg-violet-100",
+        color: "text-violet-600",
+    },
+
+    Health: {
+        icon: HeartPulse,
+        bg: "bg-rose-100",
+        color: "text-rose-600",
+    },
+
+    Education: {
+        icon: GraduationCap,
+        bg: "bg-indigo-100",
+        color: "text-indigo-600",
+    },
+
+    Miscellaneous: {
+        icon: Receipt,
+        bg: "bg-gray-100",
+        color: "text-gray-600",
+    },
 };
 
 export default function MonthlyReport({ transactions }) {
     const [selectedMonth, setSelectedMonth] = useState(currentMonth());
-
     const [monthlyDanaFilter, setMonthlyDanaFilter] = useState("all");
-
-    const [expandedMonthlyCategory, setExpandedMonthlyCategory] =
-        useState("");
+    const [expandedMonthlyCategory, setExpandedMonthlyCategory] = useState("");
 
     const monthlyTransactions = useMemo(() => {
         return transactions.filter((item) => {
@@ -252,9 +303,11 @@ export default function MonthlyReport({ transactions }) {
                                                 item.category
                                         );
 
-                                    const Icon =
+                                    const categoryData =
                                         categoryIcons[item.category] ||
-                                        Receipt;
+                                        categoryIcons["Miscellaneous"];
+
+                                    const Icon = categoryData.icon;
 
                                     return (
                                         <div
@@ -276,8 +329,12 @@ export default function MonthlyReport({ transactions }) {
                                             >
                                                 <div className="flex min-w-0 items-center justify-between gap-4">
                                                     <div className="flex min-w-0 items-center gap-3">
-                                                        <div className="shrink-0 rounded-full bg-muted p-3">
-                                                            <Icon className="h-5 w-5" />
+                                                        <div
+                                                            className={`shrink-0 rounded-full p-3 ${categoryData.bg}`}
+                                                        >
+                                                            <Icon
+                                                                className={`h-5 w-5 ${categoryData.color}`}
+                                                            />
                                                         </div>
 
                                                         <div className="min-w-0">
@@ -289,8 +346,7 @@ export default function MonthlyReport({ transactions }) {
                                                                 {
                                                                     item.percentage
                                                                 }
-                                                                % of monthly
-                                                                spending
+                                                                % of monthly spending
                                                             </p>
                                                         </div>
                                                     </div>
@@ -317,11 +373,17 @@ export default function MonthlyReport({ transactions }) {
                                                 <div className="space-y-2 border-t pt-3">
                                                     {detailTransactions.map(
                                                         (transaction) => {
-                                                            const DetailIcon =
+                                                            const detailCategoryData =
                                                                 categoryIcons[
                                                                     transaction
                                                                         .category
-                                                                ] || Receipt;
+                                                                ] ||
+                                                                categoryIcons[
+                                                                    "Miscellaneous"
+                                                                ];
+
+                                                            const DetailIcon =
+                                                                detailCategoryData.icon;
 
                                                             return (
                                                                 <div
@@ -331,8 +393,12 @@ export default function MonthlyReport({ transactions }) {
                                                                     className="flex min-w-0 items-center justify-between gap-3 rounded-xl bg-muted p-3"
                                                                 >
                                                                     <div className="flex min-w-0 items-center gap-3">
-                                                                        <div className="rounded-full bg-background p-2">
-                                                                            <DetailIcon className="h-4 w-4" />
+                                                                        <div
+                                                                            className={`shrink-0 rounded-full p-2 ${detailCategoryData.bg}`}
+                                                                        >
+                                                                            <DetailIcon
+                                                                                className={`h-4 w-4 ${detailCategoryData.color}`}
+                                                                            />
                                                                         </div>
 
                                                                         <div className="min-w-0">

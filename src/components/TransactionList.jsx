@@ -1,14 +1,46 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Check, Pencil, Trash2, X } from "lucide-react";
+import {
+    ArrowLeftRight,
+    UtensilsCrossed,
+    Car,
+    ShoppingCart,
+    Zap,
+    Gamepad2,
+    Wifi,
+    ShoppingBag,
+    HeartPulse,
+    GraduationCap,
+    Receipt,
+    Check,
+    Pencil,
+    Trash2,
+    X,
+} from "lucide-react";
+
 import { Button } from "./ui/button";
 import { formatCurrency } from "../utils/currency";
 import { formatDisplayDate, normalizeDate } from "../utils/date";
+
 import {
     categories,
     danaDipakaiOptions,
     fundSources,
 } from "../constants/options";
+
+const categoryIcons = {
+    "Account Transfer": ArrowLeftRight,
+    Food: UtensilsCrossed,
+    Transportation: Car,
+    Groceries: ShoppingCart,
+    Utilities: Zap,
+    Entertainment: Gamepad2,
+    Internet: Wifi,
+    Shopping: ShoppingBag,
+    Health: HeartPulse,
+    Education: GraduationCap,
+    Miscellaneous: Receipt,
+};
 
 export default function TransactionList({
     transactions,
@@ -69,6 +101,7 @@ export default function TransactionList({
         <div className="space-y-4">
             {transactions.map((item) => {
                 const isEditing = editingId === item.id;
+                const Icon = categoryIcons[item.category] || Receipt;
 
                 return (
                     <motion.div
@@ -80,24 +113,30 @@ export default function TransactionList({
                         {!isEditing ? (
                             <>
                                 <div className="flex items-start justify-between gap-3">
-                                    <div className="min-w-0 flex-1">
-                                        <div className="flex flex-wrap items-center gap-2">
-                                            <h3 className="truncate text-lg font-semibold">
-                                                {item.title}
-                                            </h3>
-
-                                            <span className="text-sm text-muted-foreground">
-                                                {item.category}
-                                            </span>
-
-                                            <span className="text-sm text-muted-foreground">
-                                                {item.source}
-                                            </span>
+                                    <div className="flex min-w-0 flex-1 items-start gap-3">
+                                        <div className="mt-1 shrink-0 rounded-full bg-muted p-3">
+                                            <Icon className="h-5 w-5 text-foreground" />
                                         </div>
 
-                                        <p className="mt-1 text-sm text-muted-foreground">
-                                            {item.danaDipakai}
-                                        </p>
+                                        <div className="min-w-0 flex-1">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <h3 className="truncate text-lg font-semibold">
+                                                    {item.title}
+                                                </h3>
+
+                                                <span className="text-sm text-muted-foreground">
+                                                    {item.category}
+                                                </span>
+
+                                                <span className="text-sm text-muted-foreground">
+                                                    {item.source}
+                                                </span>
+                                            </div>
+
+                                            <p className="mt-1 text-sm text-muted-foreground">
+                                                {item.danaDipakai}
+                                            </p>
+                                        </div>
                                     </div>
 
                                     <p className="shrink-0 text-right text-xl font-bold text-rose-500 sm:text-2xl">
@@ -106,7 +145,7 @@ export default function TransactionList({
                                 </div>
 
                                 <div className="mt-4 flex items-end justify-between gap-3">
-                                    <div className="min-w-0 space-y-2">
+                                    <div className="min-w-0 space-y-2 pl-14">
                                         <p className="text-sm text-muted-foreground">
                                             {formatDisplayDate(item.date)}
                                         </p>

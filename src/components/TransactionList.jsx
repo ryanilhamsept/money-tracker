@@ -12,6 +12,7 @@ import {
     HeartPulse,
     GraduationCap,
     Receipt,
+    CalendarDays,
     Check,
     Pencil,
     Trash2,
@@ -34,61 +35,51 @@ const categoryIcons = {
         bg: "bg-green-100",
         color: "text-green-700",
     },
-
     Food: {
         icon: UtensilsCrossed,
         bg: "bg-orange-100",
         color: "text-orange-600",
     },
-
     Transportation: {
         icon: Car,
         bg: "bg-blue-100",
         color: "text-blue-600",
     },
-
     Groceries: {
         icon: ShoppingCart,
         bg: "bg-yellow-100",
         color: "text-yellow-700",
     },
-
     Utilities: {
         icon: Zap,
         bg: "bg-amber-100",
         color: "text-amber-600",
     },
-
     Entertainment: {
         icon: Gamepad2,
         bg: "bg-pink-100",
         color: "text-pink-600",
     },
-
     Internet: {
         icon: Wifi,
         bg: "bg-cyan-100",
         color: "text-cyan-600",
     },
-
     Shopping: {
         icon: ShoppingBag,
         bg: "bg-violet-100",
         color: "text-violet-600",
     },
-
     Health: {
         icon: HeartPulse,
         bg: "bg-rose-100",
         color: "text-rose-600",
     },
-
     Education: {
         icon: GraduationCap,
         bg: "bg-indigo-100",
         color: "text-indigo-600",
     },
-
     Miscellaneous: {
         icon: Receipt,
         bg: "bg-gray-100",
@@ -145,7 +136,7 @@ export default function TransactionList({
 
     if (!transactions.length) {
         return (
-            <div className="rounded-2xl border p-6 text-center text-muted-foreground">
+            <div className="rounded-3xl bg-slate-50 p-8 text-center text-slate-500">
                 No transactions yet.
             </div>
         );
@@ -167,71 +158,66 @@ export default function TransactionList({
                         key={item.id}
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="overflow-hidden rounded-2xl border p-4"
+                        className="overflow-hidden rounded-[2rem] border border-white/70 bg-white/90 p-5 shadow-lg backdrop-blur"
                     >
                         {!isEditing ? (
                             <>
-                                <div className="flex items-start justify-between gap-3">
-                                    <div className="flex min-w-0 flex-1 items-start gap-3">
+                                <div className="flex items-start justify-between gap-4">
+                                    <div className="flex min-w-0 flex-1 items-start gap-4">
                                         <div
-                                            className={`mt-1 shrink-0 rounded-full p-3 ${categoryData.bg}`}
+                                            className={`shrink-0 rounded-[1.4rem] p-4 ${categoryData.bg}`}
                                         >
                                             <Icon
-                                                className={`h-5 w-5 ${categoryData.color}`}
+                                                className={`h-6 w-6 ${categoryData.color}`}
                                             />
                                         </div>
 
                                         <div className="min-w-0 flex-1">
-                                            <div className="flex flex-wrap items-center gap-2">
-                                                <h3 className="truncate text-lg font-semibold">
-                                                    {item.title}
-                                                </h3>
+                                            <div className="flex min-w-0 items-start justify-between gap-3">
+                                                <div className="min-w-0">
+                                                    <h3 className="truncate text-xl font-black text-slate-950">
+                                                        {item.title}
+                                                    </h3>
 
-                                                <span className="text-sm text-muted-foreground">
-                                                    {item.category}
-                                                </span>
+                                                    <p className="mt-2 text-sm font-semibold text-slate-500">
+                                                        {item.category} • {item.source} •{" "}
+                                                        {item.danaDipakai}
+                                                    </p>
+                                                </div>
 
-                                                <span className="text-sm text-muted-foreground">
-                                                    • {item.source}
-                                                </span>
+                                                <p className="shrink-0 text-right text-xl font-black text-rose-500 sm:text-2xl">
+                                                    -{formatCurrency(item.amount)}
+                                                </p>
                                             </div>
 
-                                            <p className="mt-1 text-sm text-muted-foreground">
-                                                {item.danaDipakai}
-                                            </p>
+                                            <div className="mt-5 flex items-center gap-2 text-sm font-semibold text-slate-500">
+                                                <CalendarDays className="h-4 w-4 text-indigo-500" />
+                                                {formatDisplayDate(item.date)}
+                                            </div>
                                         </div>
                                     </div>
-
-                                    <p className="shrink-0 text-right text-xl font-bold text-rose-500 sm:text-2xl">
-                                        -{formatCurrency(item.amount)}
-                                    </p>
                                 </div>
 
-                                <div className="mt-4 flex items-end justify-between gap-3">
-                                    <div className="min-w-0 space-y-2 pl-14">
-                                        <p className="text-sm text-muted-foreground">
-                                            {formatDisplayDate(item.date)}
-                                        </p>
-
+                                <div className="mt-5 border-t border-slate-100 pt-4">
+                                    <div className="flex items-center justify-end gap-3">
                                         <button
                                             type="button"
                                             onClick={() => openEdit(item)}
-                                            className="flex min-h-[44px] items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition hover:bg-muted active:scale-95"
+                                            className="flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:bg-slate-50 active:scale-95"
+                                            aria-label="Edit transaction"
                                         >
-                                            <Pencil className="h-4 w-4" />
-                                            Edit
+                                            <Pencil className="h-5 w-5" />
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => deleteTransaction(item.id)}
+                                            className="flex h-12 w-12 items-center justify-center rounded-2xl border border-rose-100 bg-rose-50 text-rose-500 shadow-sm transition hover:bg-rose-100 active:scale-95"
+                                            aria-label="Delete transaction"
+                                        >
+                                            <Trash2 className="h-5 w-5" />
                                         </button>
                                     </div>
-
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="icon"
-                                        onClick={() => deleteTransaction(item.id)}
-                                        className="h-11 w-11 shrink-0 rounded-full"
-                                    >
-                                        <Trash2 className="h-5 w-5" />
-                                    </Button>
                                 </div>
                             </>
                         ) : (
@@ -245,7 +231,7 @@ export default function TransactionList({
                                         }))
                                     }
                                     placeholder="Nama transaksi"
-                                    className="w-full min-w-0 max-w-full rounded-xl border bg-background px-3 py-2 outline-none focus:ring-2"
+                                    className="w-full min-w-0 max-w-full rounded-2xl border-2 border-slate-100 bg-white px-3 py-2 outline-none focus:border-pink-400"
                                 />
 
                                 <input
@@ -258,7 +244,7 @@ export default function TransactionList({
                                     }
                                     inputMode="numeric"
                                     placeholder="Nominal"
-                                    className="w-full min-w-0 max-w-full rounded-xl border bg-background px-3 py-2 outline-none focus:ring-2"
+                                    className="w-full min-w-0 max-w-full rounded-2xl border-2 border-slate-100 bg-white px-3 py-2 outline-none focus:border-pink-400"
                                 />
 
                                 <input
@@ -271,7 +257,7 @@ export default function TransactionList({
                                     }
                                     type="date"
                                     style={{ WebkitAppearance: "none" }}
-                                    className="w-full min-w-0 max-w-full appearance-none rounded-xl border bg-background px-3 py-2 text-base outline-none focus:ring-2"
+                                    className="w-full min-w-0 max-w-full appearance-none rounded-2xl border-2 border-slate-100 bg-white px-3 py-2 text-base outline-none focus:border-pink-400"
                                 />
 
                                 <select
@@ -282,7 +268,7 @@ export default function TransactionList({
                                             category: event.target.value,
                                         }))
                                     }
-                                    className="w-full min-w-0 max-w-full rounded-xl border bg-background px-3 py-2 outline-none focus:ring-2"
+                                    className="w-full min-w-0 max-w-full rounded-2xl border-2 border-slate-100 bg-white px-3 py-2 outline-none focus:border-pink-400"
                                 >
                                     {categories.map((item) => (
                                         <option key={item} value={item}>
@@ -299,7 +285,7 @@ export default function TransactionList({
                                             source: event.target.value,
                                         }))
                                     }
-                                    className="w-full min-w-0 max-w-full rounded-xl border bg-background px-3 py-2 outline-none focus:ring-2"
+                                    className="w-full min-w-0 max-w-full rounded-2xl border-2 border-slate-100 bg-white px-3 py-2 outline-none focus:border-pink-400"
                                 >
                                     {fundSources.map((item) => (
                                         <option key={item} value={item}>
@@ -316,7 +302,7 @@ export default function TransactionList({
                                             danaDipakai: event.target.value,
                                         }))
                                     }
-                                    className="w-full min-w-0 max-w-full rounded-xl border bg-background px-3 py-2 outline-none focus:ring-2"
+                                    className="w-full min-w-0 max-w-full rounded-2xl border-2 border-slate-100 bg-white px-3 py-2 outline-none focus:border-pink-400"
                                 >
                                     {danaDipakaiOptions.map((item) => (
                                         <option key={item} value={item}>
@@ -329,7 +315,7 @@ export default function TransactionList({
                                     <Button
                                         type="button"
                                         onClick={() => saveEdit(item.id)}
-                                        className="rounded-xl"
+                                        className="rounded-2xl bg-gradient-to-r from-pink-500 to-violet-500 font-bold text-white"
                                     >
                                         <Check className="mr-2 h-4 w-4" />
                                         Save
@@ -339,7 +325,7 @@ export default function TransactionList({
                                         type="button"
                                         variant="outline"
                                         onClick={closeEdit}
-                                        className="rounded-xl"
+                                        className="rounded-2xl border-slate-200 font-bold"
                                     >
                                         <X className="mr-2 h-4 w-4" />
                                         Cancel

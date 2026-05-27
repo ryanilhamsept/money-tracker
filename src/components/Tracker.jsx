@@ -81,15 +81,13 @@ export default function Tracker({
     const previewAmount =
         Number(String(form.amount || "").replace(/[^\d]/g, "")) || 0;
 
-    const selectedDateTotalAfterInput =
-        selectedDateSpending + previewAmount;
+    const selectedDateTotalAfterInput = selectedDateSpending + previewAmount;
 
     const isNearDailyLimit =
         selectedDateTotalAfterInput >= DAILY_LIMIT * 0.8 &&
         selectedDateTotalAfterInput < DAILY_LIMIT;
 
-    const isOverDailyLimit =
-        selectedDateTotalAfterInput >= DAILY_LIMIT;
+    const isOverDailyLimit = selectedDateTotalAfterInput >= DAILY_LIMIT;
 
     const totals = useMemo(() => {
         const totalSpending = currentMonthTransactions.reduce(
@@ -173,10 +171,10 @@ export default function Tracker({
         <>
             {(isNearDailyLimit || isOverDailyLimit) && (
                 <div
-                    className={`rounded-2xl border p-4 text-sm font-semibold ${
+                    className={`rounded-[1.5rem] border p-4 text-sm font-semibold shadow-sm ${
                         isOverDailyLimit
-                            ? "border-rose-300 bg-rose-100 text-rose-700"
-                            : "border-yellow-300 bg-yellow-100 text-yellow-700"
+                            ? "border-rose-200 bg-rose-100 text-rose-700"
+                            : "border-yellow-200 bg-yellow-100 text-yellow-700"
                     }`}
                 >
                     <div className="flex items-start gap-3">
@@ -205,16 +203,16 @@ export default function Tracker({
                     value={formatCurrency(totals.totalSpending)}
                 />
 
-                <Card className="rounded-2xl shadow-sm">
+                <Card className="overflow-hidden rounded-[1.75rem] border-white/70 bg-white/85 shadow-xl backdrop-blur">
                     <CardContent className="space-y-5 p-5">
                         <div className="flex min-w-0 items-start gap-4">
-                            <div className="shrink-0 rounded-2xl bg-muted p-3">
+                            <div className="shrink-0 rounded-2xl bg-pink-100 p-3 text-pink-600">
                                 <PiggyBank className="h-6 w-6" />
                             </div>
 
                             <div className="min-w-0 flex-1">
                                 <div className="mb-2 flex items-center justify-between gap-3">
-                                    <p className="text-sm text-muted-foreground">
+                                    <p className="text-sm font-semibold text-slate-500">
                                         Budget Manual
                                     </p>
 
@@ -222,15 +220,15 @@ export default function Tracker({
                                         <button
                                             type="button"
                                             onClick={handleBudgetEditOpen}
-                                            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border bg-background transition hover:bg-muted"
+                                            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white transition hover:bg-slate-50"
                                         >
-                                            <Pencil className="h-5 w-5 text-muted-foreground" />
+                                            <Pencil className="h-5 w-5 text-slate-600" />
                                         </button>
                                     )}
                                 </div>
 
                                 {!isEditingBudget ? (
-                                    <p className="break-words text-3xl font-bold tracking-tight md:text-4xl">
+                                    <p className="break-words text-3xl font-black tracking-tight text-slate-950 md:text-4xl">
                                         {formatCurrency(budget)}
                                     </p>
                                 ) : (
@@ -238,7 +236,7 @@ export default function Tracker({
                                         onSubmit={handleBudgetSave}
                                         className="grid min-w-0 gap-2 sm:grid-cols-[1fr_auto_auto]"
                                     >
-                                        <div className="flex min-w-0 w-full items-center overflow-hidden rounded-2xl border bg-background px-4 py-3">
+                                        <div className="flex min-w-0 w-full items-center overflow-hidden rounded-2xl border border-slate-200 bg-white px-4 py-3">
                                             <span className="mr-2 shrink-0 text-xl font-semibold">
                                                 Rp
                                             </span>
@@ -257,7 +255,7 @@ export default function Tracker({
 
                                         <button
                                             type="submit"
-                                            className="inline-flex h-11 w-full items-center justify-center rounded-full bg-foreground text-background sm:w-11"
+                                            className="inline-flex h-11 w-full items-center justify-center rounded-full bg-slate-950 text-white sm:w-11"
                                         >
                                             <Check className="h-4 w-4" />
                                         </button>
@@ -265,7 +263,7 @@ export default function Tracker({
                                         <button
                                             type="button"
                                             onClick={handleBudgetCancel}
-                                            className="inline-flex h-11 w-full items-center justify-center rounded-full border bg-background sm:w-11"
+                                            className="inline-flex h-11 w-full items-center justify-center rounded-full border border-slate-200 bg-white sm:w-11"
                                         >
                                             <X className="h-4 w-4" />
                                         </button>
@@ -274,17 +272,17 @@ export default function Tracker({
                             </div>
                         </div>
 
-                        <div className="border-t pt-5">
+                        <div className="border-t border-slate-200 pt-5">
                             <div className="flex min-w-0 items-center justify-between gap-3">
-                                <p className="text-base font-medium text-muted-foreground">
+                                <p className="text-base font-semibold text-slate-500">
                                     Sisa Budget
                                 </p>
 
                                 <p
-                                    className={`shrink-0 text-2xl font-bold tracking-tight md:text-3xl ${
+                                    className={`shrink-0 text-2xl font-black tracking-tight md:text-3xl ${
                                         totals.remainingBudget < 0
                                             ? "text-rose-600"
-                                            : "text-foreground"
+                                            : "text-slate-950"
                                     }`}
                                 >
                                     {formatCurrency(totals.remainingBudget)}
@@ -302,16 +300,16 @@ export default function Tracker({
             </section>
 
             <section className="grid w-full min-w-0 gap-6 lg:grid-cols-[380px_1fr]">
-                <Card className="w-full min-w-0 overflow-hidden rounded-2xl shadow-sm">
+                <Card className="w-full min-w-0 overflow-hidden rounded-[1.75rem] border-white/70 bg-white/85 shadow-xl backdrop-blur">
                     <CardContent className="p-5">
-                        <h2 className="mb-4 text-xl font-semibold">
+                        <h2 className="mb-4 text-xl font-black text-slate-950">
                             Add transaction
                         </h2>
 
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <label className="block min-w-0 space-y-2">
-                                <span className="flex items-center gap-2 text-sm font-medium">
-                                    <Pencil className="h-4 w-4" />
+                                <span className="flex items-center gap-2 text-sm font-semibold text-slate-600">
+                                    <Pencil className="h-4 w-4 text-pink-500" />
                                     Title
                                 </span>
 
@@ -324,13 +322,13 @@ export default function Tracker({
                                         }))
                                     }
                                     placeholder="e.g. Groceries"
-                                    className="w-full min-w-0 rounded-2xl border bg-background px-4 py-3 outline-none focus:ring-2"
+                                    className="w-full min-w-0 rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none focus:ring-2 focus:ring-pink-200"
                                 />
                             </label>
 
                             <label className="block min-w-0 space-y-2">
-                                <span className="flex items-center gap-2 text-sm font-medium">
-                                    <Banknote className="h-4 w-4" />
+                                <span className="flex items-center gap-2 text-sm font-semibold text-slate-600">
+                                    <Banknote className="h-4 w-4 text-indigo-500" />
                                     Amount
                                 </span>
 
@@ -344,14 +342,14 @@ export default function Tracker({
                                     }
                                     inputMode="numeric"
                                     placeholder="50000"
-                                    className="w-full min-w-0 rounded-2xl border bg-background px-4 py-3 outline-none focus:ring-2"
+                                    className="w-full min-w-0 rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none focus:ring-2 focus:ring-pink-200"
                                 />
                             </label>
 
                             <div className="grid min-w-0 gap-3 md:grid-cols-3">
                                 <div className="space-y-2">
-                                    <span className="flex items-center gap-2 text-sm font-medium">
-                                        <Tag className="h-4 w-4" />
+                                    <span className="flex items-center gap-2 text-sm font-semibold text-slate-600">
+                                        <Tag className="h-4 w-4 text-purple-500" />
                                         Category
                                     </span>
 
@@ -369,8 +367,8 @@ export default function Tracker({
                                 </div>
 
                                 <div className="space-y-2">
-                                    <span className="flex items-center gap-2 text-sm font-medium">
-                                        <CreditCard className="h-4 w-4" />
+                                    <span className="flex items-center gap-2 text-sm font-semibold text-slate-600">
+                                        <CreditCard className="h-4 w-4 text-blue-500" />
                                         Sumber Dana
                                     </span>
 
@@ -388,8 +386,8 @@ export default function Tracker({
                                 </div>
 
                                 <div className="space-y-2">
-                                    <span className="flex items-center gap-2 text-sm font-medium">
-                                        <Wallet className="h-4 w-4" />
+                                    <span className="flex items-center gap-2 text-sm font-semibold text-slate-600">
+                                        <Wallet className="h-4 w-4 text-pink-500" />
                                         Dana Dipakai
                                     </span>
 
@@ -408,8 +406,8 @@ export default function Tracker({
                             </div>
 
                             <label className="block min-w-0 space-y-2">
-                                <span className="flex items-center gap-2 text-sm font-medium">
-                                    <CalendarDays className="h-4 w-4" />
+                                <span className="flex items-center gap-2 text-sm font-semibold text-slate-600">
+                                    <CalendarDays className="h-4 w-4 text-indigo-500" />
                                     Tanggal
                                 </span>
 
@@ -423,13 +421,13 @@ export default function Tracker({
                                     }
                                     type="date"
                                     style={{ WebkitAppearance: "none" }}
-                                    className="w-full min-w-0 max-w-full appearance-none rounded-2xl border bg-background px-4 py-3 text-base outline-none focus:ring-2"
+                                    className="w-full min-w-0 max-w-full appearance-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base outline-none focus:ring-2 focus:ring-pink-200"
                                 />
                             </label>
 
                             <Button
                                 type="submit"
-                                className="flex w-full items-center justify-center rounded-2xl bg-slate-950 py-6 text-base font-semibold text-white hover:bg-slate-900"
+                                className="flex w-full items-center justify-center rounded-2xl bg-gradient-to-r from-pink-500 to-indigo-500 py-6 text-base font-bold text-white shadow-lg hover:opacity-95"
                             >
                                 <PlusCircle className="mr-2 h-5 w-5" />
                                 Add transaction
@@ -438,20 +436,22 @@ export default function Tracker({
                     </CardContent>
                 </Card>
 
-                <Card className="w-full min-w-0 overflow-hidden rounded-2xl shadow-sm">
+                <Card className="w-full min-w-0 overflow-hidden rounded-[1.75rem] border-white/70 bg-white/85 shadow-xl backdrop-blur">
                     <CardContent className="p-5">
                         <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                            <h2 className="text-xl font-semibold">Transactions</h2>
+                            <h2 className="text-xl font-black text-slate-950">
+                                Transactions
+                            </h2>
 
                             <div className="flex flex-wrap gap-2">
                                 <div className="relative">
-                                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
 
                                     <input
                                         value={query}
                                         onChange={(event) => setQuery(event.target.value)}
                                         placeholder="Search"
-                                        className="w-full min-w-0 rounded-2xl border bg-background py-2 pl-9 pr-3 outline-none focus:ring-2 md:w-48"
+                                        className="w-full min-w-0 rounded-2xl border border-slate-200 bg-white py-2 pl-9 pr-3 outline-none focus:ring-2 focus:ring-pink-200 md:w-48"
                                     />
                                 </div>
 
@@ -460,7 +460,7 @@ export default function Tracker({
                                     onChange={(event) =>
                                         setCategoryFilter(event.target.value)
                                     }
-                                    className="rounded-2xl border bg-background px-3 py-2 outline-none focus:ring-2"
+                                    className="rounded-2xl border border-slate-200 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-pink-200"
                                 >
                                     <option value="all">All categories</option>
 
@@ -476,7 +476,7 @@ export default function Tracker({
                                     onChange={(event) =>
                                         setSourceFilter(event.target.value)
                                     }
-                                    className="rounded-2xl border bg-background px-3 py-2 outline-none focus:ring-2"
+                                    className="rounded-2xl border border-slate-200 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-pink-200"
                                 >
                                     <option value="all">All sources</option>
 
@@ -495,8 +495,8 @@ export default function Tracker({
                             updateTransaction={updateTransaction}
                         />
 
-                        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border p-3 text-sm">
-                            <p className="text-muted-foreground">
+                        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white/70 p-3 text-sm">
+                            <p className="font-medium text-slate-500">
                                 Showing {paginatedTransactions.length} of{" "}
                                 {filteredTransactions.length} current month transactions
                             </p>
@@ -505,7 +505,7 @@ export default function Tracker({
                                 <Button
                                     type="button"
                                     variant="outline"
-                                    className="rounded-xl"
+                                    className="rounded-xl border-slate-200"
                                     disabled={historyPage === 1}
                                     onClick={() =>
                                         setHistoryPage((page) => Math.max(1, page - 1))
@@ -514,14 +514,14 @@ export default function Tracker({
                                     Previous
                                 </Button>
 
-                                <span className="text-muted-foreground">
+                                <span className="text-slate-500">
                                     Page {historyPage} / {totalHistoryPages}
                                 </span>
 
                                 <Button
                                     type="button"
                                     variant="outline"
-                                    className="rounded-xl"
+                                    className="rounded-xl border-slate-200"
                                     disabled={historyPage === totalHistoryPages}
                                     onClick={() =>
                                         setHistoryPage((page) =>

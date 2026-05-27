@@ -1,27 +1,63 @@
 import { useMemo, useState } from "react";
+import {
+    ArrowLeftRight,
+    UtensilsCrossed,
+    Car,
+    ShoppingCart,
+    Zap,
+    Gamepad2,
+    Wifi,
+    ShoppingBag,
+    HeartPulse,
+    GraduationCap,
+    Receipt,
+} from "lucide-react";
+
 import { Card, CardContent } from "./ui/card";
 import { formatCurrency } from "../utils/currency";
+
 import {
     currentMonth,
     formatDisplayDate,
     getTransactionMonth,
     normalizeDate,
 } from "../utils/date";
+
+const categoryIcons = {
+    "Account Transfer": ArrowLeftRight,
+    Food: UtensilsCrossed,
+    Transportation: Car,
+    Groceries: ShoppingCart,
+    Utilities: Zap,
+    Entertainment: Gamepad2,
+    Internet: Wifi,
+    Shopping: ShoppingBag,
+    Health: HeartPulse,
+    Education: GraduationCap,
+    Miscellaneous: Receipt,
+};
+
 export default function DailyReport({ transactions }) {
     const [dailyReportMonth, setDailyReportMonth] = useState(currentMonth());
     const [expandedDailyReportDate, setExpandedDailyReportDate] = useState("");
+
     const dailyReportTransactions = useMemo(() => {
         return transactions.filter(
             (item) => getTransactionMonth(item.date) === dailyReportMonth
         );
     }, [transactions, dailyReportMonth]);
+
     const dailySpendingData = useMemo(() => {
         const grouped = dailyReportTransactions.reduce((acc, item) => {
             const key = normalizeDate(item.date);
+
             if (!acc[key]) acc[key] = [];
+
             acc[key].push(item);
+
             return acc;
         }, {});
+
         return Object.entries(grouped)
             .sort((a, b) => b[0].localeCompare(a[0]))
             .map(([date, list]) => ({
@@ -37,6 +73,7 @@ export default function DailyReport({ transactions }) {
                 ),
             }));
     }, [dailyReportTransactions]);
+
     return (
         <section className="space-y-6 overflow-hidden">
             <Card className="rounded-2xl shadow-sm">
@@ -46,12 +83,17 @@ export default function DailyReport({ transactions }) {
                             <h2 className="text-xl font-semibold">
                                 Daily
                             </h2>
+
                             <p className="text-sm text-muted-foreground">
                                 Klik tanggal untuk melihat detail transaksi hari itu.
                             </p>
                         </div>
+
                         <label className="block min-w-0 max-w-full space-y-2 md:w-64">
-                            <span className="text-sm font-medium">Month</span>
+                            <span className="text-sm font-medium">
+                                Month
+                            </span>
+
                             <input
                                 type="month"
                                 value={dailyReportMonth}
@@ -65,6 +107,7 @@ export default function DailyReport({ transactions }) {
                     </div>
                 </CardContent>
             </Card>
+
             <Card className="rounded-2xl shadow-sm">
                 <CardContent className="p-5">
                     {dailySpendingData.length === 0 ? (
@@ -93,38 +136,56 @@ export default function DailyReport({ transactions }) {
                                             <p className="font-semibold">
                                                 {formatDisplayDate(item.date)}
                                             </p>
+
                                             <p className="text-sm text-muted-foreground">
                                                 {item.transactions.length} transaksi
                                             </p>
                                         </div>
+
                                         <p className="shrink-0 text-lg font-bold text-rose-600">
                                             -{formatCurrency(item.amount)}
                                         </p>
                                     </button>
+
                                     {expandedDailyReportDate === item.date && (
                                         <div className="mt-4 space-y-2 border-t pt-4">
-                                            {item.transactions.map((transaction) => (
-                                                <div
-                                                    key={transaction.id}
-                                                    className="flex min-w-0 items-center justify-between gap-3 rounded-xl bg-muted p-3"
-                                                >
-                                                    <div className="min-w-0">
-                                                        <p className="truncate font-medium">
-                                                            {transaction.title}
-                                                        </p>
-                                                        <p className="text-xs text-muted-foreground">
-                                                            {transaction.category} •{" "}
-                                                            {transaction.source} •{" "}
-                                                            {transaction.danaDipakai}
+                                            {item.transactions.map((transaction) => {
+                                                const Icon =
+                                                    categoryIcons[
+                                                        transaction.category
+                                                    ] || Receipt;
+
+                                                return (
+                                                    <div
+                                                        key={transaction.id}
+                                                        className="flex min-w-0 items-center justify-between gap-3 rounded-xl bg-muted p-3"
+                                                    >
+                                                        <div className="flex min-w-0 items-center gap-3">
+                                                            <div className="rounded-full bg-background p-2">
+                                                                <Icon className="h-4 w-4" />
+                                                            </div>
+
+                                                            <div className="min-w-0">
+                                                                <p className="truncate font-medium">
+                                                                    {transaction.title}
+                                                                </p>
+
+                                                                <p className="text-xs text-muted-foreground">
+                                                                    {transaction.category} •{" "}
+                                                                    {transaction.source} •{" "}
+                                                                    {transaction.danaDipakai}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+
+                                                        <p className="shrink-0 font-bold text-rose-600">
+                                                            -{formatCurrency(
+                                                                transaction.amount
+                                                            )}
                                                         </p>
                                                     </div>
-                                                    <p className="shrink-0 font-bold text-rose-600">
-                                                        -{formatCurrency(
-                                                            transaction.amount
-                                                        )}
-                                                    </p>
-                                                </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
                                     )}
                                 </div>

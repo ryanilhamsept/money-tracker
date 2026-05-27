@@ -1,27 +1,76 @@
 import { useMemo, useState } from "react";
-import { FileText } from "lucide-react";
+
+import {
+    FileText,
+    ArrowLeftRight,
+    UtensilsCrossed,
+    Car,
+    ShoppingCart,
+    Zap,
+    Gamepad2,
+    Wifi,
+    ShoppingBag,
+    HeartPulse,
+    GraduationCap,
+    Receipt,
+} from "lucide-react";
+
 import { Card, CardContent } from "./ui/card";
-import { categories, danaDipakaiOptions, fundSources } from "../constants/options";
-import { currentMonth, formatDisplayDate, getTransactionMonth } from "../utils/date";
+
+import {
+    categories,
+    danaDipakaiOptions,
+    fundSources,
+} from "../constants/options";
+
+import {
+    currentMonth,
+    formatDisplayDate,
+    getTransactionMonth,
+} from "../utils/date";
+
 import { formatCurrency } from "../utils/currency";
+
+const categoryIcons = {
+    "Account Transfer": ArrowLeftRight,
+    Food: UtensilsCrossed,
+    Transportation: Car,
+    Groceries: ShoppingCart,
+    Utilities: Zap,
+    Entertainment: Gamepad2,
+    Internet: Wifi,
+    Shopping: ShoppingBag,
+    Health: HeartPulse,
+    Education: GraduationCap,
+    Miscellaneous: Receipt,
+};
 
 export default function MonthlyReport({ transactions }) {
     const [selectedMonth, setSelectedMonth] = useState(currentMonth());
+
     const [monthlyDanaFilter, setMonthlyDanaFilter] = useState("all");
-    const [expandedMonthlyCategory, setExpandedMonthlyCategory] = useState("");
+
+    const [expandedMonthlyCategory, setExpandedMonthlyCategory] =
+        useState("");
 
     const monthlyTransactions = useMemo(() => {
         return transactions.filter((item) => {
-            const matchesMonth = getTransactionMonth(item.date) === selectedMonth;
+            const matchesMonth =
+                getTransactionMonth(item.date) === selectedMonth;
+
             const matchesDana =
-                monthlyDanaFilter === "all" || item.danaDipakai === monthlyDanaFilter;
+                monthlyDanaFilter === "all" ||
+                item.danaDipakai === monthlyDanaFilter;
 
             return matchesMonth && matchesDana;
         });
     }, [transactions, selectedMonth, monthlyDanaFilter]);
 
     const monthlyTotal = useMemo(() => {
-        return monthlyTransactions.reduce((sum, item) => sum + Number(item.amount), 0);
+        return monthlyTransactions.reduce(
+            (sum, item) => sum + Number(item.amount),
+            0
+        );
     }, [monthlyTransactions]);
 
     const categoryReport = useMemo(() => {
@@ -34,7 +83,9 @@ export default function MonthlyReport({ transactions }) {
                 return {
                     category,
                     total,
-                    percentage: monthlyTotal ? Math.round((total / monthlyTotal) * 100) : 0,
+                    percentage: monthlyTotal
+                        ? Math.round((total / monthlyTotal) * 100)
+                        : 0,
                 };
             })
             .filter((item) => item.total > 0)
@@ -73,9 +124,16 @@ export default function MonthlyReport({ transactions }) {
         ];
 
         const slices = categoryReport.map((item, index) => {
-            const degrees = monthlyTotal ? (item.total / monthlyTotal) * 360 : 0;
-            const slice = `${colors[index % colors.length]} ${start}deg ${start + degrees}deg`;
+            const degrees = monthlyTotal
+                ? (item.total / monthlyTotal) * 360
+                : 0;
+
+            const slice = `${
+                colors[index % colors.length]
+            } ${start}deg ${start + degrees}deg`;
+
             start += degrees;
+
             return slice;
         });
 
@@ -87,7 +145,10 @@ export default function MonthlyReport({ transactions }) {
             <Card className="rounded-2xl shadow-sm">
                 <CardContent className="space-y-5 p-5">
                     <div className="min-w-0">
-                        <h2 className="text-xl font-semibold">Monthly</h2>
+                        <h2 className="text-xl font-semibold">
+                            Monthly
+                        </h2>
+
                         <p className="text-sm text-muted-foreground">
                             See spending summary by month and category.
                         </p>
@@ -95,23 +156,33 @@ export default function MonthlyReport({ transactions }) {
 
                     <div className="grid min-w-0 gap-3 overflow-hidden md:grid-cols-2">
                         <label className="block min-w-0 max-w-full space-y-2">
-                            <span className="text-sm font-medium">Month</span>
+                            <span className="text-sm font-medium">
+                                Month
+                            </span>
 
                             <input
                                 type="month"
                                 value={selectedMonth}
-                                onChange={(event) => setSelectedMonth(event.target.value)}
+                                onChange={(event) =>
+                                    setSelectedMonth(event.target.value)
+                                }
                                 style={{ WebkitAppearance: "none" }}
                                 className="w-full min-w-0 max-w-full appearance-none rounded-2xl border bg-background px-4 py-3 outline-none focus:ring-2"
                             />
                         </label>
 
                         <label className="block min-w-0 max-w-full space-y-2">
-                            <span className="text-sm font-medium">Dana Dipakai</span>
+                            <span className="text-sm font-medium">
+                                Dana Dipakai
+                            </span>
 
                             <select
                                 value={monthlyDanaFilter}
-                                onChange={(event) => setMonthlyDanaFilter(event.target.value)}
+                                onChange={(event) =>
+                                    setMonthlyDanaFilter(
+                                        event.target.value
+                                    )
+                                }
                                 className="w-full min-w-0 max-w-full rounded-2xl border bg-background px-4 py-3 outline-none focus:ring-2"
                             >
                                 <option value="all">All</option>
@@ -142,7 +213,9 @@ export default function MonthlyReport({ transactions }) {
                             <div className="min-w-0">
                                 <p className="text-sm text-muted-foreground">
                                     Total this month ·{" "}
-                                    {monthlyDanaFilter === "all" ? "All" : monthlyDanaFilter}
+                                    {monthlyDanaFilter === "all"
+                                        ? "All"
+                                        : monthlyDanaFilter}
                                 </p>
 
                                 <p className="mt-1 text-2xl font-bold">
@@ -172,9 +245,16 @@ export default function MonthlyReport({ transactions }) {
                         ) : (
                             <div className="space-y-3">
                                 {categoryReport.map((item) => {
-                                    const detailTransactions = monthlyTransactions.filter(
-                                        (transaction) => transaction.category === item.category
-                                    );
+                                    const detailTransactions =
+                                        monthlyTransactions.filter(
+                                            (transaction) =>
+                                                transaction.category ===
+                                                item.category
+                                        );
+
+                                    const Icon =
+                                        categoryIcons[item.category] ||
+                                        Receipt;
 
                                     return (
                                         <div
@@ -184,57 +264,106 @@ export default function MonthlyReport({ transactions }) {
                                             <button
                                                 type="button"
                                                 onClick={() =>
-                                                    setExpandedMonthlyCategory((current) =>
-                                                        current === item.category ? "" : item.category
+                                                    setExpandedMonthlyCategory(
+                                                        (current) =>
+                                                            current ===
+                                                            item.category
+                                                                ? ""
+                                                                : item.category
                                                     )
                                                 }
                                                 className="w-full min-w-0 text-left"
                                             >
                                                 <div className="flex min-w-0 items-center justify-between gap-4">
-                                                    <div className="min-w-0">
-                                                        <p className="truncate font-semibold">
-                                                            {item.category}
-                                                        </p>
-                                                        <p className="text-sm text-muted-foreground">
-                                                            {item.percentage}% of monthly spending
-                                                        </p>
+                                                    <div className="flex min-w-0 items-center gap-3">
+                                                        <div className="shrink-0 rounded-full bg-muted p-3">
+                                                            <Icon className="h-5 w-5" />
+                                                        </div>
+
+                                                        <div className="min-w-0">
+                                                            <p className="truncate font-semibold">
+                                                                {item.category}
+                                                            </p>
+
+                                                            <p className="text-sm text-muted-foreground">
+                                                                {
+                                                                    item.percentage
+                                                                }
+                                                                % of monthly
+                                                                spending
+                                                            </p>
+                                                        </div>
                                                     </div>
 
                                                     <p className="shrink-0 font-bold">
-                                                        {formatCurrency(item.total)}
+                                                        {formatCurrency(
+                                                            item.total
+                                                        )}
                                                     </p>
                                                 </div>
 
                                                 <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
                                                     <div
                                                         className="h-full rounded-full bg-foreground"
-                                                        style={{ width: `${item.percentage}%` }}
+                                                        style={{
+                                                            width: `${item.percentage}%`,
+                                                        }}
                                                     />
                                                 </div>
                                             </button>
 
-                                            {expandedMonthlyCategory === item.category && (
+                                            {expandedMonthlyCategory ===
+                                                item.category && (
                                                 <div className="space-y-2 border-t pt-3">
-                                                    {detailTransactions.map((transaction) => (
-                                                        <div
-                                                            key={transaction.id}
-                                                            className="flex min-w-0 items-center justify-between gap-3 rounded-xl bg-muted p-3"
-                                                        >
-                                                            <div className="min-w-0">
-                                                                <p className="truncate font-medium">
-                                                                    {transaction.title}
-                                                                </p>
-                                                                <p className="text-xs text-muted-foreground">
-                                                                    {formatDisplayDate(transaction.date)} •{" "}
-                                                                    {transaction.source}
-                                                                </p>
-                                                            </div>
+                                                    {detailTransactions.map(
+                                                        (transaction) => {
+                                                            const DetailIcon =
+                                                                categoryIcons[
+                                                                    transaction
+                                                                        .category
+                                                                ] || Receipt;
 
-                                                            <p className="shrink-0 font-bold text-rose-600">
-                                                                -{formatCurrency(transaction.amount)}
-                                                            </p>
-                                                        </div>
-                                                    ))}
+                                                            return (
+                                                                <div
+                                                                    key={
+                                                                        transaction.id
+                                                                    }
+                                                                    className="flex min-w-0 items-center justify-between gap-3 rounded-xl bg-muted p-3"
+                                                                >
+                                                                    <div className="flex min-w-0 items-center gap-3">
+                                                                        <div className="rounded-full bg-background p-2">
+                                                                            <DetailIcon className="h-4 w-4" />
+                                                                        </div>
+
+                                                                        <div className="min-w-0">
+                                                                            <p className="truncate font-medium">
+                                                                                {
+                                                                                    transaction.title
+                                                                                }
+                                                                            </p>
+
+                                                                            <p className="text-xs text-muted-foreground">
+                                                                                {formatDisplayDate(
+                                                                                    transaction.date
+                                                                                )}{" "}
+                                                                                •{" "}
+                                                                                {
+                                                                                    transaction.source
+                                                                                }
+                                                                            </p>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    <p className="shrink-0 font-bold text-rose-600">
+                                                                        -
+                                                                        {formatCurrency(
+                                                                            transaction.amount
+                                                                        )}
+                                                                    </p>
+                                                                </div>
+                                                            );
+                                                        }
+                                                    )}
                                                 </div>
                                             )}
                                         </div>

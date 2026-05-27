@@ -81,7 +81,7 @@ export default function App() {
 
     return (
         <main className="min-h-screen bg-gradient-to-br from-pink-100 via-[#f8f6ff] to-indigo-100 p-4 pb-28 text-slate-950 md:p-8">
-            <div className="mx-auto max-w-7xl space-y-6">
+            <div className="mx-auto max-w-6xl space-y-6">
                 <motion.header
                     initial={{ opacity: 0, y: -12 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -105,17 +105,17 @@ export default function App() {
                         </div>
                     </div>
 
-                    <div className="mt-8 grid gap-5 lg:grid-cols-[1.2fr_0.8fr] lg:items-end">
+                    <div className="mt-8 grid gap-5 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
                         <div>
                             <p className="mb-3 inline-flex rounded-full bg-pink-100 px-4 py-2 text-xs font-bold text-pink-600">
                                 All-in-one money tracker
                             </p>
 
-                            <h1 className="max-w-3xl text-4xl font-black leading-tight tracking-tight md:text-6xl">
+                            <h1 className="max-w-3xl text-4xl font-black leading-tight tracking-tight md:text-5xl">
                                 Track your spending clearly.
                             </h1>
 
-                            <p className="mt-4 max-w-2xl text-base font-medium text-slate-500 md:text-lg">
+                            <p className="mt-4 max-w-2xl text-base font-medium text-slate-500">
                                 Add spending, review daily reports, and analyze monthly summaries.
                             </p>
                         </div>
@@ -129,7 +129,7 @@ export default function App() {
                                 Januari 2025 - Sekarang
                             </p>
 
-                            <p className="mt-5 text-4xl font-black tracking-tight md:text-5xl">
+                            <p className="mt-5 text-3xl font-black tracking-tight md:text-4xl">
                                 {formatCurrency(totalAllTimeSpending)}
                             </p>
 

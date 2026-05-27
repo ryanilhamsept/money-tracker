@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
     CalendarDays,
@@ -13,6 +13,7 @@ import MonthlyReport from "../components/MonthlyReport";
 
 import { useTransactions } from "../hooks/useTransactions";
 import { useBudget } from "../hooks/useBudget";
+import { formatCurrency } from "../utils/currency";
 
 export default function App() {
     const [activePage, setActivePage] = useState("tracker");
@@ -32,6 +33,13 @@ export default function App() {
         setBudgetInput,
         saveBudget,
     } = useBudget();
+
+    const totalAllTimeSpending = useMemo(() => {
+        return transactions.reduce(
+            (sum, item) => sum + Number(item.amount),
+            0
+        );
+    }, [transactions]);
 
     const navItems = [
         {
@@ -77,7 +85,7 @@ export default function App() {
                 <motion.header
                     initial={{ opacity: 0, y: -12 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="space-y-3"
+                    className="space-y-5"
                 >
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <PiggyBank className="h-4 w-4" />
@@ -92,6 +100,22 @@ export default function App() {
                         <p className="mt-3 max-w-2xl text-sm text-muted-foreground md:text-base">
                             Add spending, review daily reports, and analyze monthly summaries.
                         </p>
+                    </div>
+
+                    <div className="rounded-2xl border bg-background p-5 shadow-sm">
+                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                            Uang yang sudah keluar
+                        </p>
+
+                        <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                            <p className="text-lg font-semibold text-muted-foreground">
+                                Januari 2025 - Sekarang
+                            </p>
+
+                            <p className="text-3xl font-black text-rose-600 md:text-4xl">
+                                {formatCurrency(totalAllTimeSpending)}
+                            </p>
+                        </div>
                     </div>
                 </motion.header>
 

@@ -9,6 +9,10 @@ import {
     Check,
     X,
     AlertTriangle,
+    Tag,
+    CreditCard,
+    CalendarDays,
+    Banknote,
 } from "lucide-react";
 
 import { Card, CardContent } from "./ui/card";
@@ -219,7 +223,6 @@ export default function Tracker({
                                             type="button"
                                             onClick={handleBudgetEditOpen}
                                             className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border bg-background transition hover:bg-muted"
-                                            aria-label="Edit budget"
                                         >
                                             <Pencil className="h-5 w-5 text-muted-foreground" />
                                         </button>
@@ -255,7 +258,6 @@ export default function Tracker({
                                         <button
                                             type="submit"
                                             className="inline-flex h-11 w-full items-center justify-center rounded-full bg-foreground text-background sm:w-11"
-                                            aria-label="Save budget"
                                         >
                                             <Check className="h-4 w-4" />
                                         </button>
@@ -264,7 +266,6 @@ export default function Tracker({
                                             type="button"
                                             onClick={handleBudgetCancel}
                                             className="inline-flex h-11 w-full items-center justify-center rounded-full border bg-background sm:w-11"
-                                            aria-label="Cancel edit budget"
                                         >
                                             <X className="h-4 w-4" />
                                         </button>
@@ -309,7 +310,10 @@ export default function Tracker({
 
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <label className="block min-w-0 space-y-2">
-                                <span className="text-sm font-medium">Title</span>
+                                <span className="flex items-center gap-2 text-sm font-medium">
+                                    <Pencil className="h-4 w-4" />
+                                    Title
+                                </span>
 
                                 <input
                                     value={form.title}
@@ -325,7 +329,10 @@ export default function Tracker({
                             </label>
 
                             <label className="block min-w-0 space-y-2">
-                                <span className="text-sm font-medium">Amount</span>
+                                <span className="flex items-center gap-2 text-sm font-medium">
+                                    <Banknote className="h-4 w-4" />
+                                    Amount
+                                </span>
 
                                 <input
                                     value={form.amount}
@@ -342,45 +349,69 @@ export default function Tracker({
                             </label>
 
                             <div className="grid min-w-0 gap-3 md:grid-cols-3">
-                                <SelectField
-                                    label="Category"
-                                    value={form.category}
-                                    options={categories}
-                                    onChange={(value) =>
-                                        setForm((prev) => ({
-                                            ...prev,
-                                            category: value,
-                                        }))
-                                    }
-                                />
+                                <div className="space-y-2">
+                                    <span className="flex items-center gap-2 text-sm font-medium">
+                                        <Tag className="h-4 w-4" />
+                                        Category
+                                    </span>
 
-                                <SelectField
-                                    label="Sumber Dana"
-                                    value={form.source}
-                                    options={fundSources}
-                                    onChange={(value) =>
-                                        setForm((prev) => ({
-                                            ...prev,
-                                            source: value,
-                                        }))
-                                    }
-                                />
+                                    <SelectField
+                                        label=""
+                                        value={form.category}
+                                        options={categories}
+                                        onChange={(value) =>
+                                            setForm((prev) => ({
+                                                ...prev,
+                                                category: value,
+                                            }))
+                                        }
+                                    />
+                                </div>
 
-                                <SelectField
-                                    label="Dana Dipakai"
-                                    value={form.danaDipakai}
-                                    options={danaDipakaiOptions}
-                                    onChange={(value) =>
-                                        setForm((prev) => ({
-                                            ...prev,
-                                            danaDipakai: value,
-                                        }))
-                                    }
-                                />
+                                <div className="space-y-2">
+                                    <span className="flex items-center gap-2 text-sm font-medium">
+                                        <CreditCard className="h-4 w-4" />
+                                        Sumber Dana
+                                    </span>
+
+                                    <SelectField
+                                        label=""
+                                        value={form.source}
+                                        options={fundSources}
+                                        onChange={(value) =>
+                                            setForm((prev) => ({
+                                                ...prev,
+                                                source: value,
+                                            }))
+                                        }
+                                    />
+                                </div>
+
+                                <div className="space-y-2">
+                                    <span className="flex items-center gap-2 text-sm font-medium">
+                                        <Wallet className="h-4 w-4" />
+                                        Dana Dipakai
+                                    </span>
+
+                                    <SelectField
+                                        label=""
+                                        value={form.danaDipakai}
+                                        options={danaDipakaiOptions}
+                                        onChange={(value) =>
+                                            setForm((prev) => ({
+                                                ...prev,
+                                                danaDipakai: value,
+                                            }))
+                                        }
+                                    />
+                                </div>
                             </div>
 
                             <label className="block min-w-0 space-y-2">
-                                <span className="text-sm font-medium">Tanggal</span>
+                                <span className="flex items-center gap-2 text-sm font-medium">
+                                    <CalendarDays className="h-4 w-4" />
+                                    Tanggal
+                                </span>
 
                                 <input
                                     value={form.date}

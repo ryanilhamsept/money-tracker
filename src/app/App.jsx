@@ -29,6 +29,7 @@ export default function App() {
 
     const {
         budget,
+        leftBudget,
         budgetInput,
         setBudgetInput,
         saveBudget,
@@ -177,6 +178,7 @@ export default function App() {
                         deleteTransaction={deleteTransaction}
                         updateTransaction={updateTransaction}
                         budget={budget}
+                        leftBudget={leftBudget}
                         budgetInput={budgetInput}
                         setBudgetInput={setBudgetInput}
                         saveBudget={saveBudget}

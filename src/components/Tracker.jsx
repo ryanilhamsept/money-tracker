@@ -42,6 +42,7 @@ export default function Tracker({
     deleteTransaction,
     updateTransaction,
     budget,
+    leftBudget,
     budgetInput,
     setBudgetInput,
     saveBudget,
@@ -95,16 +96,12 @@ export default function Tracker({
             0
         );
 
-        const budgetSpending = currentMonthTransactions
-            .filter((item) => item.danaDipakai === "Spend Bulanan")
-            .reduce((sum, item) => sum + Number(item.amount), 0);
-
         return {
             totalSpending,
-            remainingBudget: budget - budgetSpending,
+            remainingBudget: Number(leftBudget) || 0,
             currentMonthTransactionCount: currentMonthTransactions.length,
         };
-    }, [currentMonthTransactions, budget]);
+    }, [currentMonthTransactions, leftBudget]);
 
     const filteredTransactions = useMemo(() => {
         return currentMonthTransactions

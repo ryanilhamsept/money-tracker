@@ -7,6 +7,7 @@ import {
 
 export const useBudget = () => {
     const [budget, setBudget] = useState(0);
+    const [leftBudget, setLeftBudget] = useState(0);
     const [budgetInput, setBudgetInput] = useState("");
 
     const loadBudget = async () => {
@@ -14,8 +15,10 @@ export const useBudget = () => {
             const data = await getBudgetFromGoogleSheet();
 
             setBudget(Number(data.budget) || 0);
+            setLeftBudget(Number(data.leftBudget) || 0);
         } catch {
             setBudget(0);
+            setLeftBudget(0);
         }
     };
 
@@ -30,13 +33,12 @@ export const useBudget = () => {
 
         if (!newBudget) return;
 
-        // langsung update UI
         setBudget(newBudget);
-
         setBudgetInput("");
 
         try {
             await saveBudgetToGoogleSheet(newBudget);
+            await loadBudget();
         } catch (err) {
             console.log(err);
         }
@@ -44,8 +46,10 @@ export const useBudget = () => {
 
     return {
         budget,
+        leftBudget,
         budgetInput,
         setBudgetInput,
         saveBudget,
+        reloadBudget: loadBudget,
     };
 };

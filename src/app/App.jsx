@@ -95,8 +95,8 @@ export default function App() {
                             </div>
 
                             <div>
-                                <p className="text-lg font-black">
-                                    ryanilhamsept's Money Tracker
+                                <p className="text-base sm:text-lg font-black tracking-tight text-slate-900">
+                                    anilhasept's Money Tracker
                                 </p>
 
                                 <p className="text-xs font-medium text-slate-500">

@@ -1,7 +1,5 @@
 export function Button({
     className = "",
-    variant,
-    size,
     type = "button",
     disabled,
     onClick,

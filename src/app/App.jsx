@@ -135,7 +135,7 @@ export default function App() {
                             </p>
 
                             <div className="mt-5 h-2 overflow-hidden rounded-full bg-white/25">
-                                <div className="h-full w-3/4 rounded-full bg-white" />
+                                <div className="h-full w-full rounded-full bg-white" />
                             </div>
                         </div>
                     </div>

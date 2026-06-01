@@ -168,11 +168,10 @@ export default function Tracker({
         <>
             {(isNearDailyLimit || isOverDailyLimit) && (
                 <div
-                    className={`rounded-[1.5rem] border p-4 text-sm font-semibold shadow-sm ${
-                        isOverDailyLimit
+                    className={`rounded-[1.5rem] border p-4 text-sm font-semibold shadow-sm ${isOverDailyLimit
                             ? "border-rose-200 bg-rose-100 text-rose-700"
                             : "border-yellow-200 bg-yellow-100 text-yellow-700"
-                    }`}
+                        }`}
                 >
                     <div className="flex items-start gap-3">
                         <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
@@ -276,11 +275,10 @@ export default function Tracker({
                                 </p>
 
                                 <p
-                                    className={`shrink-0 text-2xl font-black tracking-tight md:text-3xl ${
-                                        totals.remainingBudget < 0
+                                    className={`shrink-0 text-2xl font-black tracking-tight md:text-3xl ${totals.remainingBudget < 0
                                             ? "text-rose-600"
                                             : "text-slate-950"
-                                    }`}
+                                        }`}
                                 >
                                     {formatCurrency(totals.remainingBudget)}
                                 </p>
@@ -297,7 +295,7 @@ export default function Tracker({
             </section>
 
             <section className="grid gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
-                <Card className="sticky top-6 h-fit w-full min-w-0 overflow-hidden rounded-[1.75rem] border-white/70 bg-white/85 shadow-xl backdrop-blur">
+                <Card className="w-full min-w-0 overflow-hidden rounded-[1.75rem] border-white/70 bg-white/85 shadow-xl backdrop-blur">
                     <CardContent className="p-5">
                         <h2 className="mb-4 text-xl font-black text-slate-950">
                             Add transaction

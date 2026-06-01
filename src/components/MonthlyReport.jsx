@@ -93,20 +93,52 @@ const categoryIcons = {
         color: "text-gray-600",
     },
 };
+const colors = [
+    "#ef4444",
+    "#f97316",
+    "#eab308",
+    "#22c55e",
+    "#06b6d4",
+    "#3b82f6",
+    "#8b5cf6",
+    "#ec4899",
+];
+
+const polarToCartesian = (centerX, centerY, radius, angleInDegrees) => {
+    const angleInRadians = ((angleInDegrees - 90) * Math.PI) / 180.0;
+    return {
+        x: centerX + radius * Math.cos(angleInRadians),
+        y: centerY + radius * Math.sin(angleInRadians),
+    };
+};
+
+const getArcPath = (x, y, radius, startAngle, endAngle) => {
+    let diff = endAngle - startAngle;
+    if (diff >= 360) {
+        diff = 359.99;
+    }
+    const adjustedEndAngle = startAngle + diff;
+    const start = polarToCartesian(x, y, radius, startAngle);
+    const end = polarToCartesian(x, y, radius, adjustedEndAngle);
+    const largeArcFlag = diff <= 180 ? "0" : "1";
+    
+    return [
+        "M", x, y,
+        "L", start.x, start.y,
+        "A", radius, radius, 0, largeArcFlag, 1, end.x, end.y,
+        "Z"
+    ].join(" ");
+};
+
 export default function MonthlyReport({ transactions }) {
     const [selectedMonth, setSelectedMonth] = useState(currentMonth());
-    const [monthlyDanaFilter, setMonthlyDanaFilter] = useState("all");
     const [expandedMonthlyCategory, setExpandedMonthlyCategory] = useState("");
+    const [hoveredSlice, setHoveredSlice] = useState(null);
     const monthlyTransactions = useMemo(() => {
         return transactions.filter((item) => {
-            const matchesMonth =
-                getTransactionMonth(item.date) === selectedMonth;
-            const matchesDana =
-                monthlyDanaFilter === "all" ||
-                item.danaDipakai === monthlyDanaFilter;
-            return matchesMonth && matchesDana;
+            return getTransactionMonth(item.date) === selectedMonth;
         });
-    }, [transactions, selectedMonth, monthlyDanaFilter]);
+    }, [transactions, selectedMonth]);
     const monthlyTotal = useMemo(() => {
         return monthlyTransactions.reduce(
             (sum, item) => sum + Number(item.amount),
@@ -140,13 +172,9 @@ export default function MonthlyReport({ transactions }) {
 
     const prevMonthTransactions = useMemo(() => {
         return transactions.filter((item) => {
-            const matchesMonth = getTransactionMonth(item.date) === prevMonth;
-            const matchesDana =
-                monthlyDanaFilter === "all" ||
-                item.danaDipakai === monthlyDanaFilter;
-            return matchesMonth && matchesDana;
+            return getTransactionMonth(item.date) === prevMonth;
         });
-    }, [transactions, prevMonth, monthlyDanaFilter]);
+    }, [transactions, prevMonth]);
 
     const prevMonthTotal = useMemo(() => {
         return prevMonthTransactions.reduce(
@@ -230,32 +258,27 @@ export default function MonthlyReport({ transactions }) {
             .filter((item) => item.total > 0)
             .sort((a, b) => b.total - a.total);
     }, [monthlyTransactions]);
-    const pieChart = useMemo(() => {
-        if (!categoryReport.length) {
-            return "conic-gradient(#e5e7eb 0deg 360deg)";
-        }
-        let start = 0;
-        const colors = [
-            "#ef4444",
-            "#f97316",
-            "#eab308",
-            "#22c55e",
-            "#06b6d4",
-            "#3b82f6",
-            "#8b5cf6",
-            "#ec4899",
-        ];
-        const slices = categoryReport.map((item, index) => {
-            const degrees = monthlyTotal
-                ? (item.total / monthlyTotal) * 360
+    const categoryReportWithAngles = useMemo(() => {
+        return categoryReport.map((item, index) => {
+            const prevTotal = categoryReport
+                .slice(0, index)
+                .reduce((sum, s) => sum + s.total, 0);
+            
+            const startAngle = monthlyTotal
+                ? (prevTotal / monthlyTotal) * 360
                 : 0;
-            const slice = `${
-                colors[index % colors.length]
-            } ${start}deg ${start + degrees}deg`;
-            start += degrees;
-            return slice;
+                
+            const pct = monthlyTotal ? (item.total / monthlyTotal) : 0;
+            const degrees = pct * 360;
+            const endAngle = startAngle + degrees;
+
+            return {
+                ...item,
+                startAngle,
+                endAngle,
+                color: colors[index % colors.length]
+            };
         });
-        return `conic-gradient(${slices.join(", ")})`;
     }, [categoryReport, monthlyTotal]);
     return (
         <section className="grid min-w-0 gap-6 overflow-hidden lg:grid-cols-[380px_1fr]">
@@ -269,7 +292,7 @@ export default function MonthlyReport({ transactions }) {
                             See spending summary by month and category.
                         </p>
                     </div>
-                    <div className="grid min-w-0 gap-3 overflow-hidden md:grid-cols-2">
+                    <div className="grid min-w-0 gap-3 overflow-hidden">
                         <label className="block min-w-0 max-w-full space-y-2">
                             <span className="text-sm font-semibold text-slate-600">
                                 Month
@@ -284,32 +307,82 @@ export default function MonthlyReport({ transactions }) {
                                 className="w-full min-w-0 max-w-full appearance-none rounded-2xl border-2 border-slate-100 bg-slate-50 px-4 py-3 outline-none focus:border-pink-400"
                             />
                         </label>
-                        <label className="block min-w-0 max-w-full space-y-2">
-                            <span className="text-sm font-semibold text-slate-600">
-                                Dana Dipakai
-                            </span>
-                            <select
-                                value={monthlyDanaFilter}
-                                onChange={(event) =>
-                                    setMonthlyDanaFilter(event.target.value)
-                                }
-                                className="w-full min-w-0 max-w-full rounded-2xl border-2 border-slate-100 bg-slate-50 px-4 py-3 outline-none focus:border-pink-400"
-                            >
-                                <option value="all">All</option>
-                                {danaDipakaiOptions.map((item) => (
-                                    <option key={item} value={item}>
-                                        {item}
-                                    </option>
-                                ))}
-                            </select>
-                        </label>
                     </div>
                     <div className="flex justify-center overflow-hidden">
-                        <div
-                            className="h-56 w-56 shrink-0 rounded-full border shadow-inner"
-                            style={{ background: pieChart }}
-                            aria-label="Spending pie chart"
-                        />
+                        <div className="relative h-56 w-56 shrink-0">
+                            {categoryReportWithAngles.length === 0 ? (
+                                <div
+                                    className="h-56 w-56 rounded-full border border-slate-100 bg-slate-50 flex flex-col items-center justify-center text-slate-400 text-xs font-semibold"
+                                    aria-label="Empty spending pie chart"
+                                >
+                                    No data
+                                </div>
+                            ) : (
+                                <>
+                                    <svg viewBox="0 0 200 200" className="h-full w-full">
+                                        <g>
+                                            {categoryReportWithAngles.map((slice) => {
+                                                const isHovered = hoveredSlice?.category === slice.category;
+                                                const d = getArcPath(100, 100, 85, slice.startAngle, slice.endAngle);
+                                                
+                                                return (
+                                                    <path
+                                                        key={slice.category}
+                                                        d={d}
+                                                        fill={slice.color}
+                                                        onMouseEnter={() => setHoveredSlice(slice)}
+                                                        onMouseLeave={() => setHoveredSlice(null)}
+                                                        className="transition-all duration-300 cursor-pointer"
+                                                        style={{
+                                                            transform: isHovered ? "scale(1.04)" : "scale(1)",
+                                                            transformOrigin: "100px 100px",
+                                                            opacity: hoveredSlice ? (isHovered ? 1 : 0.5) : 1,
+                                                        }}
+                                                    />
+                                                );
+                                            })}
+                                        </g>
+                                        {/* Center Donut Hole */}
+                                        <circle
+                                            cx="100"
+                                            cy="100"
+                                            r="56"
+                                            fill="white"
+                                            className="shadow-sm"
+                                        />
+                                    </svg>
+                                    
+                                    {/* Center Content Tooltip */}
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none p-4 select-none">
+                                        {hoveredSlice ? (
+                                            <>
+                                                <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest truncate max-w-[120px]">
+                                                    {hoveredSlice.category}
+                                                </p>
+                                                <p className="text-base font-black text-slate-900 mt-0.5 leading-none">
+                                                    {formatCurrency(hoveredSlice.total)}
+                                                </p>
+                                                <p className="text-[11px] font-extrabold text-pink-500 mt-1 leading-none">
+                                                    {hoveredSlice.percentage}%
+                                                </p>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <p className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
+                                                    TOTAL SPEND
+                                                </p>
+                                                <p className="text-base font-black text-slate-900 mt-0.5 leading-none truncate max-w-[120px]">
+                                                    {formatCurrency(monthlyTotal)}
+                                                </p>
+                                                <p className="text-[10px] font-semibold text-slate-500 mt-1 leading-none">
+                                                    {monthlyTransactions.length} Items
+                                                </p>
+                                            </>
+                                        )}
+                                    </div>
+                                </>
+                            )}
+                        </div>
                     </div>
                     <div className="rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-5 text-white shadow-xl">
                         <div className="flex items-start gap-4">
@@ -318,10 +391,7 @@ export default function MonthlyReport({ transactions }) {
                             </div>
                             <div className="min-w-0">
                                 <p className="text-sm text-slate-300">
-                                    Total this month ·{" "}
-                                    {monthlyDanaFilter === "all"
-                                        ? "All"
-                                        : monthlyDanaFilter}
+                                    Total this month
                                 </p>
                                 <p className="mt-1 text-3xl font-black">
                                     {formatCurrency(monthlyTotal)}
@@ -520,7 +590,12 @@ export default function MonthlyReport({ transactions }) {
                                                                 : item.category
                                                     )
                                                 }
-                                                className="w-full min-w-0 text-left"
+                                                onMouseEnter={() => {
+                                                    const slice = categoryReportWithAngles.find(s => s.category === item.category);
+                                                    if (slice) setHoveredSlice(slice);
+                                                }}
+                                                onMouseLeave={() => setHoveredSlice(null)}
+                                                className="w-full min-w-0 text-left transition-all duration-200"
                                             >
                                                 <div className="flex min-w-0 items-center justify-between gap-4">
                                                     <div className="flex min-w-0 items-center gap-3">

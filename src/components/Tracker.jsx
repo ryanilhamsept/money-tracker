@@ -193,7 +193,7 @@ export default function Tracker({
                 </div>
             )}
 
-            <section className="grid gap-4 lg:grid-cols-[1fr_1.4fr_1fr]">
+            <section className="grid gap-4 xl:grid-cols-3">
                 <StatCard
                     icon={Wallet}
                     label="Total Spending"
@@ -296,8 +296,8 @@ export default function Tracker({
                 />
             </section>
 
-            <section className="grid w-full min-w-0 gap-6 lg:grid-cols-[380px_1fr]">
-                <Card className="w-full min-w-0 overflow-hidden rounded-[1.75rem] border-white/70 bg-white/85 shadow-xl backdrop-blur">
+            <section className="grid gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
+                <Card className="sticky top-6 h-fit w-full min-w-0 overflow-hidden rounded-[1.75rem] border-white/70 bg-white/85 shadow-xl backdrop-blur">
                     <CardContent className="p-5">
                         <h2 className="mb-4 text-xl font-black text-slate-950">
                             Add transaction
@@ -343,7 +343,7 @@ export default function Tracker({
                                 />
                             </label>
 
-                            <div className="grid min-w-0 gap-3 md:grid-cols-3">
+                            <div className="grid min-w-0 gap-3 md:grid-cols-3 xl:grid-cols-1">
                                 <div className="space-y-2">
                                     <span className="flex items-center gap-2 text-sm font-semibold text-slate-600">
                                         <Tag className="h-4 w-4 text-purple-500" />
@@ -433,14 +433,14 @@ export default function Tracker({
                     </CardContent>
                 </Card>
 
-                <Card className="w-full min-w-0 overflow-hidden rounded-[1.75rem] border-white/70 bg-white/85 shadow-xl backdrop-blur">
+                <Card className="w-full min-w-0 min-h-[750px] overflow-hidden rounded-[1.75rem] border-white/70 bg-white/85 shadow-xl backdrop-blur">
                     <CardContent className="p-5">
                         <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                             <h2 className="text-xl font-black text-slate-950">
                                 Transactions
                             </h2>
 
-                            <div className="flex flex-wrap gap-2">
+                            <div className="grid w-full gap-2 md:grid-cols-[1fr_180px_180px]">
                                 <div className="relative">
                                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
 
@@ -448,7 +448,7 @@ export default function Tracker({
                                         value={query}
                                         onChange={(event) => setQuery(event.target.value)}
                                         placeholder="Search"
-                                        className="w-full min-w-0 rounded-2xl border border-slate-200 bg-white py-2 pl-9 pr-3 outline-none focus:ring-2 focus:ring-pink-200 md:w-48"
+                                        className="w-full min-w-0 rounded-2xl border border-slate-200 bg-white py-2 pl-9 pr-3 outline-none focus:ring-2 focus:ring-pink-200"
                                     />
                                 </div>
 

@@ -96,7 +96,7 @@ export default function App() {
 
                             <div>
                                 <p className="text-lg font-black">
-                                    Ilham's Money Tracker
+                                    ryanilhamsept's Money Tracker
                                 </p>
 
                                 <p className="text-xs font-medium text-slate-500">
@@ -149,11 +149,10 @@ export default function App() {
                             <button
                                 key={item.id}
                                 onClick={() => setActivePage(item.id)}
-                                className={`flex min-w-0 items-center justify-center gap-2 rounded-2xl px-4 py-4 text-sm font-bold transition ${
-                                    activePage === item.id
+                                className={`flex min-w-0 items-center justify-center gap-2 rounded-2xl px-4 py-4 text-sm font-bold transition ${activePage === item.id
                                         ? "bg-gradient-to-r from-pink-500 to-indigo-500 text-white shadow-lg"
                                         : "text-slate-500 hover:bg-slate-100"
-                                }`}
+                                    }`}
                             >
                                 <Icon className="h-5 w-5 shrink-0" />
 
@@ -202,11 +201,10 @@ export default function App() {
                         <button
                             key={item.id}
                             onClick={() => setActivePage(item.id)}
-                            className={`flex flex-col items-center justify-center gap-1 rounded-2xl px-3 py-3 text-xs font-bold transition ${
-                                activePage === item.id
+                            className={`flex flex-col items-center justify-center gap-1 rounded-2xl px-3 py-3 text-xs font-bold transition ${activePage === item.id
                                     ? "bg-pink-500 text-white shadow-lg"
                                     : "text-slate-400"
-                            }`}
+                                }`}
                         >
                             <Icon className="h-5 w-5" />
 

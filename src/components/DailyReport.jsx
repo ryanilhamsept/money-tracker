@@ -1,16 +1,16 @@
 import { useMemo, useState } from "react";
 import {
     ArrowLeftRight,
-    UtensilsCrossed,
+    Utensils,
     Car,
-    ShoppingCart,
-    Zap,
+    Store,
+    Lightbulb,
     Gamepad2,
-    Wifi,
+    Globe,
     ShoppingBag,
-    HeartPulse,
-    GraduationCap,
-    Receipt,
+    Heart,
+    BookOpen,
+    Coins,
 } from "lucide-react";
 
 import { Card, CardContent } from "./ui/card";
@@ -30,7 +30,7 @@ const categoryIcons = {
         color: "text-green-700",
     },
     Food: {
-        icon: UtensilsCrossed,
+        icon: Utensils,
         bg: "bg-orange-100",
         color: "text-orange-600",
     },
@@ -40,12 +40,12 @@ const categoryIcons = {
         color: "text-blue-600",
     },
     Groceries: {
-        icon: ShoppingCart,
+        icon: Store,
         bg: "bg-yellow-100",
         color: "text-yellow-700",
     },
     Utilities: {
-        icon: Zap,
+        icon: Lightbulb,
         bg: "bg-amber-100",
         color: "text-amber-600",
     },
@@ -55,7 +55,7 @@ const categoryIcons = {
         color: "text-pink-600",
     },
     Internet: {
-        icon: Wifi,
+        icon: Globe,
         bg: "bg-cyan-100",
         color: "text-cyan-600",
     },
@@ -65,17 +65,17 @@ const categoryIcons = {
         color: "text-violet-600",
     },
     Health: {
-        icon: HeartPulse,
+        icon: Heart,
         bg: "bg-rose-100",
         color: "text-rose-600",
     },
     Education: {
-        icon: GraduationCap,
+        icon: BookOpen,
         bg: "bg-indigo-100",
         color: "text-indigo-600",
     },
     Miscellaneous: {
-        icon: Receipt,
+        icon: Coins,
         bg: "bg-gray-100",
         color: "text-gray-600",
     },

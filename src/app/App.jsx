@@ -5,6 +5,7 @@ import {
     Home,
     PieChart,
     Wallet,
+    RefreshCw,
 } from "lucide-react";
 
 import Tracker from "../components/Tracker";
@@ -25,6 +26,7 @@ export default function App() {
         addTransaction,
         updateTransaction,
         deleteTransaction,
+        reloadTransactions,
     } = useTransactions();
 
     const {
@@ -33,7 +35,33 @@ export default function App() {
         budgetInput,
         setBudgetInput,
         saveBudget,
+        reloadBudget,
     } = useBudget();
+
+    const [isManualSyncing, setIsManualSyncing] = useState(false);
+    const [manualSyncStatus, setManualSyncStatus] = useState("");
+
+    const handleManualSync = async () => {
+        try {
+            setIsManualSyncing(true);
+            setManualSyncStatus("Fetching latest data from Google Sheets...");
+            
+            await Promise.all([
+                reloadTransactions(),
+                reloadBudget()
+            ]);
+            
+            setManualSyncStatus("All data is up to date!");
+            setTimeout(() => setManualSyncStatus(""), 3000);
+        } catch (error) {
+            console.error("MANUAL SYNC ERROR:", error);
+            setManualSyncStatus("Failed to sync latest data.");
+        } finally {
+            setIsManualSyncing(false);
+        }
+    };
+
+    const activeSyncStatus = manualSyncStatus || syncStatus;
 
     const totalAllTimeSpending = useMemo(() => {
         return transactions.reduce(
@@ -164,11 +192,30 @@ export default function App() {
                     })}
                 </nav>
 
-                {syncStatus && (
-                    <div className="rounded-2xl border border-white/70 bg-white/80 p-4 text-sm font-medium text-slate-500 shadow-sm backdrop-blur">
-                        {syncStatus}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border border-white/70 bg-white/80 p-4 text-sm font-medium shadow-md backdrop-blur transition-all duration-300">
+                    <div className="flex items-center gap-2.5">
+                        {activeSyncStatus ? (
+                            <>
+                                <div className="h-4 w-4 animate-spin rounded-full border-2 border-indigo-200 border-t-indigo-600" />
+                                <span className="font-semibold text-slate-700">{activeSyncStatus}</span>
+                            </>
+                        ) : (
+                            <>
+                                <div className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)] animate-pulse" />
+                                <span className="text-slate-500 font-medium">All data in sync with Google Sheets.</span>
+                            </>
+                        )}
                     </div>
-                )}
+                    
+                    <button
+                        onClick={handleManualSync}
+                        disabled={isLoading || isManualSyncing}
+                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-pink-500 to-indigo-500 px-4 py-2 text-xs font-black text-white shadow-md hover:from-pink-600 hover:to-indigo-600 hover:shadow-lg active:scale-95 disabled:opacity-50 disabled:pointer-events-none transition-all duration-200 shrink-0"
+                    >
+                        <RefreshCw className={`h-3.5 w-3.5 ${isManualSyncing ? "animate-spin" : ""}`} />
+                        Sync Now
+                    </button>
+                </div>
 
                 {activePage === "tracker" && (
                     <Tracker

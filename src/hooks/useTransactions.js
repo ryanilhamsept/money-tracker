@@ -65,34 +65,39 @@ export const useTransactions = () => {
 
         if (!form.title.trim() || !amount) return;
 
+        const maxRowNumber = transactions.length > 0
+            ? Math.max(...transactions.map((t) => t.rowNumber || 0))
+            : 0;
+
         const newTransaction = {
             id: crypto.randomUUID(),
             ...form,
             title: form.title.trim(),
             amount,
             date: normalizeDate(form.date),
+            rowNumber: maxRowNumber + 1,
         };
 
         setTransactions((current) => [newTransaction, ...current]);
 
-        try {
-            setSyncStatus("Syncing to Google Sheets...");
-
-            await syncTransactionToGoogleSheet(newTransaction);
-
-            await loadTransactions();
-
-            setSyncStatus("Saved to Google Sheets.");
-        } catch (error) {
-            console.error("ADD TRANSACTION ERROR:", error);
-            setSyncStatus("Failed to sync to Google Sheets.");
-        }
+        setSyncStatus("Syncing to Google Sheets...");
+        syncTransactionToGoogleSheet(newTransaction)
+            .then(() => {
+                setSyncStatus("Saved to Google Sheets.");
+                setTimeout(() => setSyncStatus(""), 3000);
+            })
+            .catch((error) => {
+                console.error("ADD TRANSACTION ERROR:", error);
+                setSyncStatus("Failed to sync to Google Sheets.");
+            });
     };
 
     const updateTransaction = async (id, updatedForm) => {
         const amount = parseAmountInput(String(updatedForm.amount));
 
         if (!updatedForm.title.trim() || !amount) return;
+
+        const existing = transactions.find((item) => item.id === id);
 
         const updatedTransaction = {
             id,
@@ -102,6 +107,7 @@ export const useTransactions = () => {
             source: updatedForm.source,
             danaDipakai: updatedForm.danaDipakai,
             date: normalizeDate(updatedForm.date),
+            rowNumber: existing ? existing.rowNumber : 0,
         };
 
         setTransactions((current) =>
@@ -115,18 +121,16 @@ export const useTransactions = () => {
             )
         );
 
-        try {
-            setSyncStatus("Updating transaction...");
-
-            await updateTransactionToGoogleSheet(updatedTransaction);
-
-            await loadTransactions();
-
-            setSyncStatus("Transaction updated.");
-        } catch (error) {
-            console.error("UPDATE TRANSACTION ERROR:", error);
-            setSyncStatus("Failed to update transaction.");
-        }
+        setSyncStatus("Updating transaction...");
+        updateTransactionToGoogleSheet(updatedTransaction)
+            .then(() => {
+                setSyncStatus("Transaction updated.");
+                setTimeout(() => setSyncStatus(""), 3000);
+            })
+            .catch((error) => {
+                console.error("UPDATE TRANSACTION ERROR:", error);
+                setSyncStatus("Failed to update transaction.");
+            });
     };
 
     const deleteTransaction = async (id) => {
@@ -138,22 +142,20 @@ export const useTransactions = () => {
             current.filter((item) => item.id !== id)
         );
 
-        try {
-            setSyncStatus("Deleting from Google Sheets...");
-
-            await deleteTransactionFromGoogleSheet(id);
-
-            await loadTransactions();
-
-            setSyncStatus(
-                deletedTransaction
-                    ? `Deleted "${deletedTransaction.title}" from Google Sheets.`
-                    : "Deleted from Google Sheets."
-            );
-        } catch (error) {
-            console.error("DELETE TRANSACTION ERROR:", error);
-            setSyncStatus("Failed to delete from Google Sheets.");
-        }
+        setSyncStatus("Deleting from Google Sheets...");
+        deleteTransactionFromGoogleSheet(id)
+            .then(() => {
+                setSyncStatus(
+                    deletedTransaction
+                        ? `Deleted "${deletedTransaction.title}" from Google Sheets.`
+                        : "Deleted from Google Sheets."
+                );
+                setTimeout(() => setSyncStatus(""), 3000);
+            })
+            .catch((error) => {
+                console.error("DELETE TRANSACTION ERROR:", error);
+                setSyncStatus("Failed to delete from Google Sheets.");
+            });
     };
 
     return {
@@ -163,5 +165,6 @@ export const useTransactions = () => {
         addTransaction,
         updateTransaction,
         deleteTransaction,
+        reloadTransactions: loadTransactions,
     };
 };

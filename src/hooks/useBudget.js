@@ -36,12 +36,9 @@ export const useBudget = () => {
         setBudget(newBudget);
         setBudgetInput("");
 
-        try {
-            await saveBudgetToGoogleSheet(newBudget);
-            await loadBudget();
-        } catch (err) {
-            console.log(err);
-        }
+        saveBudgetToGoogleSheet(newBudget)
+            .then(() => loadBudget())
+            .catch((err) => console.error("SAVE BUDGET ERROR:", err));
     };
 
     return {

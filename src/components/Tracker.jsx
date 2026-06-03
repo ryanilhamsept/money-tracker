@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import {
     PlusCircle,
     Search,
@@ -52,6 +52,14 @@ export default function Tracker({
     const [sourceFilter, setSourceFilter] = useState("all");
     const [historyPage, setHistoryPage] = useState(1);
     const [isEditingBudget, setIsEditingBudget] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const isSubmittingRef = useRef(false);
+
+    useEffect(() => {
+        if (!isSubmitting) {
+            isSubmittingRef.current = false;
+        }
+    }, [isSubmitting]);
 
     const historyPageSize = 20;
     const DAILY_LIMIT = 300000;
@@ -137,16 +145,30 @@ export default function Tracker({
     const handleSubmit = async (event) => {
         event.preventDefault();
 
-        await addTransaction(form);
+        if (isSubmittingRef.current) return;
 
-        setForm({
-            title: "",
-            amount: "",
-            category: "Food",
-            source: "Mandiri",
-            danaDipakai: "Spend Bulanan",
-            date: today(),
-        });
+        const amount = Number(String(form.amount || "").replace(/[^\d]/g, ""));
+        if (!form.title.trim() || !amount) return;
+
+        isSubmittingRef.current = true;
+        setIsSubmitting(true);
+
+        try {
+            await addTransaction(form);
+
+            setForm({
+                title: "",
+                amount: "",
+                category: "Food",
+                source: "Mandiri",
+                danaDipakai: "Spend Bulanan",
+                date: today(),
+            });
+        } catch (error) {
+            console.error("Failed to add transaction:", error);
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const handleBudgetEditOpen = () => {
@@ -422,10 +444,11 @@ export default function Tracker({
 
                             <Button
                                 type="submit"
+                                disabled={isSubmitting}
                                 className="flex w-full items-center justify-center rounded-2xl bg-gradient-to-r from-pink-500 to-indigo-500 py-6 text-base font-bold text-white shadow-lg hover:opacity-95"
                             >
                                 <PlusCircle className="mr-2 h-5 w-5" />
-                                Add transaction
+                                {isSubmitting ? "Adding..." : "Add transaction"}
                             </Button>
                         </form>
                     </CardContent>

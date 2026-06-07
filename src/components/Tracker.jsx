@@ -64,14 +64,18 @@ export default function Tracker({
     const historyPageSize = 20;
     const DAILY_LIMIT = 300000;
 
+    const activeFundSources = fundSources;
+
     const [form, setForm] = useState({
         title: "",
         amount: "",
         category: "Food",
-        source: "Mandiri",
+        source: activeFundSources[0] || "Mandiri",
         danaDipakai: "Spend Bulanan",
         date: today(),
     });
+
+
 
     const currentMonthTransactions = useMemo(() => {
         return transactions.filter(
@@ -153,14 +157,21 @@ export default function Tracker({
         isSubmittingRef.current = true;
         setIsSubmitting(true);
 
+        const activeSource = activeFundSources.includes(form.source)
+            ? form.source
+            : (activeFundSources[0] || "Mandiri");
+
         try {
-            await addTransaction(form);
+            await addTransaction({
+                ...form,
+                source: activeSource,
+            });
 
             setForm({
                 title: "",
                 amount: "",
                 category: "Food",
-                source: "Mandiri",
+                source: activeFundSources[0] || "Mandiri",
                 danaDipakai: "Spend Bulanan",
                 date: today(),
             });
@@ -391,8 +402,8 @@ export default function Tracker({
 
                                     <SelectField
                                         label=""
-                                        value={form.source}
-                                        options={fundSources}
+                                        value={activeFundSources.includes(form.source) ? form.source : (activeFundSources[0] || "")}
+                                        options={activeFundSources}
                                         onChange={(value) =>
                                             setForm((prev) => ({
                                                 ...prev,
@@ -498,7 +509,7 @@ export default function Tracker({
                                 >
                                     <option value="all">All sources</option>
 
-                                    {fundSources.map((source) => (
+                                    {activeFundSources.map((source) => (
                                         <option key={source} value={source}>
                                             {source}
                                         </option>

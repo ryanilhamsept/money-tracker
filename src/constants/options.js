@@ -15,10 +15,9 @@ export const categories = [
 export const fundSources = [
     "Mandiri",
     "BCA",
-    "Credit Card",
+    "Credit Card - BCA",
     "Blu",
     "Superbank",
-    "Other",
 ];
 
 export const danaDipakaiOptions = [
@@ -27,4 +26,5 @@ export const danaDipakaiOptions = [
     "Bagian THR",
     "Spend CC",
     "Other",
+    "Liburan",
 ];

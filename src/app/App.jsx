@@ -11,6 +11,8 @@ import {
 import Tracker from "../components/Tracker";
 import DailyReport from "../components/DailyReport";
 import MonthlyReport from "../components/MonthlyReport";
+import Accounts from "../components/Accounts";
+import { useAccounts } from "../hooks/useAccounts";
 
 import { useTransactions } from "../hooks/useTransactions";
 import { useBudget } from "../hooks/useBudget";
@@ -38,6 +40,15 @@ export default function App() {
         reloadBudget,
     } = useBudget();
 
+    const {
+        accounts,
+        isLoading: isAccountsLoading,
+        addAccount,
+        deleteAccount,
+        updateStartingBalance,
+        reloadAccounts,
+    } = useAccounts();
+
     const [isManualSyncing, setIsManualSyncing] = useState(false);
     const [manualSyncStatus, setManualSyncStatus] = useState("");
 
@@ -48,7 +59,8 @@ export default function App() {
             
             await Promise.all([
                 reloadTransactions(),
-                reloadBudget()
+                reloadBudget(),
+                reloadAccounts(),
             ]);
             
             setManualSyncStatus("All data is up to date!");
@@ -77,6 +89,11 @@ export default function App() {
             icon: Home,
         },
         {
+            id: "accounts",
+            label: "Akun",
+            icon: Wallet,
+        },
+        {
             id: "daily-report",
             label: "Daily",
             icon: CalendarDays,
@@ -88,7 +105,7 @@ export default function App() {
         },
     ];
 
-    if (isLoading) {
+    if (isLoading || isAccountsLoading) {
         return (
             <main className="flex min-h-screen items-center justify-center bg-[#f8f6ff] p-4 text-slate-950">
                 <div className="space-y-4 text-center">
@@ -96,7 +113,7 @@ export default function App() {
 
                     <div>
                         <p className="text-base font-semibold">
-                            Loading transactions...
+                            Loading app data...
                         </p>
 
                         <p className="mt-1 text-sm text-slate-500">
@@ -169,7 +186,7 @@ export default function App() {
                     </div>
                 </motion.header>
 
-                <nav className="hidden grid-cols-3 gap-3 rounded-[1.5rem] border border-white/70 bg-white/80 p-2 shadow-lg backdrop-blur md:grid">
+                <nav className="hidden grid-cols-4 gap-3 rounded-[1.5rem] border border-white/70 bg-white/80 p-2 shadow-lg backdrop-blur md:grid">
                     {navItems.map((item) => {
                         const Icon = item.icon;
 
@@ -231,6 +248,16 @@ export default function App() {
                     />
                 )}
 
+                {activePage === "accounts" && (
+                    <Accounts
+                        transactions={transactions}
+                        accounts={accounts}
+                        addAccount={addAccount}
+                        deleteAccount={deleteAccount}
+                        updateStartingBalance={updateStartingBalance}
+                    />
+                )}
+
                 {activePage === "daily-report" && (
                     <DailyReport transactions={transactions} />
                 )}
@@ -240,7 +267,7 @@ export default function App() {
                 )}
             </div>
 
-            <nav className="fixed bottom-4 left-1/2 z-50 grid w-[calc(100%-2rem)] max-w-md -translate-x-1/2 grid-cols-3 items-center rounded-[2rem] border border-white/70 bg-white/90 p-2 shadow-2xl backdrop-blur md:hidden">
+            <nav className="fixed bottom-4 left-1/2 z-50 grid w-[calc(100%-2rem)] max-w-md -translate-x-1/2 grid-cols-4 items-center rounded-[2rem] border border-white/70 bg-white/90 p-2 shadow-2xl backdrop-blur md:hidden">
                 {navItems.map((item) => {
                     const Icon = item.icon;
 

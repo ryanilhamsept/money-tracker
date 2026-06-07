@@ -1,5 +1,5 @@
 const GOOGLE_SHEET_API_URL =
-    "https://script.google.com/macros/s/AKfycby3wCtf8Inf4DQ49N2EdudHWhJTo1PYp00oJxqHR6OMQRBf8W1chYWM6ow-JwriYuxUAw/exec";
+    "https://script.google.com/macros/s/AKfycbx7vXtYC6Y8EsI6Kjm2dgdTW0FGfYsidzohTWPVQt-1jDF0kXqUuM4s5YUofrUy3xsKVg/exec";
 
 export const getTransactionsFromGoogleSheet = async () => {
     const response = await fetch(GOOGLE_SHEET_API_URL);
@@ -56,5 +56,53 @@ export const saveBudgetToGoogleSheet = async (budget) => {
         `${GOOGLE_SHEET_API_URL}?action=saveBudget&budget=${Number(budget)}`
     );
 
+    return response.json();
+};
+
+export const getAccountsFromGoogleSheet = async () => {
+    const response = await fetch(`${GOOGLE_SHEET_API_URL}?type=accounts`);
+    return response.json();
+};
+
+export const addAccountToGoogleSheet = async (account) => {
+    const params = new URLSearchParams({
+        action: "addAccount",
+        id: account.id,
+        name: account.name,
+        type: account.type,
+        startingBalance: String(account.startingBalance),
+    });
+    const response = await fetch(`${GOOGLE_SHEET_API_URL}?${params.toString()}`);
+    return response.json();
+};
+
+export const deleteAccountFromGoogleSheet = async (id) => {
+    const response = await fetch(
+        `${GOOGLE_SHEET_API_URL}?action=deleteAccount&id=${encodeURIComponent(id)}`
+    );
+    return response.json();
+};
+
+export const updateStartingBalanceInGoogleSheet = async (id, balance) => {
+    const response = await fetch(
+        `${GOOGLE_SHEET_API_URL}?action=updateStartingBalance&id=${encodeURIComponent(
+            id
+        )}&balance=${Number(balance)}`
+    );
+    return response.json();
+};
+
+export const getOtherSourcesFromGoogleSheet = async () => {
+    const response = await fetch(`${GOOGLE_SHEET_API_URL}?type=otherSources`);
+    return response.json();
+};
+
+export const addOtherSourceToGoogleSheet = async (name) => {
+    const params = new URLSearchParams({
+        action: "addOtherSource",
+        id: `src-${Date.now()}`,
+        name: name.trim(),
+    });
+    const response = await fetch(`${GOOGLE_SHEET_API_URL}?${params.toString()}`);
     return response.json();
 };

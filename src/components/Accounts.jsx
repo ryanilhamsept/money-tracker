@@ -16,10 +16,8 @@ import {
 } from "lucide-react";
 
 import { formatCurrency } from "../utils/currency";
-import { today } from "../utils/date";
 
 export default function Accounts({
-    transactions = [],
     accounts,
     addAccount,
     deleteAccount,
@@ -38,67 +36,13 @@ export default function Accounts({
         startingBalance: "",
     });
 
-    // Calculate current balances dynamically based on starting balance and transaction history
+    // Display balances exactly as stored in Google Sheets.
     const accountsWithBalances = useMemo(() => {
-        return accounts.map((account) => {
-            // Determine account creation date string (YYYY-MM-DD)
-            const match = account.id.match(/^acc-(\d+)/);
-            let creationDateString = today();
-            if (match) {
-                const d = new Date(Number(match[1]));
-                try {
-                    const jakartaDateString = d.toLocaleString("en-US", {
-                        timeZone: "Asia/Jakarta",
-                    });
-                    const jakartaDate = new Date(jakartaDateString);
-                    const year = jakartaDate.getFullYear();
-                    const month = String(jakartaDate.getMonth() + 1).padStart(2, "0");
-                    const day = String(jakartaDate.getDate()).padStart(2, "0");
-                    creationDateString = `${year}-${month}-${day}`;
-                } catch (e) {
-                    creationDateString = today();
-                }
-            }
-
-            const isTabunganAcc = account.name.toLowerCase() === "tabungan";
-            const totalSpent = transactions.reduce((sum, t) => {
-                // Ignore transactions older than the creation date of the account
-                const tDate = t.date ? t.date.split("T")[0] : "";
-                if (tDate < creationDateString) {
-                    return sum;
-                }
-
-                const amount = Number(t.amount || 0);
-                const dana = t.danaDipakai || "";
-                const source = (t.source || "").toLowerCase();
-                const accName = account.name.toLowerCase();
-
-                // Spend CC does not reduce any account balance
-                if (dana === "Spend CC") {
-                    return sum;
-                }
-
-                // Normal transactions reduce the account whose name matches the source
-                const matchesSource = (src, acc) => {
-                    const s = src.trim();
-                    const a = acc.trim();
-                    if (s === a) return true;
-                    if (s === "blu" && a.includes("blu")) return true;
-                    return false;
-                };
-
-                if (matchesSource(source, accName)) {
-                    return sum + amount;
-                }
-                return sum;
-            }, 0);
-
-            return {
-                ...account,
-                balance: account.startingBalance - totalSpent,
-            };
-        });
-    }, [accounts, transactions]);
+        return accounts.map((account) => ({
+            ...account,
+            balance: Number(account.startingBalance) || 0,
+        }));
+    }, [accounts]);
 
     // Total Net Worth (Kekayaan Bersih)
     const netWorth = useMemo(() => {
@@ -144,63 +88,7 @@ export default function Accounts({
 
     const handleEditSave = (id) => {
         const parsedVal = Number(String(editBalanceVal).replace(/[^\d]/g, "")) || 0;
-        const account = accounts.find((acc) => acc.id === id);
-        if (account) {
-            // Determine account creation date string (YYYY-MM-DD)
-            const match = account.id.match(/^acc-(\d+)/);
-            let creationDateString = today();
-            if (match) {
-                const d = new Date(Number(match[1]));
-                try {
-                    const jakartaDateString = d.toLocaleString("en-US", {
-                        timeZone: "Asia/Jakarta",
-                    });
-                    const jakartaDate = new Date(jakartaDateString);
-                    const year = jakartaDate.getFullYear();
-                    const month = String(jakartaDate.getMonth() + 1).padStart(2, "0");
-                    const day = String(jakartaDate.getDate()).padStart(2, "0");
-                    creationDateString = `${year}-${month}-${day}`;
-                } catch (e) {
-                    creationDateString = today();
-                }
-            }
-
-            const isTabunganAcc = account.name.toLowerCase() === "tabungan";
-            const totalSpent = transactions.reduce((sum, t) => {
-                // Ignore transactions older than the creation date of the account
-                const tDate = t.date ? t.date.split("T")[0] : "";
-                if (tDate < creationDateString) {
-                    return sum;
-                }
-
-                const amount = Number(t.amount || 0);
-                const dana = t.danaDipakai || "";
-                const source = (t.source || "").toLowerCase();
-                const accName = account.name.toLowerCase();
-
-                // Spend CC does not reduce any account balance
-                if (dana === "Spend CC") {
-                    return sum;
-                }
-
-                // Normal transactions reduce the account whose name matches the source
-                const matchesSource = (src, acc) => {
-                    const s = src.trim();
-                    const a = acc.trim();
-                    if (s === a) return true;
-                    if (s === "blu" && a.includes("blu")) return true;
-                    return false;
-                };
-
-                if (matchesSource(source, accName)) {
-                    return sum + amount;
-                }
-                return sum;
-            }, 0);
-
-            // Set starting balance so that: startingBalance - totalSpent = parsedVal (target balance)
-            updateStartingBalance(id, parsedVal + totalSpent);
-        }
+        updateStartingBalance(id, parsedVal);
         setEditingId(null);
     };
 

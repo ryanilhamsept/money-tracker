@@ -130,8 +130,10 @@ export default function TransactionList({
     };
 
     const saveEdit = async (id) => {
-        await updateTransaction(id, editForm);
-        closeEdit();
+        const wasSaved = await updateTransaction(id, editForm);
+        if (wasSaved) {
+            closeEdit();
+        }
     };
 
     if (!transactions.length) {
@@ -338,4 +340,4 @@ export default function TransactionList({
             })}
         </div>
     );
-}   
+}

@@ -8,7 +8,13 @@ import {
     updateTransactionToGoogleSheet,
 } from "../services/googleSheets";
 
-export const useTransactions = () => {
+const assertSuccessfulSync = (result) => {
+    if (result?.success === false) {
+        throw new Error(result.error || "Google Sheets rejected the request.");
+    }
+};
+
+export const useTransactions = ({ syncTransactionBalanceChange } = {}) => {
     const [transactions, setTransactions] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
 
@@ -82,15 +88,35 @@ export const useTransactions = () => {
         setTransactions((current) => [newTransaction, ...current]);
 
         setSyncStatus("Syncing to Google Sheets...");
-        syncTransactionToGoogleSheet(newTransaction)
-            .then(() => {
-                setSyncStatus("Saved to Google Sheets.");
-                setTimeout(() => setSyncStatus(""), 3000);
-            })
-            .catch((error) => {
-                console.error("ADD TRANSACTION ERROR:", error);
-                setSyncStatus("Failed to sync to Google Sheets.");
-            });
+        let transactionSynced = false;
+
+        try {
+            const result = await syncTransactionToGoogleSheet(newTransaction);
+            assertSuccessfulSync(result);
+            transactionSynced = true;
+
+            await syncTransactionBalanceChange?.(null, newTransaction);
+
+            setSyncStatus("Transaction and account balance saved.");
+            setTimeout(() => setSyncStatus(""), 3000);
+            return true;
+        } catch (error) {
+            console.error("ADD TRANSACTION ERROR:", error);
+
+            if (transactionSynced) {
+                try {
+                    await deleteTransactionFromGoogleSheet(newTransaction.id);
+                } catch (rollbackError) {
+                    console.error("ADD TRANSACTION ROLLBACK ERROR:", rollbackError);
+                }
+            }
+
+            setTransactions((current) =>
+                current.filter((item) => item.id !== newTransaction.id)
+            );
+            setSyncStatus("Failed to sync transaction and account balance.");
+            return false;
+        }
     };
 
     const updateTransaction = async (id, updatedForm) => {
@@ -123,15 +149,40 @@ export const useTransactions = () => {
         );
 
         setSyncStatus("Updating transaction...");
-        updateTransactionToGoogleSheet(updatedTransaction)
-            .then(() => {
-                setSyncStatus("Transaction updated.");
-                setTimeout(() => setSyncStatus(""), 3000);
-            })
-            .catch((error) => {
-                console.error("UPDATE TRANSACTION ERROR:", error);
-                setSyncStatus("Failed to update transaction.");
-            });
+        let transactionSynced = false;
+
+        try {
+            const result = await updateTransactionToGoogleSheet(updatedTransaction);
+            assertSuccessfulSync(result);
+            transactionSynced = true;
+
+            await syncTransactionBalanceChange?.(existing, updatedTransaction);
+
+            setSyncStatus("Transaction and account balance updated.");
+            setTimeout(() => setSyncStatus(""), 3000);
+            return true;
+        } catch (error) {
+            console.error("UPDATE TRANSACTION ERROR:", error);
+
+            if (transactionSynced && existing) {
+                try {
+                    await updateTransactionToGoogleSheet(existing);
+                } catch (rollbackError) {
+                    console.error(
+                        "UPDATE TRANSACTION ROLLBACK ERROR:",
+                        rollbackError
+                    );
+                }
+            }
+
+            if (existing) {
+                setTransactions((current) =>
+                    current.map((item) => (item.id === id ? existing : item))
+                );
+            }
+            setSyncStatus("Failed to update transaction and account balance.");
+            return false;
+        }
     };
 
     const deleteTransaction = async (id) => {
@@ -144,19 +195,45 @@ export const useTransactions = () => {
         );
 
         setSyncStatus("Deleting from Google Sheets...");
-        deleteTransactionFromGoogleSheet(id)
-            .then(() => {
-                setSyncStatus(
-                    deletedTransaction
-                        ? `Deleted "${deletedTransaction.title}" from Google Sheets.`
-                        : "Deleted from Google Sheets."
-                );
-                setTimeout(() => setSyncStatus(""), 3000);
-            })
-            .catch((error) => {
-                console.error("DELETE TRANSACTION ERROR:", error);
-                setSyncStatus("Failed to delete from Google Sheets.");
-            });
+        let transactionSynced = false;
+
+        try {
+            const result = await deleteTransactionFromGoogleSheet(id);
+            assertSuccessfulSync(result);
+            transactionSynced = true;
+
+            await syncTransactionBalanceChange?.(deletedTransaction, null);
+
+            setSyncStatus(
+                deletedTransaction
+                    ? `Deleted "${deletedTransaction.title}" and restored its balance.`
+                    : "Deleted from Google Sheets."
+            );
+            setTimeout(() => setSyncStatus(""), 3000);
+            return true;
+        } catch (error) {
+            console.error("DELETE TRANSACTION ERROR:", error);
+
+            if (transactionSynced && deletedTransaction) {
+                try {
+                    await syncTransactionToGoogleSheet(deletedTransaction);
+                } catch (rollbackError) {
+                    console.error(
+                        "DELETE TRANSACTION ROLLBACK ERROR:",
+                        rollbackError
+                    );
+                }
+            }
+
+            if (deletedTransaction) {
+                setTransactions((current) => [
+                    deletedTransaction,
+                    ...current.filter((item) => item.id !== id),
+                ]);
+            }
+            setSyncStatus("Failed to delete transaction and restore balance.");
+            return false;
+        }
     };
 
     return {

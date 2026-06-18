@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
     getAccountsFromGoogleSheet,
     addAccountToGoogleSheet,
     deleteAccountFromGoogleSheet,
     updateStartingBalanceInGoogleSheet,
 } from "../services/googleSheets";
+import { getAccountBalanceDeltas } from "../utils/accountBalance";
 
 const DEFAULT_ACCOUNTS = [
     { id: "acc-1", name: "BCA", type: "Bank", startingBalance: 20000000 },
@@ -18,6 +19,13 @@ export const useAccounts = () => {
     const [accounts, setAccounts] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
+    const accountsRef = useRef([]);
+    const balanceUpdateQueueRef = useRef(Promise.resolve());
+
+    const replaceAccounts = useCallback((nextAccounts) => {
+        accountsRef.current = nextAccounts;
+        setAccounts(nextAccounts);
+    }, []);
 
     const loadAccounts = useCallback(async () => {
         try {
@@ -28,7 +36,7 @@ export const useAccounts = () => {
             if (Array.isArray(data)) {
                 if (data.length === 0) {
                     // Auto-initialize default accounts in sheet
-                    setAccounts(DEFAULT_ACCOUNTS);
+                    replaceAccounts(DEFAULT_ACCOUNTS);
 
                     // Sync to Sheet sequentially to avoid Google Apps Script lock/concurrency errors
                     const initAccountsSequentially = async () => {
@@ -42,7 +50,7 @@ export const useAccounts = () => {
                     };
                     initAccountsSequentially();
                 } else {
-                    setAccounts(data);
+                    replaceAccounts(data);
                 }
                 setError(null);
             } else {
@@ -55,7 +63,7 @@ export const useAccounts = () => {
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, [replaceAccounts]);
 
     useEffect(() => {
         // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -71,14 +79,16 @@ export const useAccounts = () => {
         };
 
         // Optimistic update
-        setAccounts((prev) => [...prev, newAccount]);
+        replaceAccounts([...accountsRef.current, newAccount]);
 
         try {
             await addAccountToGoogleSheet(newAccount);
         } catch (err) {
             console.error("Error syncing new account to Google Sheets:", err);
             // Revert on error
-            setAccounts((prev) => prev.filter((acc) => acc.id !== newAccount.id));
+            replaceAccounts(
+                accountsRef.current.filter((acc) => acc.id !== newAccount.id)
+            );
             setError("Failed to sync new account to Google Sheets.");
         }
     };
@@ -88,14 +98,14 @@ export const useAccounts = () => {
         if (!deletedAccount) return;
 
         // Optimistic update
-        setAccounts((prev) => prev.filter((acc) => acc.id !== id));
+        replaceAccounts(accountsRef.current.filter((acc) => acc.id !== id));
 
         try {
             await deleteAccountFromGoogleSheet(id);
         } catch (err) {
             console.error("Error deleting account from Google Sheets:", err);
             // Revert
-            setAccounts((prev) => [...prev, deletedAccount]);
+            replaceAccounts([...accountsRef.current, deletedAccount]);
             setError("Failed to delete account from Google Sheets.");
         }
     };
@@ -105,8 +115,8 @@ export const useAccounts = () => {
         if (!originalAccount) return;
 
         // Optimistic update
-        setAccounts((prev) =>
-            prev.map((acc) =>
+        replaceAccounts(
+            accountsRef.current.map((acc) =>
                 acc.id === id
                     ? { ...acc, startingBalance: Number(newBalance) || 0 }
                     : acc
@@ -114,16 +124,106 @@ export const useAccounts = () => {
         );
 
         try {
-            await updateStartingBalanceInGoogleSheet(id, newBalance);
+            const result = await updateStartingBalanceInGoogleSheet(id, newBalance);
+            if (result?.success === false) {
+                throw new Error(result.error || "Google Sheets rejected balance update.");
+            }
+            return true;
         } catch (err) {
             console.error("Error updating starting balance in Google Sheets:", err);
             // Revert
-            setAccounts((prev) =>
-                prev.map((acc) => (acc.id === id ? originalAccount : acc))
+            replaceAccounts(
+                accountsRef.current.map((acc) =>
+                    acc.id === id ? originalAccount : acc
+                )
             );
             setError("Failed to update starting balance in Google Sheets.");
+            return false;
         }
     };
+
+    const syncTransactionBalanceChange = useCallback(
+        (previousTransaction, nextTransaction) => {
+            const runUpdate = async () => {
+                const deltas = getAccountBalanceDeltas(
+                    accountsRef.current,
+                    previousTransaction,
+                    nextTransaction
+                );
+
+                const appliedUpdates = [];
+
+                try {
+                    for (const delta of deltas) {
+                        const currentAccount = accountsRef.current.find(
+                            (account) => account.id === delta.account.id
+                        );
+
+                        if (!currentAccount) continue;
+
+                        const previousBalance =
+                            Number(currentAccount.startingBalance) || 0;
+                        const nextBalance = previousBalance + delta.amount;
+                        const result = await updateStartingBalanceInGoogleSheet(
+                            currentAccount.id,
+                            nextBalance
+                        );
+
+                        if (result?.success === false) {
+                            throw new Error(
+                                result.error ||
+                                    `Failed to update ${currentAccount.name}.`
+                            );
+                        }
+
+                        appliedUpdates.push({
+                            account: currentAccount,
+                            previousBalance,
+                        });
+
+                        replaceAccounts(
+                            accountsRef.current.map((account) =>
+                                account.id === currentAccount.id
+                                    ? {
+                                          ...account,
+                                          startingBalance: nextBalance,
+                                      }
+                                    : account
+                            )
+                        );
+                    }
+
+                    setError(null);
+                    return true;
+                } catch (err) {
+                    console.error("Error syncing account balance:", err);
+
+                    for (const applied of appliedUpdates.reverse()) {
+                        try {
+                            await updateStartingBalanceInGoogleSheet(
+                                applied.account.id,
+                                applied.previousBalance
+                            );
+                        } catch (rollbackError) {
+                            console.error(
+                                "Failed to roll back account balance:",
+                                rollbackError
+                            );
+                        }
+                    }
+
+                    await loadAccounts();
+                    setError("Failed to sync account balance with transaction.");
+                    throw err;
+                }
+            };
+
+            const queuedUpdate = balanceUpdateQueueRef.current.then(runUpdate);
+            balanceUpdateQueueRef.current = queuedUpdate.catch(() => {});
+            return queuedUpdate;
+        },
+        [loadAccounts, replaceAccounts]
+    );
 
     return {
         accounts,
@@ -132,6 +232,7 @@ export const useAccounts = () => {
         addAccount,
         deleteAccount,
         updateStartingBalance,
+        syncTransactionBalanceChange,
         reloadAccounts: loadAccounts,
     };
 };

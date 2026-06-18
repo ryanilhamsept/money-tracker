@@ -22,16 +22,6 @@ export default function App() {
     const [activePage, setActivePage] = useState("tracker");
 
     const {
-        transactions,
-        isLoading,
-        syncStatus,
-        addTransaction,
-        updateTransaction,
-        deleteTransaction,
-        reloadTransactions,
-    } = useTransactions();
-
-    const {
         budget,
         leftBudget,
         budgetInput,
@@ -46,8 +36,19 @@ export default function App() {
         addAccount,
         deleteAccount,
         updateStartingBalance,
+        syncTransactionBalanceChange,
         reloadAccounts,
     } = useAccounts();
+
+    const {
+        transactions,
+        isLoading,
+        syncStatus,
+        addTransaction,
+        updateTransaction,
+        deleteTransaction,
+        reloadTransactions,
+    } = useTransactions({ syncTransactionBalanceChange });
 
     const [isManualSyncing, setIsManualSyncing] = useState(false);
     const [manualSyncStatus, setManualSyncStatus] = useState("");
@@ -250,7 +251,6 @@ export default function App() {
 
                 {activePage === "accounts" && (
                     <Accounts
-                        transactions={transactions}
                         accounts={accounts}
                         addAccount={addAccount}
                         deleteAccount={deleteAccount}

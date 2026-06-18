@@ -162,10 +162,12 @@ export default function Tracker({
             : (activeFundSources[0] || "Mandiri");
 
         try {
-            await addTransaction({
+            const wasSaved = await addTransaction({
                 ...form,
                 source: activeSource,
             });
+
+            if (!wasSaved) return;
 
             setForm({
                 title: "",

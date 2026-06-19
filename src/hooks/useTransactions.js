@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { normalizeDate } from "../utils/date";
 import { parseAmountInput } from "../utils/parser";
+import { deduplicateTransactionsById } from "../utils/transactions";
 import {
     syncTransactionToGoogleSheet,
     deleteTransactionFromGoogleSheet,
@@ -38,7 +39,15 @@ export const useTransactions = ({ syncTransactionBalanceChange } = {}) => {
                 return;
             }
 
-            const normalizedData = rows
+            const deduplicated = deduplicateTransactionsById(rows);
+
+            if (deduplicated.duplicateCount > 0) {
+                console.warn(
+                    `Ignored ${deduplicated.duplicateCount} duplicate transaction rows from Google Sheets.`
+                );
+            }
+
+            const normalizedData = deduplicated.rows
                 .filter((item) => item.title)
                 .map((item) => ({
                     rowNumber: Number(item.rowNumber) || 0,

@@ -58,11 +58,15 @@ export default function App() {
             setIsManualSyncing(true);
             setManualSyncStatus("Fetching latest data from Google Sheets...");
             
-            await Promise.all([
+            const results = await Promise.all([
                 reloadTransactions(),
                 reloadBudget(),
                 reloadAccounts(),
             ]);
+
+            if (results.some((result) => result !== true)) {
+                throw new Error("One or more data sources failed to sync.");
+            }
             
             setManualSyncStatus("All data is up to date!");
             setTimeout(() => setManualSyncStatus(""), 3000);

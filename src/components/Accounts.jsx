@@ -44,8 +44,7 @@ export default function Accounts({
         }));
     }, [accounts]);
 
-    // Total Net Worth (Kekayaan Bersih)
-    const netWorth = useMemo(() => {
+    const totalAccountBalance = useMemo(() => {
         return accountsWithBalances.reduce((sum, acc) => sum + acc.balance, 0);
     }, [accountsWithBalances]);
 
@@ -62,15 +61,17 @@ export default function Accounts({
         });
     }, [accountsWithBalances, searchQuery, filterType]);
 
-    const handleAddSubmit = (e) => {
+    const handleAddSubmit = async (e) => {
         e.preventDefault();
         if (!newAccount.name.trim()) return;
 
-        addAccount({
+        const wasSaved = await addAccount({
             name: newAccount.name,
             type: newAccount.type,
             startingBalance: Number(newAccount.startingBalance.replace(/[^\d]/g, "")) || 0,
         });
+
+        if (!wasSaved) return;
 
         // Reset
         setNewAccount({
@@ -86,10 +87,12 @@ export default function Accounts({
         setEditBalanceVal(String(acc.balance));
     };
 
-    const handleEditSave = (id) => {
+    const handleEditSave = async (id) => {
         const parsedVal = Number(String(editBalanceVal).replace(/[^\d]/g, "")) || 0;
-        updateStartingBalance(id, parsedVal);
-        setEditingId(null);
+        const wasSaved = await updateStartingBalance(id, parsedVal);
+        if (wasSaved) {
+            setEditingId(null);
+        }
     };
 
     const handleEditCancel = () => {
@@ -162,18 +165,18 @@ export default function Accounts({
                 Akun
             </h1>
 
-            {/* Kekayaan Bersih Card */}
+            {/* Total saldo akun */}
             <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="overflow-hidden rounded-[2rem] border border-white/70 bg-gradient-to-br from-zinc-800 to-zinc-900 p-6 text-white shadow-xl backdrop-blur md:p-8"
             >
                 <p className="text-sm font-semibold text-white/70">
-                    Kekayaan Bersih
+                    Total Saldo Akun
                 </p>
 
                 <p className="mt-2 text-4xl font-black tracking-tight md:text-5xl">
-                    {formatCurrency(netWorth)}
+                    {formatCurrency(totalAccountBalance)}
                 </p>
 
                 <p className="mt-4 text-xs font-semibold text-white/50">

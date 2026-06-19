@@ -16,9 +16,12 @@ export const useBudget = () => {
 
             setBudget(Number(data.budget) || 0);
             setLeftBudget(Number(data.leftBudget) || 0);
-        } catch {
+            return true;
+        } catch (error) {
+            console.error("LOAD BUDGET ERROR:", error);
             setBudget(0);
             setLeftBudget(0);
+            return false;
         }
     };
 

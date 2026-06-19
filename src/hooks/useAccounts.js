@@ -53,13 +53,16 @@ export const useAccounts = () => {
                     replaceAccounts(data);
                 }
                 setError(null);
+                return true;
             } else {
                 console.error("Fetched accounts is not an array:", data);
                 setError("Invalid accounts data format received.");
+                return false;
             }
         } catch (err) {
             console.error("FAILED TO LOAD ACCOUNTS:", err);
             setError("Failed to load accounts from Google Sheets.");
+            return false;
         } finally {
             setIsLoading(false);
         }
@@ -83,6 +86,8 @@ export const useAccounts = () => {
 
         try {
             await addAccountToGoogleSheet(newAccount);
+            setError(null);
+            return true;
         } catch (err) {
             console.error("Error syncing new account to Google Sheets:", err);
             // Revert on error
@@ -90,6 +95,7 @@ export const useAccounts = () => {
                 accountsRef.current.filter((acc) => acc.id !== newAccount.id)
             );
             setError("Failed to sync new account to Google Sheets.");
+            return false;
         }
     };
 
@@ -102,11 +108,14 @@ export const useAccounts = () => {
 
         try {
             await deleteAccountFromGoogleSheet(id);
+            setError(null);
+            return true;
         } catch (err) {
             console.error("Error deleting account from Google Sheets:", err);
             // Revert
             replaceAccounts([...accountsRef.current, deletedAccount]);
             setError("Failed to delete account from Google Sheets.");
+            return false;
         }
     };
 

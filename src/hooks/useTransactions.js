@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 import { normalizeDate } from "../utils/date";
 import { parseAmountInput } from "../utils/parser";
-import { deduplicateTransactionsById } from "../utils/transactions";
+import {
+    deduplicateTransactionsById,
+    normalizeTransaction,
+} from "../utils/transactions";
 import {
     syncTransactionToGoogleSheet,
     deleteTransactionFromGoogleSheet,
@@ -48,24 +51,22 @@ export const useTransactions = ({ syncTransactionBalanceChange } = {}) => {
             }
 
             const normalizedData = deduplicated.rows
+                .map(normalizeTransaction)
                 .filter((item) => item.title)
                 .map((item) => ({
-                    rowNumber: Number(item.rowNumber) || 0,
-                    id: item.id || crypto.randomUUID(),
-                    title: item.title,
-                    amount: Number(item.amount) || 0,
-                    category: item.category || "Food",
-                    source: item.source || "Mandiri",
-                    danaDipakai: item.danaDipakai || "Spend Bulanan",
+                    ...item,
+                    id: item.id || `legacy-row-${item.rowNumber}`,
                     date: normalizeDate(item.date),
                 }))
                 .sort((a, b) => b.rowNumber - a.rowNumber);
 
             setTransactions(normalizedData);
             setSyncStatus("");
+            return true;
         } catch (error) {
             console.error("LOAD TRANSACTIONS ERROR:", error);
             setSyncStatus("Failed to load data from Google Sheets.");
+            return false;
         } finally {
             setIsLoading(false);
         }

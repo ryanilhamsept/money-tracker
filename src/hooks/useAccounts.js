@@ -2,11 +2,9 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import {
     getAccountsFromGoogleSheet,
     addAccountToGoogleSheet,
-    adjustAccountBalanceInGoogleSheet,
     deleteAccountFromGoogleSheet,
     updateStartingBalanceInGoogleSheet,
 } from "../services/googleSheets";
-import { getAccountBalanceDeltas } from "../utils/accountBalance";
 
 const DEFAULT_ACCOUNTS = [
     { id: "acc-1", name: "BCA", type: "Bank", startingBalance: 20000000 },
@@ -21,7 +19,6 @@ export const useAccounts = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
     const accountsRef = useRef([]);
-    const balanceUpdateQueueRef = useRef(Promise.resolve());
 
     const replaceAccounts = useCallback((nextAccounts) => {
         accountsRef.current = nextAccounts;
@@ -152,84 +149,6 @@ export const useAccounts = () => {
         }
     };
 
-    const syncTransactionBalanceChange = useCallback(
-        (previousTransaction, nextTransaction) => {
-            const runUpdate = async () => {
-                const deltas = getAccountBalanceDeltas(
-                    accountsRef.current,
-                    previousTransaction,
-                    nextTransaction
-                );
-
-                const appliedUpdates = [];
-
-                try {
-                    for (const delta of deltas) {
-                        const currentAccount = accountsRef.current.find(
-                            (account) => account.id === delta.account.id
-                        );
-
-                        if (!currentAccount) continue;
-
-                        const result = await adjustAccountBalanceInGoogleSheet(
-                            currentAccount.id,
-                            delta.amount
-                        );
-
-                        const nextBalance = Number(result.balance);
-                        if (!Number.isFinite(nextBalance)) {
-                            throw new Error(`Invalid balance for ${currentAccount.name}.`);
-                        }
-
-                        appliedUpdates.push({
-                            account: currentAccount,
-                            delta: delta.amount,
-                        });
-
-                        replaceAccounts(
-                            accountsRef.current.map((account) =>
-                                account.id === currentAccount.id
-                                    ? {
-                                          ...account,
-                                          startingBalance: nextBalance,
-                                      }
-                                    : account
-                            )
-                        );
-                    }
-
-                    setError(null);
-                    return true;
-                } catch (err) {
-                    console.error("Error syncing account balance:", err);
-
-                    for (const applied of appliedUpdates.reverse()) {
-                        try {
-                            await adjustAccountBalanceInGoogleSheet(
-                                applied.account.id,
-                                -applied.delta
-                            );
-                        } catch (rollbackError) {
-                            console.error(
-                                "Failed to roll back account balance:",
-                                rollbackError
-                            );
-                        }
-                    }
-
-                    await loadAccounts();
-                    setError("Failed to sync account balance with transaction.");
-                    throw err;
-                }
-            };
-
-            const queuedUpdate = balanceUpdateQueueRef.current.then(runUpdate);
-            balanceUpdateQueueRef.current = queuedUpdate.catch(() => {});
-            return queuedUpdate;
-        },
-        [loadAccounts, replaceAccounts]
-    );
-
     return {
         accounts,
         isLoading,
@@ -237,7 +156,6 @@ export const useAccounts = () => {
         addAccount,
         deleteAccount,
         updateStartingBalance,
-        syncTransactionBalanceChange,
         reloadAccounts: loadAccounts,
     };
 };

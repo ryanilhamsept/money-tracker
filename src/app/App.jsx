@@ -36,7 +36,6 @@ export default function App() {
         addAccount,
         deleteAccount,
         updateStartingBalance,
-        syncTransactionBalanceChange,
         reloadAccounts,
     } = useAccounts();
 
@@ -48,7 +47,7 @@ export default function App() {
         updateTransaction,
         deleteTransaction,
         reloadTransactions,
-    } = useTransactions({ syncTransactionBalanceChange });
+    } = useTransactions({ reloadAccounts });
 
     const [isManualSyncing, setIsManualSyncing] = useState(false);
     const [manualSyncStatus, setManualSyncStatus] = useState("");

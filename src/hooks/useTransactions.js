@@ -18,7 +18,7 @@ const assertSuccessfulSync = (result) => {
     }
 };
 
-export const useTransactions = ({ syncTransactionBalanceChange } = {}) => {
+export const useTransactions = ({ reloadAccounts } = {}) => {
     const [transactions, setTransactions] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
 
@@ -103,17 +103,7 @@ export const useTransactions = ({ syncTransactionBalanceChange } = {}) => {
             const result = await syncTransactionToGoogleSheet(newTransaction);
             assertSuccessfulSync(result);
 
-            // Transaction saved — now try to sync balance separately
-            if (!result.duplicate) {
-                try {
-                    await syncTransactionBalanceChange?.(null, newTransaction);
-                } catch (balanceError) {
-                    console.error("ADD TRANSACTION BALANCE SYNC ERROR:", balanceError);
-                    setSyncStatus("Transaction saved, but balance sync failed.");
-                    setTimeout(() => setSyncStatus(""), 4000);
-                    return true; // transaction itself succeeded
-                }
-            }
+            await reloadAccounts?.();
 
             setSyncStatus(
                 result.duplicate
@@ -169,15 +159,7 @@ export const useTransactions = ({ syncTransactionBalanceChange } = {}) => {
             const result = await updateTransactionToGoogleSheet(updatedTransaction);
             assertSuccessfulSync(result);
 
-            // Transaction updated — sync balance separately
-            try {
-                await syncTransactionBalanceChange?.(existing, updatedTransaction);
-            } catch (balanceError) {
-                console.error("UPDATE TRANSACTION BALANCE SYNC ERROR:", balanceError);
-                setSyncStatus("Transaction updated, but balance sync failed.");
-                setTimeout(() => setSyncStatus(""), 4000);
-                return true; // transaction itself succeeded
-            }
+            await reloadAccounts?.();
 
             setSyncStatus("Transaction and account balance updated.");
             setTimeout(() => setSyncStatus(""), 3000);
@@ -211,15 +193,7 @@ export const useTransactions = ({ syncTransactionBalanceChange } = {}) => {
             const result = await deleteTransactionFromGoogleSheet(id);
             assertSuccessfulSync(result);
 
-            // Transaction deleted — sync balance separately
-            try {
-                await syncTransactionBalanceChange?.(deletedTransaction, null);
-            } catch (balanceError) {
-                console.error("DELETE TRANSACTION BALANCE SYNC ERROR:", balanceError);
-                setSyncStatus("Transaction deleted, but balance sync failed.");
-                setTimeout(() => setSyncStatus(""), 4000);
-                return true; // transaction itself succeeded
-            }
+            await reloadAccounts?.();
 
             setSyncStatus(
                 deletedTransaction

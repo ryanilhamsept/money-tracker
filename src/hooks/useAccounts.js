@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import {
     getAccountsFromGoogleSheet,
     addAccountToGoogleSheet,
+    adjustAccountBalanceInGoogleSheet,
     deleteAccountFromGoogleSheet,
     updateStartingBalanceInGoogleSheet,
 } from "../services/googleSheets";
@@ -170,24 +171,19 @@ export const useAccounts = () => {
 
                         if (!currentAccount) continue;
 
-                        const previousBalance =
-                            Number(currentAccount.startingBalance) || 0;
-                        const nextBalance = previousBalance + delta.amount;
-                        const result = await updateStartingBalanceInGoogleSheet(
+                        const result = await adjustAccountBalanceInGoogleSheet(
                             currentAccount.id,
-                            nextBalance
+                            delta.amount
                         );
 
-                        if (result?.success === false) {
-                            throw new Error(
-                                result.error ||
-                                    `Failed to update ${currentAccount.name}.`
-                            );
+                        const nextBalance = Number(result.balance);
+                        if (!Number.isFinite(nextBalance)) {
+                            throw new Error(`Invalid balance for ${currentAccount.name}.`);
                         }
 
                         appliedUpdates.push({
                             account: currentAccount,
-                            previousBalance,
+                            delta: delta.amount,
                         });
 
                         replaceAccounts(
@@ -209,9 +205,9 @@ export const useAccounts = () => {
 
                     for (const applied of appliedUpdates.reverse()) {
                         try {
-                            await updateStartingBalanceInGoogleSheet(
+                            await adjustAccountBalanceInGoogleSheet(
                                 applied.account.id,
-                                applied.previousBalance
+                                -applied.delta
                             );
                         } catch (rollbackError) {
                             console.error(

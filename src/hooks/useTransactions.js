@@ -105,9 +105,15 @@ export const useTransactions = ({ syncTransactionBalanceChange } = {}) => {
             assertSuccessfulSync(result);
             transactionSynced = true;
 
-            await syncTransactionBalanceChange?.(null, newTransaction);
+            if (!result.duplicate) {
+                await syncTransactionBalanceChange?.(null, newTransaction);
+            }
 
-            setSyncStatus("Transaction and account balance saved.");
+            setSyncStatus(
+                result.duplicate
+                    ? "Transaction already existed; duplicate ignored."
+                    : "Transaction and account balance saved."
+            );
             setTimeout(() => setSyncStatus(""), 3000);
             return true;
         } catch (error) {

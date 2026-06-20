@@ -1,5 +1,5 @@
 const GOOGLE_SHEET_API_URL =
-    "https://script.google.com/macros/s/AKfycbx7vXtYC6Y8EsI6Kjm2dgdTW0FGfYsidzohTWPVQt-1jDF0kXqUuM4s5YUofrUy3xsKVg/exec";
+    "https://script.google.com/macros/s/AKfycbwaNqA-ooK1NEfejjtFP__z00xZUQnEc4jdSHlkAMgWomHJVOzmN2OQ4C5fpE1suw8PeA/exec";
 
 const fetchJson = async (url) => {
     const response = await fetch(url, {
@@ -96,6 +96,16 @@ export const updateStartingBalanceInGoogleSheet = async (id, balance) => {
             id
         )}&balance=${Number(balance)}`
     );
+};
+
+export const adjustAccountBalanceInGoogleSheet = async (id, delta) => {
+    const params = new URLSearchParams({
+        action: "adjustAccountBalance",
+        id,
+        delta: String(Number(delta) || 0),
+    });
+
+    return fetchJson(`${GOOGLE_SHEET_API_URL}?${params.toString()}`);
 };
 
 export const getOtherSourcesFromGoogleSheet = async () => {

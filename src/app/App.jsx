@@ -54,31 +54,35 @@ export default function App() {
     const [manualSyncStatus, setManualSyncStatus] = useState("");
 
     const handleManualSync = async () => {
+        if (isManualSyncing) return;
+
         try {
             setIsManualSyncing(true);
-            setManualSyncStatus("Fetching latest data from Google Sheets...");
-            
-            const results = await Promise.all([
-                reloadTransactions(),
-                reloadBudget(),
-                reloadAccounts(),
+            setManualSyncStatus("Fetching latest data...");
+
+            const [txOk, budgetOk, accountsOk] = await Promise.all([
+                reloadTransactions().catch(() => false),
+                reloadBudget().catch(() => false),
+                reloadAccounts().catch(() => false),
             ]);
 
-            if (results.some((result) => result !== true)) {
-                throw new Error("One or more data sources failed to sync.");
-            }
-            
-            setManualSyncStatus("All data is up to date!");
+            const allOk = txOk && budgetOk && accountsOk;
+            setManualSyncStatus(
+                allOk
+                    ? "All data is up to date!"
+                    : "Sync done, but some sources failed to load."
+            );
             setTimeout(() => setManualSyncStatus(""), 3000);
         } catch (error) {
             console.error("MANUAL SYNC ERROR:", error);
-            setManualSyncStatus("Failed to sync latest data.");
+            setManualSyncStatus("Failed to sync data.");
+            setTimeout(() => setManualSyncStatus(""), 3000);
         } finally {
             setIsManualSyncing(false);
         }
     };
 
-    const activeSyncStatus = manualSyncStatus || syncStatus;
+
 
     const totalAllTimeSpending = useMemo(() => {
         return transactions.reduce(
@@ -216,10 +220,20 @@ export default function App() {
 
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border border-white/70 bg-white/80 p-4 text-sm font-medium shadow-md backdrop-blur transition-all duration-300">
                     <div className="flex items-center gap-2.5">
-                        {activeSyncStatus ? (
+                        {isManualSyncing ? (
                             <>
                                 <div className="h-4 w-4 animate-spin rounded-full border-2 border-indigo-200 border-t-indigo-600" />
-                                <span className="font-semibold text-slate-700">{activeSyncStatus}</span>
+                                <span className="font-semibold text-slate-700">{manualSyncStatus}</span>
+                            </>
+                        ) : manualSyncStatus ? (
+                            <>
+                                <div className="h-2 w-2 rounded-full bg-indigo-500" />
+                                <span className="font-semibold text-indigo-600">{manualSyncStatus}</span>
+                            </>
+                        ) : syncStatus ? (
+                            <>
+                                <div className="h-4 w-4 animate-spin rounded-full border-2 border-indigo-200 border-t-indigo-600" />
+                                <span className="font-semibold text-slate-700">{syncStatus}</span>
                             </>
                         ) : (
                             <>

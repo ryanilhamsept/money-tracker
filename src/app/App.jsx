@@ -36,6 +36,8 @@ export default function App() {
         addAccount,
         deleteAccount,
         updateStartingBalance,
+        applyTransactionBalanceChange,
+        syncAccountBalancesForTransaction,
         reloadAccounts,
     } = useAccounts();
 
@@ -43,11 +45,17 @@ export default function App() {
         transactions,
         isLoading,
         syncStatus,
+        pendingSyncCount,
         addTransaction,
         updateTransaction,
         deleteTransaction,
+        retryPendingSync,
         reloadTransactions,
-    } = useTransactions({ reloadAccounts });
+    } = useTransactions({
+        applyTransactionBalanceChange,
+        syncAccountBalancesForTransaction,
+        reloadAccounts,
+    });
 
     const [isManualSyncing, setIsManualSyncing] = useState(false);
     const [manualSyncStatus, setManualSyncStatus] = useState("");
@@ -57,7 +65,15 @@ export default function App() {
 
         try {
             setIsManualSyncing(true);
-            setManualSyncStatus("Fetching latest data...");
+            setManualSyncStatus(
+                pendingSyncCount > 0
+                    ? `Syncing ${pendingSyncCount} queued transaction...`
+                    : "Fetching latest data..."
+            );
+
+            const pendingOk = await retryPendingSync({
+                showStatus: false,
+            }).catch(() => false);
 
             const [txOk, budgetOk, accountsOk] = await Promise.all([
                 reloadTransactions().catch(() => false),
@@ -65,7 +81,7 @@ export default function App() {
                 reloadAccounts().catch(() => false),
             ]);
 
-            const allOk = txOk && budgetOk && accountsOk;
+            const allOk = pendingOk && txOk && budgetOk && accountsOk;
             setManualSyncStatus(
                 allOk
                     ? "All data is up to date!"
@@ -229,6 +245,13 @@ export default function App() {
                                 <div className="h-2 w-2 rounded-full bg-indigo-500" />
                                 <span className="font-semibold text-indigo-600">{manualSyncStatus}</span>
                             </>
+                        ) : pendingSyncCount > 0 ? (
+                            <>
+                                <div className="h-2 w-2 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.55)] animate-pulse" />
+                                <span className="font-semibold text-slate-700">
+                                    {pendingSyncCount} transaction saved locally. Auto-sync is running.
+                                </span>
+                            </>
                         ) : syncStatus ? (
                             <>
                                 <div className="h-4 w-4 animate-spin rounded-full border-2 border-indigo-200 border-t-indigo-600" />
@@ -248,7 +271,9 @@ export default function App() {
                         className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-pink-500 to-indigo-500 px-4 py-2 text-xs font-black text-white shadow-md hover:from-pink-600 hover:to-indigo-600 hover:shadow-lg active:scale-95 disabled:opacity-50 disabled:pointer-events-none transition-all duration-200 shrink-0"
                     >
                         <RefreshCw className={`h-3.5 w-3.5 ${isManualSyncing ? "animate-spin" : ""}`} />
-                        Sync Now
+                        {pendingSyncCount > 0
+                            ? `Sync Now (${pendingSyncCount})`
+                            : "Sync Now"}
                     </button>
                 </div>
 

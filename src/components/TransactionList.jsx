@@ -185,6 +185,18 @@ export default function TransactionList({
                                                         {item.category} • {item.source} •{" "}
                                                         {item.danaDipakai}
                                                     </p>
+
+                                                    {item.syncState === "pending" && (
+                                                        <p className="mt-2 inline-flex rounded-full bg-indigo-50 px-3 py-1 text-xs font-black text-indigo-600">
+                                                            Queued for sync
+                                                        </p>
+                                                    )}
+
+                                                    {item.syncState === "error" && (
+                                                        <p className="mt-2 inline-flex rounded-full bg-amber-50 px-3 py-1 text-xs font-black text-amber-700">
+                                                            Will retry sync
+                                                        </p>
+                                                    )}
                                                 </div>
 
                                                 <p className="shrink-0 text-right text-xl font-black text-rose-500 sm:text-2xl">

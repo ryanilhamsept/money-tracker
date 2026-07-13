@@ -5,6 +5,7 @@ import {
     deleteAccountFromGoogleSheet,
     updateStartingBalanceInGoogleSheet,
 } from "../services/googleSheets";
+import { getAccountBalanceDeltas } from "../utils/accountBalance";
 
 const DEFAULT_ACCOUNTS = [
     { id: "acc-1", name: "BCA", type: "Bank", startingBalance: 20000000 },
@@ -25,9 +26,12 @@ export const useAccounts = () => {
         setAccounts(nextAccounts);
     }, []);
 
-    const loadAccounts = useCallback(async () => {
+    const loadAccounts = useCallback(async ({ showLoading = true } = {}) => {
         try {
-            setIsLoading(true);
+            if (showLoading) {
+                setIsLoading(true);
+            }
+
             const data = await getAccountsFromGoogleSheet();
 
             // Check if returned data is an array
@@ -62,7 +66,9 @@ export const useAccounts = () => {
             setError("Failed to load accounts from Google Sheets.");
             return false;
         } finally {
-            setIsLoading(false);
+            if (showLoading) {
+                setIsLoading(false);
+            }
         }
     }, [replaceAccounts]);
 
@@ -149,6 +155,72 @@ export const useAccounts = () => {
         }
     };
 
+    const applyTransactionBalanceChange = useCallback(
+        (previousTransaction, nextTransaction) => {
+            const deltas = getAccountBalanceDeltas(
+                accountsRef.current,
+                previousTransaction,
+                nextTransaction
+            );
+
+            if (deltas.length === 0) return;
+
+            replaceAccounts(
+                accountsRef.current.map((account) => {
+                    const delta = deltas.find(
+                        (item) => item.account.id === account.id
+                    );
+
+                    if (!delta) return account;
+
+                    return {
+                        ...account,
+                        startingBalance:
+                            (Number(account.startingBalance) || 0) + delta.amount,
+                    };
+                })
+            );
+        },
+        [replaceAccounts]
+    );
+
+    const syncAccountBalancesForTransaction = useCallback(
+        async (previousTransaction, nextTransaction) => {
+            const deltas = getAccountBalanceDeltas(
+                accountsRef.current,
+                previousTransaction,
+                nextTransaction
+            );
+
+            if (deltas.length === 0) return true;
+
+            try {
+                await Promise.all(
+                    deltas.map((delta) => {
+                        const currentAccount = accountsRef.current.find(
+                            (account) => account.id === delta.account.id
+                        );
+
+                        if (!currentAccount) return Promise.resolve();
+
+                        return updateStartingBalanceInGoogleSheet(
+                            currentAccount.id,
+                            currentAccount.startingBalance
+                        );
+                    })
+                );
+
+                setError(null);
+                return true;
+            } catch (err) {
+                console.error("Error syncing account balance after transaction:", err);
+                setError("Transaction saved, but account balance sync is retrying.");
+                throw err;
+            }
+        },
+        []
+    );
+
     return {
         accounts,
         isLoading,
@@ -156,6 +228,8 @@ export const useAccounts = () => {
         addAccount,
         deleteAccount,
         updateStartingBalance,
-        reloadAccounts: loadAccounts,
+        applyTransactionBalanceChange,
+        syncAccountBalancesForTransaction,
+        reloadAccounts: () => loadAccounts({ showLoading: false }),
     };
 };

@@ -1,22 +1,53 @@
 const GOOGLE_SHEET_API_URL =
     "https://script.google.com/macros/s/AKfycbz3Qd9HST7mXAY-bsLuGyqBaVKMMXCjDqXhRPDpMEecKFCiw78lALg3xwhkIS-woWMSWQ/exec";
 
-const fetchJson = async (url) => {
-    const response = await fetch(url, {
-        cache: "no-store",
+const delay = (ms) =>
+    new Promise((resolve) => {
+        setTimeout(resolve, ms);
     });
 
-    if (!response.ok) {
-        throw new Error(`Google Sheets request failed (${response.status}).`);
+const fetchJson = async (url, { retries = 2, timeoutMs = 18000 } = {}) => {
+    let lastError;
+
+    for (let attempt = 0; attempt <= retries; attempt += 1) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+        try {
+            const response = await fetch(url, {
+                cache: "no-store",
+                signal: controller.signal,
+            });
+
+            if (!response.ok) {
+                throw new Error(
+                    `Google Sheets request failed (${response.status}).`
+                );
+            }
+
+            const data = await response.json();
+
+            if (data?.success === false) {
+                throw new Error(
+                    data.error || "Google Sheets rejected the request."
+                );
+            }
+
+            return data;
+        } catch (error) {
+            lastError = error;
+
+            if (attempt === retries) {
+                break;
+            }
+
+            await delay(700 * (attempt + 1));
+        } finally {
+            clearTimeout(timeoutId);
+        }
     }
 
-    const data = await response.json();
-
-    if (data?.success === false) {
-        throw new Error(data.error || "Google Sheets rejected the request.");
-    }
-
-    return data;
+    throw lastError;
 };
 
 export const getTransactionsFromGoogleSheet = async () => {

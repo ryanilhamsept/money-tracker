@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { normalizeDate } from "../utils/date";
 import { parseAmountInput } from "../utils/parser";
 import {
@@ -18,13 +18,108 @@ const assertSuccessfulSync = (result) => {
     }
 };
 
-export const useTransactions = ({ reloadAccounts } = {}) => {
+const PENDING_ADDS_STORAGE_KEY = "money-tracker.pending-adds.v1";
+const AUTO_RETRY_INTERVAL_MS = 8000;
+
+const readPendingAdds = () => {
+    if (typeof window === "undefined") return [];
+
+    try {
+        const raw = window.localStorage.getItem(PENDING_ADDS_STORAGE_KEY);
+        const parsed = raw ? JSON.parse(raw) : [];
+        return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+        console.error("FAILED TO READ PENDING TRANSACTIONS:", error);
+        return [];
+    }
+};
+
+const writePendingAdds = (transactions) => {
+    if (typeof window === "undefined") return;
+
+    try {
+        window.localStorage.setItem(
+            PENDING_ADDS_STORAGE_KEY,
+            JSON.stringify(transactions)
+        );
+    } catch (error) {
+        console.error("FAILED TO STORE PENDING TRANSACTIONS:", error);
+    }
+};
+
+export const useTransactions = ({
+    applyTransactionBalanceChange,
+    syncAccountBalancesForTransaction,
+    reloadAccounts,
+} = {}) => {
     const [transactions, setTransactions] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
 
     const [syncStatus, setSyncStatus] = useState(
         "Loading data from Google Sheets..."
     );
+    const pendingMutationCountRef = useRef(0);
+    const pendingAddsRef = useRef(readPendingAdds());
+    const pendingSyncRunningRef = useRef(false);
+    const [pendingSyncCount, setPendingSyncCount] = useState(
+        () => readPendingAdds().length
+    );
+
+    const replacePendingAdds = (nextPendingAdds) => {
+        pendingAddsRef.current = nextPendingAdds;
+        setPendingSyncCount(nextPendingAdds.length);
+        writePendingAdds(nextPendingAdds);
+    };
+
+    const queuePendingAdd = (transaction) => {
+        replacePendingAdds([
+            ...pendingAddsRef.current.filter((item) => item.id !== transaction.id),
+            transaction,
+        ]);
+    };
+
+    const removePendingAdd = (id) => {
+        replacePendingAdds(
+            pendingAddsRef.current.filter((transaction) => transaction.id !== id)
+        );
+    };
+
+    const startMutation = () => {
+        pendingMutationCountRef.current += 1;
+    };
+
+    const finishMutation = () => {
+        pendingMutationCountRef.current = Math.max(
+            0,
+            pendingMutationCountRef.current - 1
+        );
+
+        if (pendingMutationCountRef.current === 0) {
+            void reloadAccounts?.();
+        }
+    };
+
+    const mergePendingAdds = (rows) => {
+        const syncedIds = new Set(
+            rows.map((transaction) => String(transaction.id || "").trim())
+        );
+
+        const remainingPendingAdds = pendingAddsRef.current.filter(
+            (transaction) => !syncedIds.has(transaction.id)
+        );
+
+        if (remainingPendingAdds.length !== pendingAddsRef.current.length) {
+            replacePendingAdds(remainingPendingAdds);
+        }
+
+        return [
+            ...remainingPendingAdds.map((transaction) => ({
+                ...transaction,
+                syncState: "pending",
+            })),
+            ...rows,
+        ];
+    };
 
     const loadTransactions = async () => {
         try {
@@ -60,7 +155,7 @@ export const useTransactions = ({ reloadAccounts } = {}) => {
                 }))
                 .sort((a, b) => b.rowNumber - a.rowNumber);
 
-            setTransactions(normalizedData);
+            setTransactions(mergePendingAdds(normalizedData));
             setSyncStatus("");
             return true;
         } catch (error) {
@@ -72,15 +167,127 @@ export const useTransactions = ({ reloadAccounts } = {}) => {
         }
     };
 
+    const retryPendingSync = async ({ showStatus = true } = {}) => {
+        if (pendingSyncRunningRef.current) return false;
+
+        const pendingAdds = pendingAddsRef.current;
+
+        if (pendingAdds.length === 0) {
+            if (showStatus) {
+                setSyncStatus("All local changes are synced.");
+                setTimeout(() => setSyncStatus(""), 2500);
+            }
+            return true;
+        }
+
+        pendingSyncRunningRef.current = true;
+        startMutation();
+
+        if (showStatus) {
+            setSyncStatus(`Syncing ${pendingAdds.length} queued transaction...`);
+        }
+
+        let failedCount = 0;
+
+        try {
+            for (const transaction of pendingAdds) {
+                try {
+                    const result = await syncTransactionToGoogleSheet(
+                        transaction
+                    );
+                    assertSuccessfulSync(result);
+                    await syncAccountBalancesForTransaction?.(null, transaction);
+                    removePendingAdd(transaction.id);
+
+                    setTransactions((current) =>
+                        current.map((item) =>
+                            item.id === transaction.id
+                                ? { ...item, syncState: "synced" }
+                                : item
+                        )
+                    );
+                } catch (error) {
+                    failedCount += 1;
+                    console.error("PENDING TRANSACTION SYNC ERROR:", error);
+
+                    setTransactions((current) =>
+                        current.map((item) =>
+                            item.id === transaction.id
+                                ? { ...item, syncState: "error" }
+                                : item
+                        )
+                    );
+                }
+            }
+
+            if (failedCount > 0) {
+                setSyncStatus(
+                    `${failedCount} transaction saved locally. Auto-sync will keep trying.`
+                );
+                return false;
+            }
+
+            setSyncStatus("Queued transactions synced.");
+            setTimeout(() => setSyncStatus(""), 3000);
+            return true;
+        } finally {
+            pendingSyncRunningRef.current = false;
+            finishMutation();
+        }
+    };
+
     useEffect(() => {
         // eslint-disable-next-line react-hooks/set-state-in-effect
         loadTransactions();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    const addTransaction = async (form) => {
+    useEffect(() => {
+        if (pendingSyncCount === 0) return undefined;
+
+        const handleOnline = () => {
+            void retryPendingSync({ showStatus: true });
+        };
+
+        const handleFocus = () => {
+            void retryPendingSync({ showStatus: false });
+        };
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === "visible") {
+                void retryPendingSync({ showStatus: false });
+            }
+        };
+
+        const immediateRetry = setTimeout(() => {
+            void retryPendingSync({ showStatus: false });
+        }, 1200);
+
+        const retryTimer = setInterval(() => {
+            void retryPendingSync({ showStatus: false });
+        }, AUTO_RETRY_INTERVAL_MS);
+
+        window.addEventListener("online", handleOnline);
+        window.addEventListener("focus", handleFocus);
+        document.addEventListener("visibilitychange", handleVisibilityChange);
+
+        return () => {
+            clearTimeout(immediateRetry);
+            clearInterval(retryTimer);
+            window.removeEventListener("online", handleOnline);
+            window.removeEventListener("focus", handleFocus);
+            document.removeEventListener(
+                "visibilitychange",
+                handleVisibilityChange
+            );
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [pendingSyncCount]);
+
+    const addTransaction = (form) => {
         const amount = parseAmountInput(form.amount);
 
-        if (!form.title.trim() || !amount) return;
+        if (!form.title.trim() || !amount) return false;
 
         const maxRowNumber = transactions.length > 0
             ? Math.max(...transactions.map((t) => t.rowNumber || 0))
@@ -93,35 +300,17 @@ export const useTransactions = ({ reloadAccounts } = {}) => {
             amount,
             date: normalizeDate(form.date),
             rowNumber: maxRowNumber + 1,
+            syncState: "pending",
         };
 
         setTransactions((current) => [newTransaction, ...current]);
+        applyTransactionBalanceChange?.(null, newTransaction);
+        queuePendingAdd(newTransaction);
+        setSyncStatus("Saved locally. Auto-sync is running.");
 
-        setSyncStatus("Syncing to Google Sheets...");
+        void retryPendingSync({ showStatus: false });
 
-        try {
-            const result = await syncTransactionToGoogleSheet(newTransaction);
-            assertSuccessfulSync(result);
-
-            await reloadAccounts?.();
-
-            setSyncStatus(
-                result.duplicate
-                    ? "Transaction already existed; duplicate ignored."
-                    : "Transaction and account balance saved."
-            );
-            setTimeout(() => setSyncStatus(""), 3000);
-            return true;
-        } catch (error) {
-            console.error("ADD TRANSACTION ERROR:", error);
-
-            // Transaction failed to save — remove optimistic entry
-            setTransactions((current) =>
-                current.filter((item) => item.id !== newTransaction.id)
-            );
-            setSyncStatus("Failed to save transaction. Please try again.");
-            return false;
-        }
+        return true;
     };
 
     const updateTransaction = async (id, updatedForm) => {
@@ -152,14 +341,18 @@ export const useTransactions = ({ reloadAccounts } = {}) => {
                     : item
             )
         );
+        applyTransactionBalanceChange?.(existing, updatedTransaction);
 
         setSyncStatus("Updating transaction...");
+        startMutation();
 
         try {
             const result = await updateTransactionToGoogleSheet(updatedTransaction);
             assertSuccessfulSync(result);
-
-            await reloadAccounts?.();
+            await syncAccountBalancesForTransaction?.(
+                existing,
+                updatedTransaction
+            );
 
             setSyncStatus("Transaction and account balance updated.");
             setTimeout(() => setSyncStatus(""), 3000);
@@ -172,9 +365,12 @@ export const useTransactions = ({ reloadAccounts } = {}) => {
                 setTransactions((current) =>
                     current.map((item) => (item.id === id ? existing : item))
                 );
+                applyTransactionBalanceChange?.(updatedTransaction, existing);
             }
             setSyncStatus("Failed to update transaction. Please try again.");
             return false;
+        } finally {
+            finishMutation();
         }
     };
 
@@ -186,14 +382,15 @@ export const useTransactions = ({ reloadAccounts } = {}) => {
         setTransactions((current) =>
             current.filter((item) => item.id !== id)
         );
+        applyTransactionBalanceChange?.(deletedTransaction, null);
 
         setSyncStatus("Deleting from Google Sheets...");
+        startMutation();
 
         try {
             const result = await deleteTransactionFromGoogleSheet(id);
             assertSuccessfulSync(result);
-
-            await reloadAccounts?.();
+            await syncAccountBalancesForTransaction?.(deletedTransaction, null);
 
             setSyncStatus(
                 deletedTransaction
@@ -211,9 +408,12 @@ export const useTransactions = ({ reloadAccounts } = {}) => {
                     deletedTransaction,
                     ...current.filter((item) => item.id !== id),
                 ]);
+                applyTransactionBalanceChange?.(null, deletedTransaction);
             }
             setSyncStatus("Failed to delete transaction. Please try again.");
             return false;
+        } finally {
+            finishMutation();
         }
     };
 
@@ -221,9 +421,11 @@ export const useTransactions = ({ reloadAccounts } = {}) => {
         transactions,
         isLoading,
         syncStatus,
+        pendingSyncCount,
         addTransaction,
         updateTransaction,
         deleteTransaction,
+        retryPendingSync,
         reloadTransactions: loadTransactions,
     };
 };

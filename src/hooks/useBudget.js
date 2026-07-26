@@ -5,7 +5,7 @@ import {
     saveBudgetToSupabase,
 } from "../services/supabase";
 
-export const useBudget = () => {
+export const useBudget = (userId) => {
     const [budget, setBudget] = useState(0);
     const [budgetInput, setBudgetInput] = useState("");
 
@@ -23,9 +23,12 @@ export const useBudget = () => {
     };
 
     useEffect(() => {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        loadBudget();
-    }, []);
+        if (userId) {
+            loadBudget();
+        } else {
+            setBudget(0);
+        }
+    }, [userId]);
 
     const saveBudget = async (event) => {
         event.preventDefault();

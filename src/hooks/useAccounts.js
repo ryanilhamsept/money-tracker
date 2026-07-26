@@ -15,7 +15,7 @@ const DEFAULT_ACCOUNTS = [
     { id: "acc-5", name: "Superbank", type: "Bank", startingBalance: 2000000 },
 ];
 
-export const useAccounts = () => {
+export const useAccounts = (userId) => {
     const [accounts, setAccounts] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -56,9 +56,13 @@ export const useAccounts = () => {
     }, [replaceAccounts]);
 
     useEffect(() => {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        loadAccounts();
-    }, [loadAccounts]);
+        if (userId) {
+            loadAccounts();
+        } else {
+            replaceAccounts([]);
+            setIsLoading(false);
+        }
+    }, [userId, loadAccounts, replaceAccounts]);
 
     const addAccount = async (account) => {
         const newAccount = {

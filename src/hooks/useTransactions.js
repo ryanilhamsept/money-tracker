@@ -18,14 +18,14 @@ const assertSuccessfulSync = (result) => {
     }
 };
 
-const PENDING_ADDS_STORAGE_KEY = "money-tracker.pending-adds.v1";
+const getStorageKey = (userId) => `money-tracker.pending-adds.v1.${userId || "anon"}`;
 const AUTO_RETRY_INTERVAL_MS = 8000;
 
-const readPendingAdds = () => {
+const readPendingAdds = (userId) => {
     if (typeof window === "undefined") return [];
 
     try {
-        const raw = window.localStorage.getItem(PENDING_ADDS_STORAGE_KEY);
+        const raw = window.localStorage.getItem(getStorageKey(userId));
         const parsed = raw ? JSON.parse(raw) : [];
         return Array.isArray(parsed) ? parsed : [];
     } catch (error) {
@@ -34,12 +34,12 @@ const readPendingAdds = () => {
     }
 };
 
-const writePendingAdds = (transactions) => {
+const writePendingAdds = (userId, transactions) => {
     if (typeof window === "undefined") return;
 
     try {
         window.localStorage.setItem(
-            PENDING_ADDS_STORAGE_KEY,
+            getStorageKey(userId),
             JSON.stringify(transactions)
         );
     } catch (error) {
@@ -48,6 +48,7 @@ const writePendingAdds = (transactions) => {
 };
 
 export const useTransactions = ({
+    userId,
     applyTransactionBalanceChange,
     syncAccountBalancesForTransaction,
     reloadAccounts,
@@ -59,16 +60,14 @@ export const useTransactions = ({
         "Loading data from database..."
     );
     const pendingMutationCountRef = useRef(0);
-    const pendingAddsRef = useRef(readPendingAdds());
+    const pendingAddsRef = useRef([]);
     const pendingSyncRunningRef = useRef(false);
-    const [pendingSyncCount, setPendingSyncCount] = useState(
-        () => readPendingAdds().length
-    );
+    const [pendingSyncCount, setPendingSyncCount] = useState(0);
 
     const replacePendingAdds = (nextPendingAdds) => {
         pendingAddsRef.current = nextPendingAdds;
         setPendingSyncCount(nextPendingAdds.length);
-        writePendingAdds(nextPendingAdds);
+        writePendingAdds(userId, nextPendingAdds);
     };
 
     const queuePendingAdd = (transaction) => {
@@ -223,10 +222,19 @@ export const useTransactions = ({
     };
 
     useEffect(() => {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        loadTransactions();
+        if (userId) {
+            pendingAddsRef.current = readPendingAdds(userId);
+            setPendingSyncCount(pendingAddsRef.current.length);
+            loadTransactions();
+        } else {
+            pendingAddsRef.current = [];
+            setPendingSyncCount(0);
+            setTransactions([]);
+            setIsLoading(false);
+            setSyncStatus("");
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [userId]);
 
     useEffect(() => {
         if (pendingSyncCount === 0) return undefined;

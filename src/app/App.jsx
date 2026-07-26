@@ -45,7 +45,7 @@ export default function App() {
         setBudgetInput,
         saveBudget,
         reloadBudget,
-    } = useBudget();
+    } = useBudget(user?.id);
 
     const {
         accounts,
@@ -56,7 +56,7 @@ export default function App() {
         applyTransactionBalanceChange,
         syncAccountBalancesForTransaction,
         reloadAccounts,
-    } = useAccounts();
+    } = useAccounts(user?.id);
 
     const {
         transactions,
@@ -69,6 +69,7 @@ export default function App() {
         retryPendingSync,
         reloadTransactions,
     } = useTransactions({
+        userId: user?.id,
         applyTransactionBalanceChange,
         syncAccountBalancesForTransaction,
         reloadAccounts,

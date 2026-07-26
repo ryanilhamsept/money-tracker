@@ -26,40 +26,14 @@ export default function App() {
     const [user, setUser] = useState(null);
     const [isAuthChecking, setIsAuthChecking] = useState(true);
 
-    const claimLegacyData = async (userId) => {
-        try {
-            const { data: unclaimedAccs } = await supabase.from('accounts').select('id').is('user_id', null);
-            const { data: unclaimedTxs } = await supabase.from('transactions').select('id').is('user_id', null);
-            const { data: unclaimedBuds } = await supabase.from('budgets').select('id').is('user_id', null);
-
-            if (unclaimedAccs?.length > 0) {
-                await supabase.from('accounts').update({ user_id: userId }).is('user_id', null);
-            }
-            if (unclaimedTxs?.length > 0) {
-                await supabase.from('transactions').update({ user_id: userId }).is('user_id', null);
-            }
-            if (unclaimedBuds?.length > 0) {
-                await supabase.from('budgets').update({ user_id: userId }).is('user_id', null);
-            }
-        } catch (err) {
-            console.error("Failed to claim legacy data:", err);
-        }
-    };
-
     useEffect(() => {
         supabase.auth.getSession().then(({ data: { session } }) => {
             setUser(session?.user ?? null);
             setIsAuthChecking(false);
-            if (session?.user) {
-                claimLegacyData(session.user.id);
-            }
         });
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
             setUser(session?.user ?? null);
-            if (session?.user) {
-                claimLegacyData(session.user.id);
-            }
         });
 
         return () => subscription.unsubscribe();

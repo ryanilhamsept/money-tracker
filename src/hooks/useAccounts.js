@@ -36,24 +36,7 @@ export const useAccounts = () => {
 
             // Check if returned data is an array
             if (Array.isArray(data)) {
-                if (data.length === 0) {
-                    // Auto-initialize default accounts in database
-                    replaceAccounts(DEFAULT_ACCOUNTS);
-
-                    // Sync to Database sequentially
-                    const initAccountsSequentially = async () => {
-                        for (const acc of DEFAULT_ACCOUNTS) {
-                            try {
-                                await addAccountToSupabase(acc);
-                            } catch (err) {
-                                console.error("Error auto-initializing account:", acc.name, err);
-                            }
-                        }
-                    };
-                    initAccountsSequentially();
-                } else {
-                    replaceAccounts(data);
-                }
+                replaceAccounts(data);
                 setError(null);
                 return true;
             } else {

@@ -285,6 +285,7 @@ export const useTransactions = ({
             title: form.title.trim(),
             amount,
             date: normalizeDate(form.date),
+            createdAt: new Date().toISOString(),
             rowNumber: maxRowNumber + 1,
             syncState: "pending",
         };

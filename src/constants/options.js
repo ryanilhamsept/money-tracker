@@ -15,7 +15,9 @@ export const categories = [
 export const fundSources = [
     "Mandiri",
     "BCA",
+    "BNI",
     "Credit Card - BCA",
+    "Credit Card - BNI",
     "Blu",
     "Superbank",
 ];

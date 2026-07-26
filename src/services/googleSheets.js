@@ -1,61 +1,58 @@
-const GOOGLE_SHEET_API_URL =
-    "https://script.google.com/macros/s/AKfycbz3Qd9HST7mXAY-bsLuGyqBaVKMMXCjDqXhRPDpMEecKFCiw78lALg3xwhkIS-woWMSWQ/exec";
+const GOOGLE_SHEET_API_URL = import.meta.env.VITE_GOOGLE_SHEET_API_URL;
 
 const delay = (ms) =>
     new Promise((resolve) => {
         setTimeout(resolve, ms);
     });
 
-const fetchJson = async (url, { retries = 2, timeoutMs = 18000 } = {}) => {
+// Generic request helper supporting retries, timeout, and optional method/body.
+const requestJson = async (url, { method = "GET", body = null, retries = 2, timeoutMs = 18000, headers = {} } = {}) => {
     let lastError;
 
-    for (let attempt = 0; attempt <= retries; attempt += 1) {
+    for (let attempt = 0; attempt <= retries; attempt++) {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
         try {
             const response = await fetch(url, {
+                method,
                 cache: "no-store",
                 signal: controller.signal,
+                headers: {
+                    "Content-Type": "application/json",
+                    // Placeholder for auth token; replace with real token source.
+                    "Authorization": `Bearer ${import.meta.env.VITE_API_TOKEN || ""}`,
+                    ...headers,
+                },
+                body: body ? JSON.stringify(body) : null,
             });
 
             if (!response.ok) {
-                throw new Error(
-                    `Google Sheets request failed (${response.status}).`
-                );
+                throw new Error(`Google Sheets request failed (${response.status}).`);
             }
 
             const data = await response.json();
-
             if (data?.success === false) {
-                throw new Error(
-                    data.error || "Google Sheets rejected the request."
-                );
+                throw new Error(data.error || "Google Sheets rejected the request.");
             }
-
             return data;
         } catch (error) {
             lastError = error;
-
-            if (attempt === retries) {
-                break;
-            }
-
+            if (attempt === retries) break;
             await delay(700 * (attempt + 1));
         } finally {
             clearTimeout(timeoutId);
         }
     }
-
     throw lastError;
 };
 
 export const getTransactionsFromGoogleSheet = async () => {
-    return fetchJson(GOOGLE_SHEET_API_URL);
+    return requestJson(GOOGLE_SHEET_API_URL);
 };
 
 export const syncTransactionToGoogleSheet = async (transaction) => {
-    const params = new URLSearchParams({
+    const payload = {
         action: "add",
         id: transaction.id,
         date: transaction.date,
@@ -64,13 +61,12 @@ export const syncTransactionToGoogleSheet = async (transaction) => {
         nominal: String(transaction.amount),
         ambil: transaction.danaDipakai,
         sof: transaction.source,
-    });
-
-    return fetchJson(`${GOOGLE_SHEET_API_URL}?${params.toString()}`);
+    };
+    return requestJson(GOOGLE_SHEET_API_URL, { method: "POST", body: payload });
 };
 
 export const updateTransactionToGoogleSheet = async (transaction) => {
-    const params = new URLSearchParams({
+    const payload = {
         action: "update",
         id: transaction.id,
         date: transaction.date,
@@ -79,65 +75,58 @@ export const updateTransactionToGoogleSheet = async (transaction) => {
         nominal: String(transaction.amount),
         ambil: transaction.danaDipakai,
         sof: transaction.source,
-    });
-
-    return fetchJson(`${GOOGLE_SHEET_API_URL}?${params.toString()}`);
+    };
+    return requestJson(GOOGLE_SHEET_API_URL, { method: "POST", body: payload });
 };
 
 export const deleteTransactionFromGoogleSheet = async (id) => {
-    return fetchJson(
-        `${GOOGLE_SHEET_API_URL}?action=delete&id=${encodeURIComponent(id)}`
-    );
+    const payload = { action: "delete", id };
+    return requestJson(GOOGLE_SHEET_API_URL, { method: "POST", body: payload });
 };
 
 export const getBudgetFromGoogleSheet = async () => {
-    return fetchJson(`${GOOGLE_SHEET_API_URL}?type=budget`);
+    return requestJson(`${GOOGLE_SHEET_API_URL}?type=budget`);
 };
 
 export const saveBudgetToGoogleSheet = async (budget) => {
-    return fetchJson(
-        `${GOOGLE_SHEET_API_URL}?action=saveBudget&budget=${Number(budget)}`
-    );
+    const payload = { action: "saveBudget", budget: Number(budget) };
+    return requestJson(GOOGLE_SHEET_API_URL, { method: "POST", body: payload });
 };
 
 export const getAccountsFromGoogleSheet = async () => {
-    return fetchJson(`${GOOGLE_SHEET_API_URL}?type=accounts`);
+    return requestJson(`${GOOGLE_SHEET_API_URL}?type=accounts`);
 };
 
 export const addAccountToGoogleSheet = async (account) => {
-    const params = new URLSearchParams({
+    const payload = {
         action: "addAccount",
         id: account.id,
         name: account.name,
         type: account.type,
         startingBalance: String(account.startingBalance),
-    });
-    return fetchJson(`${GOOGLE_SHEET_API_URL}?${params.toString()}`);
+    };
+    return requestJson(GOOGLE_SHEET_API_URL, { method: "POST", body: payload });
 };
 
 export const deleteAccountFromGoogleSheet = async (id) => {
-    return fetchJson(
-        `${GOOGLE_SHEET_API_URL}?action=deleteAccount&id=${encodeURIComponent(id)}`
-    );
+    const payload = { action: "deleteAccount", id };
+    return requestJson(GOOGLE_SHEET_API_URL, { method: "POST", body: payload });
 };
 
 export const updateStartingBalanceInGoogleSheet = async (id, balance) => {
-    return fetchJson(
-        `${GOOGLE_SHEET_API_URL}?action=updateStartingBalance&id=${encodeURIComponent(
-            id
-        )}&balance=${Number(balance)}`
-    );
+    const payload = { action: "updateStartingBalance", id, balance: Number(balance) };
+    return requestJson(GOOGLE_SHEET_API_URL, { method: "POST", body: payload });
 };
 
 export const getOtherSourcesFromGoogleSheet = async () => {
-    return fetchJson(`${GOOGLE_SHEET_API_URL}?type=otherSources`);
+    return requestJson(`${GOOGLE_SHEET_API_URL}?type=otherSources`);
 };
 
 export const addOtherSourceToGoogleSheet = async (name) => {
-    const params = new URLSearchParams({
+    const payload = {
         action: "addOtherSource",
         id: `src-${Date.now()}`,
         name: name.trim(),
-    });
-    return fetchJson(`${GOOGLE_SHEET_API_URL}?${params.toString()}`);
+    };
+    return requestJson(GOOGLE_SHEET_API_URL, { method: "POST", body: payload });
 };

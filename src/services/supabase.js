@@ -64,14 +64,32 @@ const mapAccountToDB = (a) => ({
 // --- Transactions API ---
 
 export const getTransactionsFromSupabase = async () => {
-    const { data, error } = await supabase
-        .from("transactions")
-        .select("*")
-        .order("date", { ascending: false })
-        .order("created_at", { ascending: false });
+    // Supabase default limit = 1000 rows. Paginate to get everything.
+    const PAGE_SIZE = 1000;
+    let allData = [];
+    let from = 0;
+    let hasMore = true;
 
-    if (error) throw error;
-    return data.map(mapTransactionFromDB);
+    while (hasMore) {
+        const { data, error } = await supabase
+            .from("transactions")
+            .select("*")
+            .order("date", { ascending: false })
+            .order("created_at", { ascending: false })
+            .range(from, from + PAGE_SIZE - 1);
+
+        if (error) throw error;
+
+        allData = allData.concat(data);
+
+        if (data.length < PAGE_SIZE) {
+            hasMore = false;
+        } else {
+            from += PAGE_SIZE;
+        }
+    }
+
+    return allData.map(mapTransactionFromDB);
 };
 
 export const syncTransactionToSupabase = async (transaction) => {

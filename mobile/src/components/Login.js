@@ -12,6 +12,71 @@ import {
 } from "react-native";
 import { supabase } from "../services/supabase";
 
+function sha256(ascii) {
+  function rightRotate(value, amount) {
+    return (value >>> amount) | (value << (32 - amount));
+  }
+  var mathPow = Math.pow;
+  var maxWord = mathPow(2, 32);
+  var lengthProperty = 'length';
+  var i, j;
+  var result = '';
+  var words = [];
+  var asciiLength = ascii[lengthProperty] * 8;
+  var hash = sha256.h = sha256.h || [];
+  var k = sha256.k = sha256.k || [];
+  var primeCounter = k[lengthProperty];
+  var isPrime = {};
+  for (var candidate = 2; primeCounter < 64; candidate++) {
+    if (!isPrime[candidate]) {
+      for (i = 0; i < 313; i += candidate) {
+        isPrime[i] = 1;
+      }
+      hash[primeCounter] = (mathPow(candidate, .5)*maxWord)|0;
+      k[primeCounter++] = (mathPow(candidate, 1/3)*maxWord)|0;
+    }
+  }
+  ascii += '\x80';
+  while (ascii[lengthProperty] % 64 - 56) ascii += '\x00';
+  for (i = 0; i < ascii[lengthProperty]; i++) {
+    j = ascii.charCodeAt(i);
+    if (j >> 8) return;
+    words[i >> 2] |= j << ((3 - i % 4) * 8);
+  }
+  words[words[lengthProperty]] = ((asciiLength / maxWord) | 0);
+  words[words[lengthProperty]] = (asciiLength | 0);
+  for (j = 0; j < words[lengthProperty]; j += 16) {
+    var w = words.slice(j, j + 16);
+    var oldHash = hash.slice(0);
+    for (i = 16; i < 64; i++) {
+      var s0 = rightRotate(w[i - 15], 7) ^ rightRotate(w[i - 15], 18) ^ (w[i - 15] >>> 3);
+      var s1 = rightRotate(w[i - 2], 17) ^ rightRotate(w[i - 2], 19) ^ (w[i - 2] >>> 10);
+      w[i] = (w[i - 16] + s0 + w[i - 7] + s1) | 0;
+    }
+    for (i = 0; i < 64; i++) {
+      var s0 = rightRotate(oldHash[0], 2) ^ rightRotate(oldHash[0], 13) ^ rightRotate(oldHash[0], 22);
+      var maj = (oldHash[0] & oldHash[1]) ^ (oldHash[0] & oldHash[2]) ^ (oldHash[1] & oldHash[2]);
+      var t2 = (s0 + maj) | 0;
+      var s1 = rightRotate(oldHash[4], 6) ^ rightRotate(oldHash[4], 11) ^ rightRotate(oldHash[4], 25);
+      var ch = (oldHash[4] & oldHash[5]) ^ (~oldHash[4] & oldHash[6]);
+      var t1 = (oldHash[7] + s1 + ch + k[i] + w[i]) | 0;
+      oldHash = [(t1 + t2) | 0].concat(oldHash);
+      oldHash[4] = (oldHash[4] + t1) | 0;
+      oldHash.pop();
+    }
+    for (i = 0; i < 8; i++) {
+      hash[i] = (hash[i] + oldHash[i]) | 0;
+    }
+  }
+  for (i = 0; i < 8; i++) {
+    for (j = 3; j + 1; j--) {
+      var b = (hash[i] >> (j * 8)) & 255;
+      result += (b < 16 ? '0' : '') + b.toString(16);
+    }
+  }
+  return result;
+}
+
 export default function Login() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -51,14 +116,15 @@ export default function Login() {
         if (error) throw error;
 
         if (data?.user) {
-          // 2. Save username and password in public.users table
+          const hashedPassword = sha256(password.trim());
+          // 2. Save username and hashed password in public.users table
           const { error: dbError } = await supabase
             .from("users")
             .insert([
               {
                 id: data.user.id,
                 username: cleanUsername,
-                password: password.trim(), // Plaintext password as requested
+                password: hashedPassword,
               },
             ]);
 

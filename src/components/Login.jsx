@@ -3,6 +3,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import { User, Lock, Loader2, ArrowRight } from "lucide-react";
 import { supabase } from "../services/supabase";
 
+const hashPassword = async (string) => {
+    const utf8 = new TextEncoder().encode(string);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', utf8);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+};
+
 export default function Login() {
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
@@ -39,14 +46,15 @@ export default function Login() {
                 if (error) throw error;
 
                 if (data?.user) {
-                    // 2. Save username and password in public.users table
+                    const hashedPassword = await hashPassword(password);
+                    // 2. Save username and hashed password in public.users table
                     const { error: dbError } = await supabase
                         .from("users")
                         .insert([
                             {
                                 id: data.user.id,
                                 username: cleanUsername,
-                                password: password // Plaintext password as requested
+                                password: hashedPassword
                             }
                         ]);
 

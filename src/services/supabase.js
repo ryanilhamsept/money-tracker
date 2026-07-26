@@ -159,20 +159,33 @@ export const deleteTransactionFromSupabase = async (id) => {
 
 // --- Budget API ---
 
-export const getBudgetFromSupabase = async () => {
+export const getBudgetFromSupabase = async (userId) => {
+    if (!userId) return { budget: 0 };
+    
     const { data, error } = await supabase
         .from("budgets")
         .select("amount")
-        .eq("id", "current")
+        .eq("user_id", userId)
         .maybeSingle();
+
+    if (error) {
+        console.error("Error fetching budget:", error);
+    }
 
     return { budget: Number(data?.amount || 0) };
 };
 
-export const saveBudgetToSupabase = async (amount) => {
+export const saveBudgetToSupabase = async (userId, amount) => {
+    if (!userId) throw new Error("User ID is required");
+
     const { data, error } = await supabase
         .from("budgets")
-        .upsert({ id: "current", amount: Number(amount), updated_at: new Date().toISOString() })
+        .upsert({ 
+            id: userId, // Gunakan userId sebagai id agar unik tiap user
+            user_id: userId, 
+            amount: Number(amount), 
+            updated_at: new Date().toISOString() 
+        })
         .select()
         .single();
 

@@ -11,7 +11,7 @@ export const useBudget = (userId) => {
 
     const loadBudget = async () => {
         try {
-            const data = await getBudgetFromSupabase();
+            const data = await getBudgetFromSupabase(userId);
 
             setBudget(Number(data.budget) || 0);
             return true;
@@ -41,7 +41,7 @@ export const useBudget = (userId) => {
         setBudgetInput("");
 
         try {
-            await saveBudgetToSupabase(newBudget);
+            await saveBudgetToSupabase(userId, newBudget);
             await loadBudget();
         } catch (err) {
             console.error("SAVE BUDGET ERROR:", err);

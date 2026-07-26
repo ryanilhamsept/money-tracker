@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
     CalendarDays,
@@ -12,18 +12,61 @@ import Tracker from "../components/Tracker";
 import DailyReport from "../components/DailyReport";
 import MonthlyReport from "../components/MonthlyReport";
 import Accounts from "../components/Accounts";
+import Login from "../components/Login";
 import { useAccounts } from "../hooks/useAccounts";
 
 import { useTransactions } from "../hooks/useTransactions";
 import { useBudget } from "../hooks/useBudget";
 import { formatCurrency } from "../utils/currency";
+import { currentMonth, getTransactionMonth } from "../utils/date";
+import { supabase } from "../services/supabase";
 
 export default function App() {
     const [activePage, setActivePage] = useState("tracker");
+    const [user, setUser] = useState(null);
+    const [isAuthChecking, setIsAuthChecking] = useState(true);
+
+    const claimLegacyData = async (userId) => {
+        try {
+            const { data: unclaimedAccs } = await supabase.from('accounts').select('id').is('user_id', null);
+            const { data: unclaimedTxs } = await supabase.from('transactions').select('id').is('user_id', null);
+            const { data: unclaimedBuds } = await supabase.from('budgets').select('id').is('user_id', null);
+
+            if (unclaimedAccs?.length > 0) {
+                await supabase.from('accounts').update({ user_id: userId }).is('user_id', null);
+            }
+            if (unclaimedTxs?.length > 0) {
+                await supabase.from('transactions').update({ user_id: userId }).is('user_id', null);
+            }
+            if (unclaimedBuds?.length > 0) {
+                await supabase.from('budgets').update({ user_id: userId }).is('user_id', null);
+            }
+        } catch (err) {
+            console.error("Failed to claim legacy data:", err);
+        }
+    };
+
+    useEffect(() => {
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            setUser(session?.user ?? null);
+            setIsAuthChecking(false);
+            if (session?.user) {
+                claimLegacyData(session.user.id);
+            }
+        });
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            setUser(session?.user ?? null);
+            if (session?.user) {
+                claimLegacyData(session.user.id);
+            }
+        });
+
+        return () => subscription.unsubscribe();
+    }, []);
 
     const {
         budget,
-        leftBudget,
         budgetInput,
         setBudgetInput,
         saveBudget,
@@ -56,6 +99,16 @@ export default function App() {
         syncAccountBalancesForTransaction,
         reloadAccounts,
     });
+
+    const currentMonthSpendBulanan = useMemo(() => {
+        return transactions
+            .filter((item) => getTransactionMonth(item.date) === currentMonth() && item.danaDipakai === "Spend Bulanan")
+            .reduce((sum, item) => sum + Number(item.amount), 0);
+    }, [transactions]);
+
+    const leftBudget = useMemo(() => {
+        return Math.max(0, budget - currentMonthSpendBulanan);
+    }, [budget, currentMonthSpendBulanan]);
 
     const [isManualSyncing, setIsManualSyncing] = useState(false);
     const [manualSyncStatus, setManualSyncStatus] = useState("");
@@ -129,6 +182,21 @@ export default function App() {
         },
     ];
 
+    if (isAuthChecking) {
+        return (
+            <main className="flex min-h-screen items-center justify-center bg-[#0a051b] p-4 text-white">
+                <div className="space-y-4 text-center">
+                    <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-pink-500/20 border-t-pink-500" />
+                    <p className="text-base font-semibold">Checking session...</p>
+                </div>
+            </main>
+        );
+    }
+
+    if (!user) {
+        return <Login />;
+    }
+
     if (isLoading || isAccountsLoading) {
         return (
             <main className="flex min-h-screen items-center justify-center bg-[#f8f6ff] p-4 text-slate-950">
@@ -141,7 +209,7 @@ export default function App() {
                         </p>
 
                         <p className="mt-1 text-sm text-slate-500">
-                            Syncing data from Google Sheets.
+                            Syncing data from database.
                         </p>
                     </div>
                 </div>
@@ -169,10 +237,17 @@ export default function App() {
                                 </p>
 
                                 <p className="text-xs font-medium text-slate-500">
-                                    Expense dashboard
+                                    Expense dashboard ({user?.email?.split('@')[0]})
                                 </p>
                             </div>
                         </div>
+
+                        <button
+                            onClick={() => supabase.auth.signOut()}
+                            className="rounded-2xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-bold text-slate-600 shadow-sm transition hover:bg-slate-50 hover:text-rose-600 hover:border-rose-100"
+                        >
+                            Log Out
+                        </button>
                     </div>
 
                     <div className="mt-8 grid gap-8 xl:grid-cols-[1.5fr_0.8fr] xl:items-center">
@@ -260,7 +335,7 @@ export default function App() {
                         ) : (
                             <>
                                 <div className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)] animate-pulse" />
-                                <span className="text-slate-500 font-medium">All data in sync with Google Sheets.</span>
+                                <span className="text-slate-500 font-medium">All data in sync with database.</span>
                             </>
                         )}
                     </div>

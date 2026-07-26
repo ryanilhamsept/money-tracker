@@ -131,9 +131,11 @@ export default function Tracker({
 
                 return matchesQuery && matchesCategory && matchesSource;
             })
-            .sort((a, b) =>
-                normalizeDate(b.date).localeCompare(normalizeDate(a.date))
-            );
+            .sort((a, b) => {
+                const dateCompare = normalizeDate(b.date).localeCompare(normalizeDate(a.date));
+                if (dateCompare !== 0) return dateCompare;
+                return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+            });
     }, [currentMonthTransactions, query, categoryFilter, sourceFilter]);
 
     const totalHistoryPages = Math.max(

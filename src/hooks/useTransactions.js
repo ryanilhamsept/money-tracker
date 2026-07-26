@@ -6,15 +6,15 @@ import {
     normalizeTransaction,
 } from "../utils/transactions";
 import {
-    syncTransactionToGoogleSheet,
-    deleteTransactionFromGoogleSheet,
-    getTransactionsFromGoogleSheet,
-    updateTransactionToGoogleSheet,
-} from "../services/googleSheets";
+    syncTransactionToSupabase,
+    deleteTransactionFromSupabase,
+    getTransactionsFromSupabase,
+    updateTransactionToSupabase,
+} from "../services/supabase";
 
 const assertSuccessfulSync = (result) => {
     if (result?.success === false) {
-        throw new Error(result.error || "Google Sheets rejected the request.");
+        throw new Error(result.error || "Database rejected the request.");
     }
 };
 
@@ -56,7 +56,7 @@ export const useTransactions = ({
     const [isLoading, setIsLoading] = useState(true);
 
     const [syncStatus, setSyncStatus] = useState(
-        "Loading data from Google Sheets..."
+        "Loading data from database..."
     );
     const pendingMutationCountRef = useRef(0);
     const pendingAddsRef = useRef(readPendingAdds());
@@ -125,42 +125,28 @@ export const useTransactions = ({
         try {
             setIsLoading(true);
 
-            const data = await getTransactionsFromGoogleSheet();
-
-            const rows = Array.isArray(data) ? data : data.rows;
+            const rows = await getTransactionsFromSupabase();
 
             if (!Array.isArray(rows)) {
-                console.error("Google Sheets response is not array:", data);
-                setSyncStatus(
-                    data?.error || "Google Sheets response is not valid."
-                );
+                console.error("Database response is not array:", rows);
+                setSyncStatus("Database response is not valid.");
                 return;
             }
 
-            const deduplicated = deduplicateTransactionsById(rows);
-
-            if (deduplicated.duplicateCount > 0) {
-                console.warn(
-                    `Ignored ${deduplicated.duplicateCount} duplicate transaction rows from Google Sheets.`
-                );
-            }
-
-            const normalizedData = deduplicated.rows
+            const normalizedData = rows
                 .map(normalizeTransaction)
                 .filter((item) => item.title)
                 .map((item) => ({
                     ...item,
-                    id: item.id || `legacy-row-${item.rowNumber}`,
                     date: normalizeDate(item.date),
-                }))
-                .sort((a, b) => b.rowNumber - a.rowNumber);
+                }));
 
             setTransactions(mergePendingAdds(normalizedData));
             setSyncStatus("");
             return true;
         } catch (error) {
             console.error("LOAD TRANSACTIONS ERROR:", error);
-            setSyncStatus("Failed to load data from Google Sheets.");
+            setSyncStatus("Failed to load data from database.");
             return false;
         } finally {
             setIsLoading(false);
@@ -192,7 +178,7 @@ export const useTransactions = ({
         try {
             for (const transaction of pendingAdds) {
                 try {
-                    const result = await syncTransactionToGoogleSheet(
+                    const result = await syncTransactionToSupabase(
                         transaction
                     );
                     assertSuccessfulSync(result);
@@ -347,7 +333,7 @@ export const useTransactions = ({
         startMutation();
 
         try {
-            const result = await updateTransactionToGoogleSheet(updatedTransaction);
+            const result = await updateTransactionToSupabase(updatedTransaction);
             assertSuccessfulSync(result);
             await syncAccountBalancesForTransaction?.(
                 existing,
@@ -384,18 +370,18 @@ export const useTransactions = ({
         );
         applyTransactionBalanceChange?.(deletedTransaction, null);
 
-        setSyncStatus("Deleting from Google Sheets...");
+        setSyncStatus("Deleting from database...");
         startMutation();
 
         try {
-            const result = await deleteTransactionFromGoogleSheet(id);
+            const result = await deleteTransactionFromSupabase(id);
             assertSuccessfulSync(result);
             await syncAccountBalancesForTransaction?.(deletedTransaction, null);
 
             setSyncStatus(
                 deletedTransaction
                     ? `Deleted "${deletedTransaction.title}" and balance restored.`
-                    : "Deleted from Google Sheets."
+                    : "Deleted from database."
             );
             setTimeout(() => setSyncStatus(""), 3000);
             return true;

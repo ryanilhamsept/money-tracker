@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
-    getAccountsFromGoogleSheet,
-    addAccountToGoogleSheet,
-    deleteAccountFromGoogleSheet,
-    updateStartingBalanceInGoogleSheet,
-} from "../services/googleSheets";
+    getAccountsFromSupabase,
+    addAccountToSupabase,
+    deleteAccountFromSupabase,
+    updateStartingBalanceInSupabase,
+} from "../services/supabase";
 import { getAccountBalanceDeltas } from "../utils/accountBalance";
 
 const DEFAULT_ACCOUNTS = [
@@ -32,19 +32,19 @@ export const useAccounts = () => {
                 setIsLoading(true);
             }
 
-            const data = await getAccountsFromGoogleSheet();
+            const data = await getAccountsFromSupabase();
 
             // Check if returned data is an array
             if (Array.isArray(data)) {
                 if (data.length === 0) {
-                    // Auto-initialize default accounts in sheet
+                    // Auto-initialize default accounts in database
                     replaceAccounts(DEFAULT_ACCOUNTS);
 
-                    // Sync to Sheet sequentially to avoid Google Apps Script lock/concurrency errors
+                    // Sync to Database sequentially
                     const initAccountsSequentially = async () => {
                         for (const acc of DEFAULT_ACCOUNTS) {
                             try {
-                                await addAccountToGoogleSheet(acc);
+                                await addAccountToSupabase(acc);
                             } catch (err) {
                                 console.error("Error auto-initializing account:", acc.name, err);
                             }
@@ -63,7 +63,7 @@ export const useAccounts = () => {
             }
         } catch (err) {
             console.error("FAILED TO LOAD ACCOUNTS:", err);
-            setError("Failed to load accounts from Google Sheets.");
+            setError("Failed to load accounts from database.");
             return false;
         } finally {
             if (showLoading) {
@@ -89,16 +89,16 @@ export const useAccounts = () => {
         replaceAccounts([...accountsRef.current, newAccount]);
 
         try {
-            await addAccountToGoogleSheet(newAccount);
+            await addAccountToSupabase(newAccount);
             setError(null);
             return true;
         } catch (err) {
-            console.error("Error syncing new account to Google Sheets:", err);
+            console.error("Error syncing new account to database:", err);
             // Revert on error
             replaceAccounts(
                 accountsRef.current.filter((acc) => acc.id !== newAccount.id)
             );
-            setError("Failed to sync new account to Google Sheets.");
+            setError("Failed to sync new account to database.");
             return false;
         }
     };
@@ -111,14 +111,14 @@ export const useAccounts = () => {
         replaceAccounts(accountsRef.current.filter((acc) => acc.id !== id));
 
         try {
-            await deleteAccountFromGoogleSheet(id);
+            await deleteAccountFromSupabase(id);
             setError(null);
             return true;
         } catch (err) {
-            console.error("Error deleting account from Google Sheets:", err);
+            console.error("Error deleting account from database:", err);
             // Revert
             replaceAccounts([...accountsRef.current, deletedAccount]);
-            setError("Failed to delete account from Google Sheets.");
+            setError("Failed to delete account from database.");
             return false;
         }
     };
@@ -137,20 +137,20 @@ export const useAccounts = () => {
         );
 
         try {
-            const result = await updateStartingBalanceInGoogleSheet(id, newBalance);
+            const result = await updateStartingBalanceInSupabase(id, newBalance);
             if (result?.success === false) {
-                throw new Error(result.error || "Google Sheets rejected balance update.");
+                throw new Error(result.error || "Database rejected balance update.");
             }
             return true;
         } catch (err) {
-            console.error("Error updating starting balance in Google Sheets:", err);
+            console.error("Error updating starting balance in database:", err);
             // Revert
             replaceAccounts(
                 accountsRef.current.map((acc) =>
                     acc.id === id ? originalAccount : acc
                 )
             );
-            setError("Failed to update starting balance in Google Sheets.");
+            setError("Failed to update starting balance in database.");
             return false;
         }
     };
@@ -203,7 +203,7 @@ export const useAccounts = () => {
 
                         if (!currentAccount) return Promise.resolve();
 
-                        return updateStartingBalanceInGoogleSheet(
+                        return updateStartingBalanceInSupabase(
                             currentAccount.id,
                             currentAccount.startingBalance
                         );

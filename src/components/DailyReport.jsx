@@ -110,8 +110,8 @@ export default function DailyReport({ transactions }) {
                 date,
                 transactions: list.sort(
                     (a, b) =>
-                        Number(b.rowNumber || 0) -
-                        Number(a.rowNumber || 0)
+                        new Date(b.createdAt || 0) -
+                        new Date(a.createdAt || 0)
                 ),
                 amount: list.reduce(
                     (sum, item) => sum + Number(item.amount),

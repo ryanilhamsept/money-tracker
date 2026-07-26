@@ -1,26 +1,23 @@
 import { useEffect, useState } from "react";
 import { parseAmountInput } from "../utils/parser";
 import {
-    getBudgetFromGoogleSheet,
-    saveBudgetToGoogleSheet,
-} from "../services/googleSheets";
+    getBudgetFromSupabase,
+    saveBudgetToSupabase,
+} from "../services/supabase";
 
 export const useBudget = () => {
     const [budget, setBudget] = useState(0);
-    const [leftBudget, setLeftBudget] = useState(0);
     const [budgetInput, setBudgetInput] = useState("");
 
     const loadBudget = async () => {
         try {
-            const data = await getBudgetFromGoogleSheet();
+            const data = await getBudgetFromSupabase();
 
             setBudget(Number(data.budget) || 0);
-            setLeftBudget(Number(data.leftBudget) || 0);
             return true;
         } catch (error) {
             console.error("LOAD BUDGET ERROR:", error);
             setBudget(0);
-            setLeftBudget(0);
             return false;
         }
     };
@@ -41,7 +38,7 @@ export const useBudget = () => {
         setBudgetInput("");
 
         try {
-            await saveBudgetToGoogleSheet(newBudget);
+            await saveBudgetToSupabase(newBudget);
             await loadBudget();
         } catch (err) {
             console.error("SAVE BUDGET ERROR:", err);
@@ -50,7 +47,6 @@ export const useBudget = () => {
 
     return {
         budget,
-        leftBudget,
         budgetInput,
         setBudgetInput,
         saveBudget,

@@ -9,16 +9,33 @@ import {
   Text,
   View,
 } from "react-native";
-import { getAccounts, getTransactions } from "./src/services/googleSheets";
+import { getAccounts, getTransactions, supabase } from "./src/services/supabase";
 import { formatCurrency, formatDate } from "./src/utils/formatters";
+import Login from "./src/components/Login";
 
 export default function App() {
+  const [user, setUser] = useState(null);
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [accounts, setAccounts] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      setIsAuthChecking(false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
   const loadDashboard = useCallback(async () => {
+    if (!user) return;
     try {
       setError("");
       setIsLoading(true);
@@ -32,7 +49,7 @@ export default function App() {
       setTransactions(
         nextTransactions
           .filter((item) => item.title)
-          .sort((a, b) => Number(b.rowNumber || 0) - Number(a.rowNumber || 0))
+          .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
           .slice(0, 8)
       );
     } catch (err) {
@@ -40,12 +57,13 @@ export default function App() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    loadDashboard();
-  }, [loadDashboard]);
+    if (user) {
+      loadDashboard();
+    }
+  }, [user, loadDashboard]);
 
   const totalBalance = useMemo(
     () =>
@@ -56,6 +74,19 @@ export default function App() {
     [accounts]
   );
 
+  if (isAuthChecking) {
+    return (
+      <View style={[styles.screen, { justifyContent: "center", alignItems: "center", backgroundColor: "#0a051b", flex: 1 }]}>
+        <ActivityIndicator size="large" color="#ec4899" />
+        <Text style={{ color: "#ffffff", marginTop: 12, fontWeight: "600" }}>Memeriksa sesi...</Text>
+      </View>
+    );
+  }
+
+  if (!user) {
+    return <Login />;
+  }
+
   return (
     <SafeAreaView style={styles.screen}>
       <StatusBar style="dark" />
@@ -65,22 +96,34 @@ export default function App() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <View>
-            <Text style={styles.eyebrow}>Money Tracker</Text>
+          <View style={{ flex: 1, paddingRight: 8 }}>
+            <Text style={styles.eyebrow} numberOfLines={1} ellipsizeMode="tail">{user?.email?.split('@')[0]}</Text>
             <Text style={styles.title}>V2 Native</Text>
           </View>
 
-          <Pressable
-            disabled={isLoading}
-            onPress={loadDashboard}
-            style={({ pressed }) => [
-              styles.refreshButton,
-              pressed && styles.pressed,
-              isLoading && styles.disabled,
-            ]}
-          >
-            <Text style={styles.refreshText}>Refresh</Text>
-          </Pressable>
+          <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
+            <Pressable
+              disabled={isLoading}
+              onPress={loadDashboard}
+              style={({ pressed }) => [
+                styles.refreshButton,
+                pressed && styles.pressed,
+                isLoading && styles.disabled,
+              ]}
+            >
+              <Text style={styles.refreshText}>Refresh</Text>
+            </Pressable>
+
+            <Pressable
+              onPress={() => supabase.auth.signOut()}
+              style={({ pressed }) => [
+                styles.logoutButton,
+                pressed && styles.pressed,
+              ]}
+            >
+              <Text style={styles.logoutText}>Keluar</Text>
+            </Pressable>
+          </View>
         </View>
 
         <View style={styles.balancePanel}>
@@ -91,7 +134,7 @@ export default function App() {
         {isLoading ? (
           <View style={styles.loadingPanel}>
             <ActivityIndicator color="#0f766e" />
-            <Text style={styles.muted}>Loading data dari Google Sheets...</Text>
+            <Text style={styles.muted}>Loading data dari database...</Text>
           </View>
         ) : null}
 
@@ -308,5 +351,18 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     fontSize: 15,
     fontWeight: "900",
+  },
+  logoutButton: {
+    backgroundColor: "#fff1f2",
+    borderColor: "#fecdd3",
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  logoutText: {
+    color: "#be123c",
+    fontSize: 13,
+    fontWeight: "700",
   },
 });

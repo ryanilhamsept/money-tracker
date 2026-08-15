@@ -104,20 +104,24 @@ export const useTransactions = ({
         );
 
         const remainingPendingAdds = pendingAddsRef.current.filter(
-            (transaction) => !syncedIds.has(transaction.id)
+            (transaction) => !syncedIds.has(String(transaction.id || "").trim())
         );
 
         if (remainingPendingAdds.length !== pendingAddsRef.current.length) {
             replacePendingAdds(remainingPendingAdds);
         }
 
-        return [
+        // Fresh rows from Supabase come first so they win over any stale
+        // locally-cached pending entry sharing the same id.
+        const { rows: deduped } = deduplicateTransactionsById([
+            ...rows,
             ...remainingPendingAdds.map((transaction) => ({
                 ...transaction,
                 syncState: "pending",
             })),
-            ...rows,
-        ];
+        ]);
+
+        return deduped;
     };
 
     const loadTransactions = async () => {

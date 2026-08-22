@@ -4,11 +4,14 @@
   "main": "index.js",
   "dependencies": {
     "@react-native-async-storage/async-storage": "^3.1.1",
+    "@react-native-picker/picker": "2.11.4",
     "@supabase/supabase-js": "^2.110.8",
     "expo": "~57.0.2",
     "expo-status-bar": "~57.0.0",
     "react": "19.2.3",
-    "react-native": "0.86.0"
+    "react-dom": "19.2.3",
+    "react-native": "0.86.0",
+    "react-native-web": "^0.21.2"
   },
   "scripts": {
     "start": "expo start",

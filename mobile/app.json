@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Money Tracker V2",
-    "slug": "money-tracker-v2",
+    "slug": "ryanilhamsept",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -10,6 +10,7 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.ryanilhamsept.moneytracker",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -19,6 +20,12 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "22d9003b-3997-4bbf-b3f0-bf0942f87fc5"
+      }
+    },
+    "owner": "ryanilhamsepts"
   }
 }

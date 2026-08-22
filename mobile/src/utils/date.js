@@ -1,13 +1,19 @@
-// Mirror dari src/utils/date.js di app web.
+// Mirror dari src/utils/date.js di app web -- tapi pakai formatToParts, BUKAN
+// parsing ulang string toLocaleString() ke Date() (itu "Invalid Date" di Hermes/RN).
 export const today = () => {
-  const now = new Date();
-  const jakartaDate = new Date(
-    now.toLocaleString("en-US", { timeZone: "Asia/Jakarta" })
-  );
-  const year = jakartaDate.getFullYear();
-  const month = String(jakartaDate.getMonth() + 1).padStart(2, "0");
-  const date = String(jakartaDate.getDate()).padStart(2, "0");
-  return `${year}-${month}-${date}`;
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Jakarta",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+
+  const map = {};
+  parts.forEach((p) => {
+    map[p.type] = p.value;
+  });
+
+  return `${map.year}-${map.month}-${map.day}`;
 };
 
 export const currentMonth = () => today().slice(0, 7);

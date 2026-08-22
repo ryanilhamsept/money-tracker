@@ -834,16 +834,17 @@ const styles = StyleSheet.create({
     backgroundColor: "#ffffff",
     borderTopWidth: 1,
     borderTopColor: "#e2e8f0",
-    paddingBottom: 8,
-    paddingTop: 10,
+    paddingBottom: 18,
+    paddingTop: 14,
   },
   tabItem: {
     flex: 1,
     alignItems: "center",
+    paddingVertical: 4,
   },
   tabLabel: {
     color: "#94a3b8",
-    fontSize: 12,
+    fontSize: 15,
     fontWeight: "800",
   },
   tabLabelActive: {

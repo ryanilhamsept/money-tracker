@@ -30,7 +30,9 @@ const getTransactionAccountEffect = (accounts, transaction) => {
     return null;
   }
 
-  return { account, amount };
+  // Income nambah saldo, expense ngurangin -- makanya tandanya dibalik.
+  const sign = transaction.type === "income" ? -1 : 1;
+  return { account, amount: amount * sign };
 };
 
 // Sama persis logic-nya sama src/utils/accountBalance.js di app web,

@@ -1,4 +1,5 @@
 import { StatusBar } from "expo-status-bar";
+import { LinearGradient } from "expo-linear-gradient";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -21,17 +22,32 @@ import {
   deleteAccount,
   getBudget,
   saveBudget,
+  getGoals,
+  addGoal,
+  updateGoal,
+  deleteGoal,
+  getSplitBills,
+  addSplitBill,
+  updateSplitBill,
+  deleteSplitBill,
   supabase,
 } from "./src/services/supabase";
 import { formatCurrency, formatDate } from "./src/utils/formatters";
 import { getAccountBalanceDeltas } from "./src/utils/accountBalance";
-import { currentMonth, getTransactionMonth } from "./src/utils/date";
-import { categories, fundSources } from "./src/constants/options";
+import {
+  currentMonth,
+  formatDisplayDate,
+  getTransactionMonth,
+  normalizeDate,
+  shiftMonth,
+} from "./src/utils/date";
+import { categories, incomeCategories, fundSources } from "./src/constants/options";
 import Login from "./src/components/Login";
 import TransactionForm from "./src/components/TransactionForm";
 import Dropdown from "./src/components/Dropdown";
 import AccountsScreen from "./src/components/AccountsScreen";
-import DailyReportScreen from "./src/components/DailyReportScreen";
+import PlanScreen from "./src/components/PlanScreen";
+import SplitBillScreen from "./src/components/SplitBillScreen";
 import MonthlyReportScreen from "./src/components/MonthlyReportScreen";
 
 // Hermes/RN nggak selalu punya crypto.randomUUID -- pakai fallback manual biar aman.
@@ -46,18 +62,44 @@ const generateId = () => {
   });
 };
 
-const TABS = [
-  { key: "transactions", label: "Transaksi" },
+const TABS_LEFT = [
+  { key: "transactions", label: "Home" },
   { key: "accounts", label: "Akun" },
-  { key: "daily", label: "Daily" },
+];
+const TABS_RIGHT = [
+  { key: "plan", label: "Plan" },
   { key: "monthly", label: "Monthly" },
 ];
+
+const CATEGORY_ICONS = {
+  "Account Transfer": { emoji: "🔁", bg: "#dcfce7", color: "#15803d" },
+  Food: { emoji: "🍔", bg: "#ffedd5", color: "#c2410c" },
+  Transportation: { emoji: "🚗", bg: "#dbeafe", color: "#1d4ed8" },
+  Groceries: { emoji: "🛒", bg: "#fef9c3", color: "#a16207" },
+  Utilities: { emoji: "💡", bg: "#fef3c7", color: "#b45309" },
+  Entertainment: { emoji: "🎮", bg: "#fce7f3", color: "#be185d" },
+  Internet: { emoji: "🌐", bg: "#cffafe", color: "#0e7490" },
+  Shopping: { emoji: "🛍️", bg: "#ede9fe", color: "#6d28d9" },
+  Health: { emoji: "❤️", bg: "#ffe4e6", color: "#be123c" },
+  Education: { emoji: "📚", bg: "#e0e7ff", color: "#4338ca" },
+  Miscellaneous: { emoji: "✨", bg: "#f1f5f9", color: "#475569" },
+};
+const getCategoryIcon = (category) => CATEGORY_ICONS[category] || CATEGORY_ICONS.Miscellaneous;
+
+const WEEKDAYS = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+const formatDayHeader = (dateStr) => {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const dow = new Date(y, m - 1, d).getDay();
+  return `${WEEKDAYS[dow]}, ${formatDisplayDate(dateStr)}`;
+};
 
 export default function App() {
   const [user, setUser] = useState(null);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [accounts, setAccounts] = useState([]);
   const [transactions, setTransactions] = useState([]);
+  const [goals, setGoals] = useState([]);
+  const [splitBills, setSplitBills] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [formVisible, setFormVisible] = useState(false);
@@ -92,19 +134,27 @@ export default function App() {
       setError("");
       setIsLoading(true);
 
-      const [nextAccounts, nextTransactions, nextBudget] = await Promise.all([
+      const [nextAccounts, nextTransactions, nextBudget, nextGoals, nextSplitBills] = await Promise.all([
         getAccounts(),
         getTransactions(),
         getBudget(user.id),
+        getGoals(),
+        getSplitBills(),
       ]);
 
       setAccounts(nextAccounts);
       setTransactions(
         nextTransactions
           .filter((item) => item.title)
-          .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+          .sort((a, b) => {
+            const dateCompare = String(b.date).localeCompare(String(a.date));
+            if (dateCompare !== 0) return dateCompare;
+            return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+          })
       );
       setBudget(nextBudget);
+      setGoals(nextGoals);
+      setSplitBills(nextSplitBills);
     } catch (err) {
       setError(err.message || "Gagal mengambil data tracker.");
     } finally {
@@ -138,22 +188,60 @@ export default function App() {
     setTransactionPage(1);
   }, [searchQuery, categoryFilter, sourceFilter]);
 
-  const totalTransactionPages = Math.max(
-    1,
-    Math.ceil(filteredTransactions.length / TRANSACTIONS_PAGE_SIZE)
-  );
+  // Dikelompokkan per tanggal dulu sebelum dipaginasi, biar transaksi di satu
+  // tanggal nggak pernah kepotong jadi dua grup terpisah di dua halaman.
+  const dateGroupsAll = useMemo(() => {
+    const groups = {};
+    filteredTransactions.forEach((t) => {
+      const key = normalizeDate(t.date);
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(t);
+    });
+    return Object.entries(groups)
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([date, items]) => ({
+        date,
+        items,
+        // Total per hari cuma ngitung pengeluaran, biar konsisten sama makna
+        // "Total Spending" -- pemasukan tetap kelihatan di baris masing-masing.
+        total: items
+          .filter((t) => t.type !== "income")
+          .reduce((sum, t) => sum + Number(t.amount), 0),
+      }));
+  }, [filteredTransactions]);
 
-  const paginatedTransactions = useMemo(
-    () =>
-      filteredTransactions.slice(
-        (transactionPage - 1) * TRANSACTIONS_PAGE_SIZE,
-        transactionPage * TRANSACTIONS_PAGE_SIZE
-      ),
-    [filteredTransactions, transactionPage]
-  );
+  const transactionPages = useMemo(() => {
+    const pages = [];
+    let current = [];
+    let currentCount = 0;
+    dateGroupsAll.forEach((group) => {
+      if (currentCount > 0 && currentCount + group.items.length > TRANSACTIONS_PAGE_SIZE) {
+        pages.push(current);
+        current = [];
+        currentCount = 0;
+      }
+      current.push(group);
+      currentCount += group.items.length;
+    });
+    if (current.length > 0) pages.push(current);
+    return pages.length > 0 ? pages : [[]];
+  }, [dateGroupsAll]);
+
+  const totalTransactionPages = transactionPages.length;
+
+  useEffect(() => {
+    if (transactionPage > totalTransactionPages) {
+      setTransactionPage(totalTransactionPages);
+    }
+  }, [totalTransactionPages, transactionPage]);
+
+  const groupedTransactions = transactionPages[transactionPage - 1] || [];
 
   const totalSpending = useMemo(
-    () => currentMonthTransactions.reduce((sum, t) => sum + Number(t.amount), 0),
+    () =>
+      currentMonthTransactions
+        .filter((t) => t.type !== "income")
+        .reduce((sum, t) => sum + Number(t.amount), 0),
     [currentMonthTransactions]
   );
 
@@ -169,6 +257,19 @@ export default function App() {
     () => Math.max(0, budget - currentMonthSpendBulanan),
     [budget, currentMonthSpendBulanan]
   );
+
+  const spendingComparison = useMemo(() => {
+    const prevMonth = shiftMonth(currentMonth(), -1);
+    const prevTotal = transactions
+      .filter((t) => getTransactionMonth(t.date) === prevMonth && t.type !== "income")
+      .reduce((sum, t) => sum + Number(t.amount), 0);
+    if (prevTotal === 0) return null;
+    const diff = totalSpending - prevTotal;
+    return {
+      percent: Math.abs(Math.round((diff / prevTotal) * 100)),
+      isIncrease: diff > 0,
+    };
+  }, [transactions, totalSpending]);
 
   const handleBudgetEditOpen = () => {
     setBudgetInput(String(budget || ""));
@@ -269,6 +370,36 @@ export default function App() {
     await loadDashboard();
   };
 
+  const handleAddGoal = async (goal) => {
+    await addGoal(goal, user.id);
+    await loadDashboard();
+  };
+
+  const handleUpdateGoal = async (goal) => {
+    await updateGoal(goal);
+    await loadDashboard();
+  };
+
+  const handleDeleteGoal = async (id) => {
+    await deleteGoal(id);
+    await loadDashboard();
+  };
+
+  const handleAddSplitBill = async (bill) => {
+    await addSplitBill(bill);
+    await loadDashboard();
+  };
+
+  const handleUpdateSplitBill = async (bill) => {
+    await updateSplitBill(bill);
+    await loadDashboard();
+  };
+
+  const handleDeleteSplitBill = async (id) => {
+    await deleteSplitBill(id);
+    await loadDashboard();
+  };
+
   if (isAuthChecking) {
     return (
       <View style={[styles.screen, { justifyContent: "center", alignItems: "center", backgroundColor: "#0a051b", flex: 1 }]}>
@@ -292,40 +423,131 @@ export default function App() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.header}>
-            <View style={{ flex: 1, paddingRight: 8 }}>
-              <Text style={styles.eyebrow} numberOfLines={1} ellipsizeMode="tail">{user?.email?.split('@')[0]}</Text>
-              <Text style={styles.title}>V2 Native</Text>
+            <View style={styles.avatarCircle}>
+              <Text style={styles.avatarText}>
+                {(user?.email || "?").charAt(0).toUpperCase()}
+              </Text>
             </View>
 
-            <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
-              <Pressable
-                disabled={isLoading}
-                onPress={loadDashboard}
-                style={({ pressed }) => [
-                  styles.refreshButton,
-                  pressed && styles.pressed,
-                  isLoading && styles.disabled,
-                ]}
-              >
-                <Text style={styles.refreshText}>Refresh</Text>
-              </Pressable>
-
-              <Pressable
-                onPress={() => supabase.auth.signOut()}
-                style={({ pressed }) => [
-                  styles.logoutButton,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <Text style={styles.logoutText}>Keluar</Text>
-              </Pressable>
+            <View style={{ flex: 1, paddingHorizontal: 12 }}>
+              <Text style={styles.eyebrow} numberOfLines={1} ellipsizeMode="tail">
+                {user?.email?.split("@")[0]}
+              </Text>
+              <Text style={styles.monthPill}>{formatDisplayDate(currentMonth() + "-01").split(" ").slice(1).join(" ")}</Text>
             </View>
+
+            <Pressable
+              disabled={isLoading}
+              onPress={loadDashboard}
+              style={({ pressed }) => [
+                styles.iconCircleButton,
+                pressed && styles.pressed,
+                isLoading && styles.disabled,
+              ]}
+            >
+              <Text style={styles.iconCircleText}>{isLoading ? "…" : "↻"}</Text>
+            </Pressable>
+
+            <Pressable
+              onPress={() => supabase.auth.signOut()}
+              style={({ pressed }) => [styles.iconCircleButton, pressed && styles.pressed]}
+            >
+              <Text style={styles.iconCircleText}>⎋</Text>
+            </Pressable>
           </View>
 
-          <View style={styles.balancePanel}>
-            <Text style={styles.panelLabel}>Total Spending</Text>
-            <Text style={styles.balanceValue}>{formatCurrency(totalSpending)}</Text>
+          <LinearGradient
+            colors={["#ec4899", "#8b5cf6"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.heroCard}
+          >
+            <Text style={styles.heroLabel}>Total Spending</Text>
+            <Text style={styles.heroValue}>{formatCurrency(totalSpending)}</Text>
+            {spendingComparison ? (
+              <View style={styles.heroChip}>
+                <Text style={styles.heroChipText}>
+                  {spendingComparison.isIncrease ? "▲" : "▼"} {spendingComparison.percent}%{" "}
+                  dari bulan lalu
+                </Text>
+              </View>
+            ) : null}
+          </LinearGradient>
+
+          <View style={styles.moneyRow}>
+            <View style={styles.moneyCard}>
+              <View style={styles.moneyIconWrap}>
+                <Text style={styles.moneyIconText}>🐷</Text>
+              </View>
+              <View style={styles.moneyCardBody}>
+                <View style={styles.statCardHeader}>
+                  <Text style={styles.moneyLabel}>Budget</Text>
+                  {!isEditingBudget ? (
+                    <Pressable onPress={handleBudgetEditOpen} style={styles.editIconButton}>
+                      <Text style={styles.editIconText}>✎</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+                {!isEditingBudget ? (
+                  <Text style={styles.moneyValue} numberOfLines={1}>
+                    {formatCurrency(budget)}
+                  </Text>
+                ) : (
+                  <View style={styles.budgetEditRow}>
+                    <TextInput
+                      style={styles.budgetInput}
+                      keyboardType="numeric"
+                      placeholder="5000000"
+                      placeholderTextColor="#94a3b8"
+                      value={budgetInput}
+                      onChangeText={setBudgetInput}
+                      autoFocus
+                    />
+                    <Pressable
+                      style={styles.iconButtonDark}
+                      onPress={handleBudgetSave}
+                      disabled={isSavingBudget}
+                    >
+                      <Text style={styles.iconButtonDarkText}>✓</Text>
+                    </Pressable>
+                    <Pressable style={styles.iconButtonLight} onPress={handleBudgetCancel}>
+                      <Text style={styles.editIconText}>✕</Text>
+                    </Pressable>
+                  </View>
+                )}
+              </View>
+            </View>
+
+            <View style={styles.moneyCard}>
+              <View style={[styles.moneyIconWrap, styles.moneyIconWrapRose]}>
+                <Text style={styles.moneyIconText}>💸</Text>
+              </View>
+              <View style={styles.moneyCardBody}>
+                <Text style={styles.moneyLabel}>Sisa Budget</Text>
+                <Text
+                  style={[styles.moneyValue, leftBudget <= 0 && styles.statCardValueDanger]}
+                  numberOfLines={1}
+                >
+                  {formatCurrency(leftBudget)}
+                </Text>
+              </View>
+            </View>
+
+            <Pressable
+              style={({ pressed }) => [styles.splitBillButton, pressed && styles.pressed]}
+              onPress={() => setActiveTab("splitbill")}
+            >
+              <Text style={styles.splitBillButtonText}>🧾+</Text>
+            </Pressable>
           </View>
+
+          <Pressable
+            onPress={() => setActiveTab("monthly")}
+            style={({ pressed }) => [styles.aiBanner, pressed && styles.pressed]}
+          >
+            <Text style={styles.aiBannerText}>✨ Lihat AI Review bulan ini</Text>
+            <Text style={styles.aiBannerArrow}>→</Text>
+          </Pressable>
 
           {isLoading ? (
             <View style={styles.loadingPanel}>
@@ -339,58 +561,6 @@ export default function App() {
               <Text style={styles.errorText}>{error}</Text>
             </View>
           ) : null}
-
-          <View style={styles.statRow}>
-            <View style={styles.statCard}>
-              <View style={styles.statCardHeader}>
-                <Text style={styles.statCardLabel}>Budget Manual</Text>
-                {!isEditingBudget ? (
-                  <Pressable onPress={handleBudgetEditOpen} style={styles.editIconButton}>
-                    <Text style={styles.editIconText}>✎</Text>
-                  </Pressable>
-                ) : null}
-              </View>
-
-              {!isEditingBudget ? (
-                <Text style={styles.statCardValue}>{formatCurrency(budget)}</Text>
-              ) : (
-                <View style={styles.budgetEditRow}>
-                  <TextInput
-                    style={styles.budgetInput}
-                    keyboardType="numeric"
-                    placeholder="5000000"
-                    placeholderTextColor="#94a3b8"
-                    value={budgetInput}
-                    onChangeText={setBudgetInput}
-                    autoFocus
-                  />
-                  <Pressable
-                    style={styles.iconButtonDark}
-                    onPress={handleBudgetSave}
-                    disabled={isSavingBudget}
-                  >
-                    <Text style={styles.iconButtonDarkText}>✓</Text>
-                  </Pressable>
-                  <Pressable style={styles.iconButtonLight} onPress={handleBudgetCancel}>
-                    <Text style={styles.editIconText}>✕</Text>
-                  </Pressable>
-                </View>
-              )}
-
-              <View style={styles.budgetDivider} />
-              <View style={styles.statCardHeader}>
-                <Text style={styles.statCardLabel}>Sisa Budget</Text>
-                <Text
-                  style={[
-                    styles.statCardValueSmall,
-                    leftBudget <= 0 && styles.statCardValueDanger,
-                  ]}
-                >
-                  {formatCurrency(leftBudget)}
-                </Text>
-              </View>
-            </View>
-          </View>
 
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Transaksi Bulan Ini</Text>
@@ -413,6 +583,7 @@ export default function App() {
                 options={[
                   { label: "All categories", value: "all" },
                   ...categories.map((c) => ({ label: c, value: c })),
+                  ...incomeCategories.map((c) => ({ label: c, value: c })),
                 ]}
               />
             </View>
@@ -430,26 +601,59 @@ export default function App() {
           </View>
 
           <View style={styles.transactionList}>
-            {paginatedTransactions.map((transaction) => (
-              <Pressable
-                key={`${transaction.rowNumber}-${transaction.id || transaction.title}`}
-                onPress={() => openEditForm(transaction)}
-                style={({ pressed }) => [
-                  styles.transactionRow,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <View style={styles.transactionCopy}>
-                  <Text style={styles.transactionTitle}>{transaction.title}</Text>
-                  <Text style={styles.transactionMeta}>
-                    {formatDate(transaction.date)} · {transaction.source} ·{" "}
-                    {transaction.danaDipakai}
+            {groupedTransactions.map((group) => (
+              <View key={group.date} style={styles.dayGroup}>
+                <View style={styles.dayGroupHeader}>
+                  <Text style={styles.dayGroupTitle}>{formatDayHeader(group.date)}</Text>
+                  <Text style={styles.dayGroupTotal}>
+                    Total {formatCurrency(group.total)}
                   </Text>
                 </View>
-                <Text style={styles.transactionAmount}>
-                  -{formatCurrency(transaction.amount)}
-                </Text>
-              </Pressable>
+
+                {group.items.map((transaction) => {
+                  const isIncome = transaction.type === "income";
+                  const icon = getCategoryIcon(transaction.category);
+                  return (
+                    <Pressable
+                      key={`${transaction.rowNumber}-${transaction.id || transaction.title}`}
+                      onPress={() => openEditForm(transaction)}
+                      style={({ pressed }) => [
+                        styles.transactionRow,
+                        pressed && styles.pressed,
+                      ]}
+                    >
+                      <View
+                        style={[
+                          styles.transactionIconWrap,
+                          { backgroundColor: isIncome ? "#dcfce7" : icon.bg },
+                        ]}
+                      >
+                        <Text style={styles.transactionIconText}>
+                          {isIncome ? "💰" : icon.emoji}
+                        </Text>
+                      </View>
+                      <View style={styles.transactionCopy}>
+                        <Text style={styles.transactionTitle} numberOfLines={1}>
+                          {transaction.title}
+                        </Text>
+                        <Text style={styles.transactionMeta}>
+                          {transaction.source}
+                          {transaction.danaDipakai ? ` · ${transaction.danaDipakai}` : ""}
+                        </Text>
+                      </View>
+                      <Text
+                        style={[
+                          styles.transactionAmount,
+                          isIncome && styles.transactionAmountIncome,
+                        ]}
+                      >
+                        {isIncome ? "+" : "-"}
+                        {formatCurrency(transaction.amount)}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
             ))}
           </View>
 
@@ -491,21 +695,48 @@ export default function App() {
         />
       ) : null}
 
-      {activeTab === "daily" ? <DailyReportScreen transactions={transactions} /> : null}
+      {activeTab === "plan" ? (
+        <PlanScreen
+          goals={goals}
+          onAdd={handleAddGoal}
+          onUpdate={handleUpdateGoal}
+          onDelete={handleDeleteGoal}
+        />
+      ) : null}
 
-      {activeTab === "monthly" ? <MonthlyReportScreen transactions={transactions} /> : null}
+      {activeTab === "monthly" ? (
+        <MonthlyReportScreen transactions={transactions} budget={budget} />
+      ) : null}
 
-      {activeTab === "transactions" ? (
-        <Pressable
-          onPress={openAddForm}
-          style={({ pressed }) => [styles.fab, pressed && styles.pressed]}
-        >
-          <Text style={styles.fabText}>+</Text>
-        </Pressable>
+      {activeTab === "splitbill" ? (
+        <SplitBillScreen
+          bills={splitBills}
+          onAdd={handleAddSplitBill}
+          onUpdate={handleUpdateSplitBill}
+          onDelete={handleDeleteSplitBill}
+          onBack={() => setActiveTab("transactions")}
+        />
       ) : null}
 
       <View style={styles.tabBar}>
-        {TABS.map((tab) => {
+        {TABS_LEFT.map((tab) => {
+          const active = activeTab === tab.key;
+          return (
+            <Pressable
+              key={tab.key}
+              onPress={() => setActiveTab(tab.key)}
+              style={styles.tabItem}
+            >
+              <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>
+                {tab.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+
+        <View style={styles.tabSpacer} />
+
+        {TABS_RIGHT.map((tab) => {
           const active = activeTab === tab.key;
           return (
             <Pressable
@@ -520,6 +751,13 @@ export default function App() {
           );
         })}
       </View>
+
+      <Pressable
+        onPress={openAddForm}
+        style={({ pressed }) => [styles.fab, pressed && styles.pressed]}
+      >
+        <Text style={styles.fabText}>+</Text>
+      </Pressable>
 
       <TransactionForm
         visible={formVisible}
@@ -539,7 +777,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
-    paddingBottom: 40,
+    paddingBottom: 110,
     gap: 18,
   },
   header: {
@@ -794,6 +1032,9 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "900",
   },
+  transactionAmountIncome: {
+    color: "#16a34a",
+  },
   logoutButton: {
     backgroundColor: "#fff1f2",
     borderColor: "#fecdd3",
@@ -811,12 +1052,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#ec4899",
     borderRadius: 30,
-    bottom: 76,
+    bottom: 38,
     elevation: 6,
     height: 60,
     justifyContent: "center",
+    left: "50%",
+    marginLeft: -30,
     position: "absolute",
-    right: 24,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
@@ -849,5 +1091,174 @@ const styles = StyleSheet.create({
   },
   tabLabelActive: {
     color: "#ec4899",
+  },
+  tabSpacer: {
+    width: 60,
+  },
+  avatarCircle: {
+    alignItems: "center",
+    backgroundColor: "#8b5cf6",
+    borderRadius: 22,
+    height: 44,
+    justifyContent: "center",
+    width: 44,
+  },
+  avatarText: {
+    color: "#ffffff",
+    fontSize: 18,
+    fontWeight: "900",
+  },
+  monthPill: {
+    color: "#0f172a",
+    fontSize: 18,
+    fontWeight: "900",
+    marginTop: 2,
+    textTransform: "capitalize",
+  },
+  iconCircleButton: {
+    alignItems: "center",
+    backgroundColor: "#ffffff",
+    borderColor: "#e2e8f0",
+    borderRadius: 20,
+    borderWidth: 1,
+    height: 40,
+    justifyContent: "center",
+    marginLeft: 8,
+    width: 40,
+  },
+  iconCircleText: {
+    color: "#0f172a",
+    fontSize: 16,
+    fontWeight: "800",
+  },
+  heroCard: {
+    borderRadius: 8,
+    padding: 22,
+  },
+  heroLabel: {
+    color: "#f5d0fe",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  heroValue: {
+    color: "#ffffff",
+    fontSize: 32,
+    fontWeight: "900",
+    marginTop: 10,
+  },
+  heroChip: {
+    alignSelf: "flex-start",
+    backgroundColor: "rgba(255,255,255,0.22)",
+    borderRadius: 20,
+    marginTop: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  heroChipText: {
+    color: "#ffffff",
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  moneyRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  moneyCard: {
+    alignItems: "center",
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
+    flex: 1,
+    flexDirection: "row",
+    gap: 10,
+    padding: 14,
+  },
+  moneyIconWrap: {
+    alignItems: "center",
+    backgroundColor: "#fef3c7",
+    borderRadius: 18,
+    height: 36,
+    justifyContent: "center",
+    width: 36,
+  },
+  moneyIconWrapRose: {
+    backgroundColor: "#ffe4e6",
+  },
+  moneyIconText: {
+    fontSize: 16,
+  },
+  moneyCardBody: {
+    flex: 1,
+  },
+  moneyLabel: {
+    color: "#64748b",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  moneyValue: {
+    color: "#0f172a",
+    fontSize: 15,
+    fontWeight: "900",
+    marginTop: 4,
+  },
+  splitBillButton: {
+    alignItems: "center",
+    backgroundColor: "#0f172a",
+    borderRadius: 16,
+    justifyContent: "center",
+    width: 52,
+  },
+  splitBillButtonText: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "900",
+  },
+  aiBanner: {
+    alignItems: "center",
+    backgroundColor: "#0f172a",
+    borderRadius: 16,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+  },
+  aiBannerText: {
+    color: "#ffffff",
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  aiBannerArrow: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "900",
+  },
+  dayGroup: {
+    gap: 8,
+  },
+  dayGroupHeader: {
+    alignItems: "baseline",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 2,
+  },
+  dayGroupTitle: {
+    color: "#0f172a",
+    fontSize: 13,
+    fontWeight: "900",
+  },
+  dayGroupTotal: {
+    color: "#64748b",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  transactionIconWrap: {
+    alignItems: "center",
+    borderRadius: 20,
+    height: 40,
+    justifyContent: "center",
+    marginRight: 12,
+    width: 40,
+  },
+  transactionIconText: {
+    fontSize: 18,
   },
 });

@@ -77,7 +77,7 @@ export default function App() {
 
     const currentMonthSpendBulanan = useMemo(() => {
         return transactions
-            .filter((item) => getTransactionMonth(item.date) === currentMonth() && item.danaDipakai === "Spend Bulanan")
+            .filter((item) => getTransactionMonth(item.date) === currentMonth() && item.danaDipakai === "Spend Bulanan" && item.type !== "income")
             .reduce((sum, item) => sum + Number(item.amount), 0);
     }, [transactions]);
 

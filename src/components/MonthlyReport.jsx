@@ -139,12 +139,17 @@ export default function MonthlyReport({ transactions }) {
             return getTransactionMonth(item.date) === selectedMonth;
         });
     }, [transactions, selectedMonth]);
+    // Laporan spending di bawah ini semua soal pengeluaran -- pemasukan
+    // dipisah biar nggak ngaco-in "Total bulan ini" dkk.
+    const monthlyExpenses = useMemo(() => {
+        return monthlyTransactions.filter((item) => item.type !== "income");
+    }, [monthlyTransactions]);
     const monthlyTotal = useMemo(() => {
-        return monthlyTransactions.reduce(
+        return monthlyExpenses.reduce(
             (sum, item) => sum + Number(item.amount),
             0
         );
-    }, [monthlyTransactions]);
+    }, [monthlyExpenses]);
 
     const activeDaysCount = useMemo(() => {
         const [yearStr, monthStr] = selectedMonth.split("-");
@@ -177,10 +182,9 @@ export default function MonthlyReport({ transactions }) {
     }, [transactions, prevMonth]);
 
     const prevMonthTotal = useMemo(() => {
-        return prevMonthTransactions.reduce(
-            (sum, item) => sum + Number(item.amount),
-            0
-        );
+        return prevMonthTransactions
+            .filter((item) => item.type !== "income")
+            .reduce((sum, item) => sum + Number(item.amount), 0);
     }, [prevMonthTransactions]);
 
     const comparisonPercentage = useMemo(() => {
@@ -195,20 +199,20 @@ export default function MonthlyReport({ transactions }) {
     }, [monthlyTotal, prevMonthTotal]);
 
     const highestTransaction = useMemo(() => {
-        if (monthlyTransactions.length === 0) return null;
-        return monthlyTransactions.reduce((max, item) => 
+        if (monthlyExpenses.length === 0) return null;
+        return monthlyExpenses.reduce((max, item) =>
             Number(item.amount) > Number(max.amount) ? item : max
-        , monthlyTransactions[0]);
-    }, [monthlyTransactions]);
+        , monthlyExpenses[0]);
+    }, [monthlyExpenses]);
 
     const highestSpendingDay = useMemo(() => {
-        if (monthlyTransactions.length === 0) return null;
+        if (monthlyExpenses.length === 0) return null;
         const dailySpending = {};
-        monthlyTransactions.forEach((item) => {
+        monthlyExpenses.forEach((item) => {
             const day = normalizeDate(item.date);
             dailySpending[day] = (dailySpending[day] || 0) + Number(item.amount);
         });
-        
+
         let maxDay = "";
         let maxAmount = 0;
         Object.entries(dailySpending).forEach(([day, amount]) => {
@@ -218,11 +222,11 @@ export default function MonthlyReport({ transactions }) {
             }
         });
         return { day: maxDay, amount: maxAmount };
-    }, [monthlyTransactions]);
+    }, [monthlyExpenses]);
     const categoryReport = useMemo(() => {
         return categories
             .map((category) => {
-                const total = monthlyTransactions
+                const total = monthlyExpenses
                     .filter((item) => item.category === category)
                     .reduce((sum, item) => sum + Number(item.amount), 0);
                 return {
@@ -235,29 +239,29 @@ export default function MonthlyReport({ transactions }) {
             })
             .filter((item) => item.total > 0)
             .sort((a, b) => b.total - a.total);
-    }, [monthlyTransactions, monthlyTotal]);
+    }, [monthlyExpenses, monthlyTotal]);
     const sourceReport = useMemo(() => {
         return fundSources
             .map((source) => {
-                const total = monthlyTransactions
+                const total = monthlyExpenses
                     .filter((item) => item.source === source)
                     .reduce((sum, item) => sum + Number(item.amount), 0);
                 return { source, total };
             })
             .filter((item) => item.total > 0)
             .sort((a, b) => b.total - a.total);
-    }, [monthlyTransactions]);
+    }, [monthlyExpenses]);
     const danaReport = useMemo(() => {
         return danaDipakaiOptions
             .map((dana) => {
-                const total = monthlyTransactions
+                const total = monthlyExpenses
                     .filter((item) => item.danaDipakai === dana)
                     .reduce((sum, item) => sum + Number(item.amount), 0);
                 return { dana, total };
             })
             .filter((item) => item.total > 0)
             .sort((a, b) => b.total - a.total);
-    }, [monthlyTransactions]);
+    }, [monthlyExpenses]);
     const categoryReportWithAngles = useMemo(() => {
         return categoryReport.map((item, index) => {
             const prevTotal = categoryReport
@@ -567,7 +571,7 @@ export default function MonthlyReport({ transactions }) {
                             <div className="space-y-4">
                                 {categoryReport.map((item) => {
                                     const detailTransactions =
-                                        monthlyTransactions.filter(
+                                        monthlyExpenses.filter(
                                             (transaction) =>
                                                 transaction.category === item.category
                                         );

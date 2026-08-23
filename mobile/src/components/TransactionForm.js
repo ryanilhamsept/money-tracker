@@ -11,7 +11,7 @@ import {
   Platform,
   ActivityIndicator,
 } from "react-native";
-import { categories, fundSources, danaDipakaiOptions } from "../constants/options";
+import { categories, incomeCategories, fundSources, danaDipakaiOptions } from "../constants/options";
 import Dropdown from "./Dropdown";
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
@@ -45,6 +45,7 @@ const parseAmountRounded = (value) => {
 };
 
 const emptyForm = {
+  type: "expense",
   title: "",
   amount: "",
   category: categories[0],
@@ -78,9 +79,12 @@ export default function TransactionForm({ visible, initial, onClose, onSubmit, o
       setForm(
         initial
           ? {
+              type: initial.type === "income" ? "income" : "expense",
               title: initial.title || "",
               amount: formatThousands(initial.amount),
-              category: initial.category || categories[0],
+              category:
+                initial.category ||
+                (initial.type === "income" ? incomeCategories[0] : categories[0]),
               source: initial.source || fundSources[0],
               danaDipakai: initial.danaDipakai || danaDipakaiOptions[0],
               date: initial.date || todayISO(),
@@ -92,6 +96,14 @@ export default function TransactionForm({ visible, initial, onClose, onSubmit, o
   }, [visible, initial]);
 
   const setField = (key) => (value) => setForm((f) => ({ ...f, [key]: value }));
+
+  const setType = (type) => {
+    setForm((f) => ({
+      ...f,
+      type,
+      category: type === "income" ? incomeCategories[0] : categories[0],
+    }));
+  };
 
   const handleSubmit = async () => {
     const amount = parseAmountRounded(form.amount);
@@ -116,6 +128,7 @@ export default function TransactionForm({ visible, initial, onClose, onSubmit, o
         ...form,
         title: form.title.trim(),
         amount,
+        danaDipakai: form.type === "income" ? "" : form.danaDipakai,
       });
     } catch (err) {
       setErrorMessage(err.message || "Gagal menyimpan transaksi.");
@@ -148,6 +161,41 @@ export default function TransactionForm({ visible, initial, onClose, onSubmit, o
               <Text style={styles.title}>
                 {isEdit ? "Edit Transaksi" : "Tambah Transaksi"}
               </Text>
+
+              <View style={styles.typeToggle}>
+                <Pressable
+                  style={[
+                    styles.typeToggleButton,
+                    form.type === "expense" && styles.typeToggleButtonActiveExpense,
+                  ]}
+                  onPress={() => setType("expense")}
+                >
+                  <Text
+                    style={[
+                      styles.typeToggleText,
+                      form.type === "expense" && styles.typeToggleTextActive,
+                    ]}
+                  >
+                    Pengeluaran
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={[
+                    styles.typeToggleButton,
+                    form.type === "income" && styles.typeToggleButtonActiveIncome,
+                  ]}
+                  onPress={() => setType("income")}
+                >
+                  <Text
+                    style={[
+                      styles.typeToggleText,
+                      form.type === "income" && styles.typeToggleTextActive,
+                    ]}
+                  >
+                    Pemasukan
+                  </Text>
+                </Pressable>
+              </View>
 
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Judul</Text>
@@ -185,22 +233,24 @@ export default function TransactionForm({ visible, initial, onClose, onSubmit, o
 
               <DropdownPicker
                 label="Kategori"
-                options={categories}
+                options={form.type === "income" ? incomeCategories : categories}
                 value={form.category}
                 onChange={setField("category")}
               />
               <DropdownPicker
-                label="Sumber Dana"
+                label={form.type === "income" ? "Masuk Ke" : "Sumber Dana"}
                 options={fundSources}
                 value={form.source}
                 onChange={setField("source")}
               />
-              <DropdownPicker
-                label="Dana Dipakai"
-                options={danaDipakaiOptions}
-                value={form.danaDipakai}
-                onChange={setField("danaDipakai")}
-              />
+              {form.type === "expense" ? (
+                <DropdownPicker
+                  label="Dana Dipakai"
+                  options={danaDipakaiOptions}
+                  value={form.danaDipakai}
+                  onChange={setField("danaDipakai")}
+                />
+              ) : null}
 
               {errorMessage ? (
                 <View style={styles.errorBox}>
@@ -264,6 +314,34 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "900",
     marginBottom: 16,
+  },
+  typeToggle: {
+    flexDirection: "row",
+    backgroundColor: "#f4f7fb",
+    borderRadius: 14,
+    padding: 4,
+    gap: 4,
+    marginBottom: 18,
+  },
+  typeToggleButton: {
+    flex: 1,
+    alignItems: "center",
+    borderRadius: 10,
+    paddingVertical: 10,
+  },
+  typeToggleButtonActiveExpense: {
+    backgroundColor: "#ec4899",
+  },
+  typeToggleButtonActiveIncome: {
+    backgroundColor: "#16a34a",
+  },
+  typeToggleText: {
+    color: "#64748b",
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  typeToggleTextActive: {
+    color: "#ffffff",
   },
   inputGroup: {
     gap: 8,

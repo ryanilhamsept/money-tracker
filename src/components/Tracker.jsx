@@ -87,7 +87,7 @@ export default function Tracker({
         const selectedDate = normalizeDate(form.date);
 
         return transactions
-            .filter((item) => normalizeDate(item.date) === selectedDate)
+            .filter((item) => normalizeDate(item.date) === selectedDate && item.type !== "income")
             .reduce((sum, item) => sum + Number(item.amount), 0);
     }, [transactions, form.date]);
 
@@ -103,10 +103,9 @@ export default function Tracker({
     const isOverDailyLimit = selectedDateTotalAfterInput >= DAILY_LIMIT;
 
     const totals = useMemo(() => {
-        const totalSpending = currentMonthTransactions.reduce(
-            (sum, item) => sum + Number(item.amount),
-            0
-        );
+        const totalSpending = currentMonthTransactions
+            .filter((item) => item.type !== "income")
+            .reduce((sum, item) => sum + Number(item.amount), 0);
 
         return {
             totalSpending,

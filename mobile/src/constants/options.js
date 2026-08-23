@@ -13,6 +13,16 @@ export const categories = [
   "Miscellaneous",
 ];
 
+export const incomeCategories = [
+  "Gaji",
+  "Bonus",
+  "Freelance",
+  "Hasil Jual",
+  "Transfer Masuk",
+  "Refund",
+  "Lainnya",
+];
+
 export const fundSources = [
   "Mandiri",
   "BCA",
@@ -30,4 +40,13 @@ export const danaDipakaiOptions = [
   "Spend CC",
   "Other",
   "Liburan",
+];
+
+export const goalIcons = [
+  "✈️", "🚨", "🏠", "🚗", "📚", "📈", "💳", "🎯", "🎁", "💍", "🛍️", "🏥",
+];
+
+export const goalColors = [
+  "#8b5cf6", "#f97316", "#22c55e", "#3b82f6",
+  "#f59e0b", "#a855f7", "#ef4444", "#14b8a6",
 ];

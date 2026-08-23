@@ -164,7 +164,10 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
                     <Text style={styles.accountBalance}>
                       {formatCurrency(account.startingBalance)}
                     </Text>
-                    <Pressable style={styles.iconButton} onPress={() => startEdit(account)}>
+                    <Pressable
+                      style={[styles.iconButton, styles.iconButtonSpaced]}
+                      onPress={() => startEdit(account)}
+                    >
                       <Text style={styles.iconButtonText}>✎</Text>
                     </Pressable>
                     <Pressable
@@ -262,11 +265,12 @@ const styles = StyleSheet.create({
   accountInfo: {},
   accountName: { color: "#0f172a", fontSize: 15, fontWeight: "900" },
   accountType: { color: "#64748b", fontSize: 12, fontWeight: "700", marginTop: 2 },
-  balanceRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  balanceRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
   accountBalance: { color: "#0f172a", fontSize: 15, fontWeight: "900", flex: 1 },
-  editRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  editRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   editInput: { flex: 1, backgroundColor: "#f4f7fb", borderColor: "#e2e8f0", borderWidth: 1, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, color: "#0f172a" },
   iconButton: { width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: "#e2e8f0", backgroundColor: "#ffffff", alignItems: "center", justifyContent: "center" },
+  iconButtonSpaced: { marginRight: 4 },
   iconButtonText: { color: "#475569", fontSize: 14 },
   iconButtonDark: { width: 34, height: 34, borderRadius: 17, backgroundColor: "#0f172a", alignItems: "center", justifyContent: "center" },
   iconButtonDarkText: { color: "#ffffff", fontSize: 14, fontWeight: "900" },

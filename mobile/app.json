@@ -21,6 +21,14 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Money Tracker butuh akses foto buat scan struk belanja."
+        }
+      ]
+    ],
     "updates": {
       "enabled": false
     },

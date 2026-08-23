@@ -327,6 +327,7 @@ export const useTransactions = ({
             source: updatedForm.source,
             danaDipakai: updatedForm.danaDipakai,
             date: normalizeDate(updatedForm.date),
+            type: updatedForm.type || existing?.type || "expense",
             rowNumber: existing ? existing.rowNumber : 0,
         };
 

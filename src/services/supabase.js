@@ -34,6 +34,7 @@ const mapTransactionFromDB = (t) => ({
     amount: Number(t.amount),
     source: t.source,
     danaDipakai: t.dana_dipakai,
+    type: t.type === "income" ? "income" : "expense",
     createdAt: t.created_at,
 });
 
@@ -45,6 +46,7 @@ const mapTransactionToDB = (t) => ({
     amount: Number(t.amount),
     source: t.source,
     dana_dipakai: t.danaDipakai,
+    type: t.type === "income" ? "income" : "expense",
 });
 
 const mapAccountFromDB = (a) => ({

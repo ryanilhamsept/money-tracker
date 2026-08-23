@@ -30,7 +30,9 @@ const getTransactionAccountEffect = (accounts, transaction) => {
         return null;
     }
 
-    return { account, amount };
+    // Income adds to balance, expense subtracts -- so the sign is flipped.
+    const sign = transaction.type === "income" ? -1 : 1;
+    return { account, amount: amount * sign };
 };
 
 export const getAccountBalanceDeltas = (

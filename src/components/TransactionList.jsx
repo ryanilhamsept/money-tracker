@@ -100,6 +100,7 @@ export default function TransactionList({
         category: "Food",
         source: "Mandiri",
         danaDipakai: "Spend Bulanan",
+        type: "expense",
         date: "",
     });
 
@@ -112,6 +113,7 @@ export default function TransactionList({
             category: item.category,
             source: item.source,
             danaDipakai: item.danaDipakai,
+            type: item.type || "expense",
             date: normalizeDate(item.date),
         });
     };
@@ -125,6 +127,7 @@ export default function TransactionList({
             category: "Food",
             source: "Mandiri",
             danaDipakai: "Spend Bulanan",
+            type: "expense",
             date: "",
         });
     };
@@ -199,8 +202,15 @@ export default function TransactionList({
                                                     )}
                                                 </div>
 
-                                                <p className="shrink-0 text-right text-xl font-black text-rose-500 sm:text-2xl">
-                                                    -{formatCurrency(item.amount)}
+                                                <p
+                                                    className={`shrink-0 text-right text-xl font-black sm:text-2xl ${
+                                                        item.type === "income"
+                                                            ? "text-emerald-500"
+                                                            : "text-rose-500"
+                                                    }`}
+                                                >
+                                                    {item.type === "income" ? "+" : "-"}
+                                                    {formatCurrency(item.amount)}
                                                 </p>
                                             </div>
 

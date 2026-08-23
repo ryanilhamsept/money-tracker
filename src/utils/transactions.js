@@ -55,5 +55,6 @@ export const normalizeTransaction = (item) => ({
         FUND_ALIASES,
         "Spend Bulanan"
     ),
+    type: item.type === "income" ? "income" : "expense",
     date: item.date,
 });

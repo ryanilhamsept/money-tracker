@@ -405,21 +405,10 @@ export default function MonthlyReportScreen({ transactions, budget = 0 }) {
         </Pressable>
       </View>
 
-      <View style={styles.totalPanel}>
-        <Text style={styles.totalLabel}>Total bulan ini</Text>
-        <Text style={styles.totalValue}>{formatCurrency(monthlyTotal)}</Text>
-        <View style={styles.totalMetaRow}>
-          <Text style={styles.totalMeta}>{monthTransactions.length} transaksi</Text>
-          {monthIncomeTotal > 0 ? (
-            <Text style={styles.totalIncomeMeta}>+{formatCurrency(monthIncomeTotal)} masuk</Text>
-          ) : null}
-        </View>
-      </View>
-
       <View style={styles.weeklyCard}>
         <View style={styles.weeklyHeader}>
           <View>
-            <Text style={styles.weeklyTitle}>Analitik Bulanan</Text>
+            <Text style={styles.weeklyTitle}>Total bulan ini</Text>
             <View style={styles.weeklyValueRow}>
               <Text style={styles.weeklyValue}>{formatCurrency(monthlyAnalytics.lastPoint.total)}</Text>
               {monthlyAnalytics.trend ? (
@@ -435,6 +424,12 @@ export default function MonthlyReportScreen({ transactions, budget = 0 }) {
                     {monthlyAnalytics.trend.isIncrease ? "▲" : "▼"} {monthlyAnalytics.trend.percent}%
                   </Text>
                 </View>
+              ) : null}
+            </View>
+            <View style={styles.weeklyMetaRow}>
+              <Text style={styles.weeklyMeta}>{monthTransactions.length} transaksi</Text>
+              {monthIncomeTotal > 0 ? (
+                <Text style={styles.weeklyIncomeMeta}>+{formatCurrency(monthIncomeTotal)} masuk</Text>
               ) : null}
             </View>
           </View>
@@ -547,6 +542,7 @@ export default function MonthlyReportScreen({ transactions, budget = 0 }) {
                               <Text style={styles.detailMeta}>
                                 {t.category} · {t.source}
                                 {t.danaDipakai ? ` · ${t.danaDipakai}` : ""}
+                                {t.time ? ` · ${t.time}` : ""}
                               </Text>
                             </View>
                             <Text
@@ -599,7 +595,8 @@ export default function MonthlyReportScreen({ transactions, budget = 0 }) {
                           <View style={{ flex: 1 }}>
                             <Text style={styles.detailTitle}>{t.title}</Text>
                             <Text style={styles.detailMeta}>
-                              {formatDisplayDate(t.date)} · {t.source}
+                              {formatDisplayDate(t.date)}
+                              {t.time ? ` ${t.time}` : ""} · {t.source}
                             </Text>
                           </View>
                           <Text style={styles.detailAmount}>-{formatCurrency(t.amount)}</Text>
@@ -658,7 +655,6 @@ const styles = StyleSheet.create({
   monthNavDisabled: { opacity: 0.35 },
   monthNavTextDisabled: { color: "#94a3b8" },
   monthLabel: { color: "#0f172a", fontSize: 15, fontWeight: "900" },
-  totalPanel: { backgroundColor: "#0f172a", borderRadius: 20, padding: 20 },
   weeklyCard: { backgroundColor: "#ffffff", borderRadius: 16, padding: 16 },
   weeklyHeader: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" },
   weeklyTitle: { color: "#64748b", fontSize: 12, fontWeight: "700" },
@@ -712,11 +708,9 @@ const styles = StyleSheet.create({
   aiLoadingText: { color: "#9d174d", fontSize: 13, fontWeight: "600" },
   aiReviewText: { color: "#831843", fontSize: 14, fontWeight: "600", lineHeight: 21 },
   aiErrorText: { color: "#be123c", fontSize: 13, fontWeight: "700" },
-  totalLabel: { color: "#94a3b8", fontSize: 13, fontWeight: "700" },
-  totalValue: { color: "#ffffff", fontSize: 30, fontWeight: "900", marginTop: 8 },
-  totalMeta: { color: "#cbd5e1", fontSize: 13, fontWeight: "700" },
-  totalMetaRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 8 },
-  totalIncomeMeta: { color: "#4ade80", fontSize: 13, fontWeight: "800" },
+  weeklyMetaRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 6 },
+  weeklyMeta: { color: "#94a3b8", fontSize: 12, fontWeight: "700" },
+  weeklyIncomeMeta: { color: "#16a34a", fontSize: 12, fontWeight: "800" },
   statGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   statCard: { flexGrow: 1, flexBasis: "47%", backgroundColor: "#ffffff", borderRadius: 16, padding: 14 },
   statCardRose: { backgroundColor: "#fff1f2" },

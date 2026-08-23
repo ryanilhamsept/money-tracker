@@ -49,6 +49,8 @@ import AccountsScreen from "./src/components/AccountsScreen";
 import PlanScreen from "./src/components/PlanScreen";
 import SplitBillScreen from "./src/components/SplitBillScreen";
 import MonthlyReportScreen from "./src/components/MonthlyReportScreen";
+import PinLockScreen from "./src/components/PinLockScreen";
+import { hasPinSet } from "./src/utils/pinStorage";
 
 // Hermes/RN nggak selalu punya crypto.randomUUID -- pakai fallback manual biar aman.
 const generateId = () => {
@@ -96,6 +98,9 @@ const formatDayHeader = (dateStr) => {
 export default function App() {
   const [user, setUser] = useState(null);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
+  const [pinRequired, setPinRequired] = useState(null);
+  const [isPinUnlocked, setIsPinUnlocked] = useState(false);
+  const [showPinManager, setShowPinManager] = useState(false);
   const [accounts, setAccounts] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [goals, setGoals] = useState([]);
@@ -127,6 +132,17 @@ export default function App() {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  const refreshPinStatus = useCallback(async () => {
+    const required = await hasPinSet();
+    setPinRequired(required);
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      refreshPinStatus();
+    }
+  }, [user, refreshPinStatus]);
 
   const loadDashboard = useCallback(async () => {
     if (!user) return;
@@ -243,6 +259,14 @@ export default function App() {
         .filter((t) => t.type !== "income")
         .reduce((sum, t) => sum + Number(t.amount), 0),
     [currentMonthTransactions]
+  );
+
+  const totalSpentSince2026 = useMemo(
+    () =>
+      transactions
+        .filter((t) => t.type !== "income" && String(t.date) >= "2026-01-01")
+        .reduce((sum, t) => sum + Number(t.amount), 0),
+    [transactions]
   );
 
   const currentMonthSpendBulanan = useMemo(
@@ -413,6 +437,31 @@ export default function App() {
     return <Login />;
   }
 
+  if (pinRequired === null) {
+    return (
+      <View style={[styles.screen, { justifyContent: "center", alignItems: "center", backgroundColor: "#0a051b", flex: 1 }]}>
+        <ActivityIndicator size="large" color="#ec4899" />
+      </View>
+    );
+  }
+
+  if (pinRequired && !isPinUnlocked) {
+    return <PinLockScreen mode="unlock" onSuccess={() => setIsPinUnlocked(true)} />;
+  }
+
+  if (showPinManager) {
+    return (
+      <PinLockScreen
+        mode={pinRequired ? "setup" : "create"}
+        onSuccess={async () => {
+          await refreshPinStatus();
+          setShowPinManager(false);
+        }}
+        onCancel={() => setShowPinManager(false)}
+      />
+    );
+  }
+
   return (
     <SafeAreaView style={styles.screen}>
       <StatusBar style="dark" />
@@ -449,12 +498,31 @@ export default function App() {
             </Pressable>
 
             <Pressable
+              onPress={() => setShowPinManager(true)}
+              style={({ pressed }) => [styles.iconCircleButton, pressed && styles.pressed]}
+            >
+              <Text style={styles.iconCircleText}>🔒</Text>
+            </Pressable>
+
+            <Pressable
               onPress={() => supabase.auth.signOut()}
               style={({ pressed }) => [styles.iconCircleButton, pressed && styles.pressed]}
             >
               <Text style={styles.iconCircleText}>⎋</Text>
             </Pressable>
           </View>
+
+          <LinearGradient
+            colors={["#6366f1", "#a855f7", "#ec4899"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.lifetimeCard}
+          >
+            <Text style={styles.lifetimeLabel}>Uang yang sudah keluar</Text>
+            <Text style={styles.lifetimeSubtitle}>Januari 2026 - Sekarang</Text>
+            <Text style={styles.lifetimeValue}>{formatCurrency(totalSpentSince2026)}</Text>
+            <View style={styles.lifetimeDivider} />
+          </LinearGradient>
 
           <LinearGradient
             colors={["#ec4899", "#8b5cf6"]}
@@ -639,6 +707,7 @@ export default function App() {
                         <Text style={styles.transactionMeta}>
                           {transaction.source}
                           {transaction.danaDipakai ? ` · ${transaction.danaDipakai}` : ""}
+                          {transaction.time ? ` · ${transaction.time}` : ""}
                         </Text>
                       </View>
                       <Text
@@ -1158,6 +1227,34 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontSize: 12,
     fontWeight: "800",
+  },
+  lifetimeCard: {
+    borderRadius: 20,
+    padding: 20,
+  },
+  lifetimeLabel: {
+    color: "#ffffff",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  lifetimeSubtitle: {
+    color: "rgba(255,255,255,0.75)",
+    fontSize: 12,
+    fontWeight: "600",
+    marginTop: 2,
+  },
+  lifetimeValue: {
+    color: "#ffffff",
+    fontSize: 30,
+    fontWeight: "900",
+    marginTop: 14,
+  },
+  lifetimeDivider: {
+    backgroundColor: "rgba(255,255,255,0.5)",
+    borderRadius: 2,
+    height: 3,
+    marginTop: 14,
+    width: "100%",
   },
   moneyRow: {
     flexDirection: "row",

@@ -52,6 +52,14 @@ const emptyForm = {
   source: fundSources[0],
   danaDipakai: danaDipakaiOptions[0],
   date: todayISO(),
+  time: "",
+};
+
+// Ketik angka polos (misal "1430") otomatis jadi "14:30".
+const formatTime = (value) => {
+  const raw = String(value || "").replace(/[^\d]/g, "").slice(0, 4);
+  if (raw.length <= 2) return raw;
+  return `${raw.slice(0, 2)}:${raw.slice(2)}`;
 };
 
 function DropdownPicker({ label, options, value, onChange }) {
@@ -88,6 +96,7 @@ export default function TransactionForm({ visible, initial, onClose, onSubmit, o
               source: initial.source || fundSources[0],
               danaDipakai: initial.danaDipakai || danaDipakaiOptions[0],
               date: initial.date || todayISO(),
+              time: initial.time || "",
             }
           : emptyForm
       );
@@ -118,6 +127,10 @@ export default function TransactionForm({ visible, initial, onClose, onSubmit, o
     }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(form.date)) {
       setErrorMessage("Tanggal harus format YYYY-MM-DD.");
+      return;
+    }
+    if (form.time && !/^\d{2}:\d{2}$/.test(form.time)) {
+      setErrorMessage("Waktu harus format HH:mm.");
       return;
     }
 
@@ -220,15 +233,28 @@ export default function TransactionForm({ visible, initial, onClose, onSubmit, o
                 />
               </View>
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Tanggal (YYYY-MM-DD)</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="2026-08-17"
-                  placeholderTextColor="#94a3b8"
-                  value={form.date}
-                  onChangeText={setField("date")}
-                />
+              <View style={styles.rowGroup}>
+                <View style={[styles.inputGroup, { flex: 1 }]}>
+                  <Text style={styles.label}>Tanggal (YYYY-MM-DD)</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="2026-08-17"
+                    placeholderTextColor="#94a3b8"
+                    value={form.date}
+                    onChangeText={setField("date")}
+                  />
+                </View>
+                <View style={[styles.inputGroup, { width: 100 }]}>
+                  <Text style={styles.label}>Waktu</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="14:30"
+                    placeholderTextColor="#94a3b8"
+                    keyboardType="numeric"
+                    value={form.time}
+                    onChangeText={(v) => setField("time")(formatTime(v))}
+                  />
+                </View>
               </View>
 
               <DropdownPicker
@@ -342,6 +368,10 @@ const styles = StyleSheet.create({
   },
   typeToggleTextActive: {
     color: "#ffffff",
+  },
+  rowGroup: {
+    flexDirection: "row",
+    gap: 12,
   },
   inputGroup: {
     gap: 8,

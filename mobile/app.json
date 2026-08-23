@@ -27,7 +27,8 @@
         {
           "photosPermission": "Money Tracker butuh akses foto buat scan struk belanja."
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "updates": {
       "enabled": false

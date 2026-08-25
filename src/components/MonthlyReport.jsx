@@ -259,9 +259,9 @@ export default function MonthlyReport({ transactions, budget = 0 }) {
     };
 
     useEffect(() => {
-        generateReview(false);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedMonth, monthlyTransactions.length, budget]);
+        setReviewError("");
+        setAiReview(reviewCacheRef.current[selectedMonth] || "");
+    }, [selectedMonth, monthlyTransactions.length]);
 
     const activeDaysCount = useMemo(() => {
         const [yearStr, monthStr] = selectedMonth.split("-");
@@ -530,6 +530,7 @@ export default function MonthlyReport({ transactions, budget = 0 }) {
                 </CardContent>
             </Card>
 
+            <div className="flex min-w-0 flex-col space-y-6">
             {monthlyTransactions.length > 0 ? (
                 <motion.div
                     initial={{ opacity: 0, y: 15 }}
@@ -549,7 +550,7 @@ export default function MonthlyReport({ transactions, budget = 0 }) {
                             className="flex items-center gap-1.5 rounded-full border border-pink-200 bg-white px-3 py-1.5 text-xs font-bold text-pink-600 shadow-sm transition hover:bg-pink-50 disabled:opacity-60"
                         >
                             <RotateCw className={`h-3.5 w-3.5 ${isReviewLoading ? "animate-spin" : ""}`} />
-                            Ulangi
+                            {aiReview || reviewError ? "Ulangi" : "Jalankan"}
                         </button>
                     </div>
 
@@ -564,7 +565,11 @@ export default function MonthlyReport({ transactions, budget = 0 }) {
                             <p className="text-sm font-medium leading-relaxed text-pink-900">
                                 {aiReview}
                             </p>
-                        ) : null}
+                        ) : (
+                            <p className="text-sm font-semibold text-pink-400">
+                                Klik "Jalankan" buat lihat AI Review bulan ini.
+                            </p>
+                        )}
                     </div>
                 </motion.div>
             ) : null}
@@ -1022,6 +1027,7 @@ export default function MonthlyReport({ transactions, budget = 0 }) {
                         )}
                     </CardContent>
                 </Card>
+            </div>
             </div>
         </section>
     );

@@ -14,6 +14,7 @@ import MonthlyReport from "../components/MonthlyReport";
 import Accounts from "../components/Accounts";
 import Login from "../components/Login";
 import { useAccounts } from "../hooks/useAccounts";
+import { useInstallments } from "../hooks/useInstallments";
 
 import { useTransactions } from "../hooks/useTransactions";
 import { useBudget } from "../hooks/useBudget";
@@ -50,13 +51,21 @@ export default function App() {
     const {
         accounts,
         isLoading: isAccountsLoading,
+        error: accountsError,
         addAccount,
         deleteAccount,
         updateStartingBalance,
+        updateAccountFields,
         applyTransactionBalanceChange,
         syncAccountBalancesForTransaction,
         reloadAccounts,
     } = useAccounts(user?.id);
+
+    const {
+        installments,
+        addInstallment,
+        deleteInstallment,
+    } = useInstallments(user?.id);
 
     const {
         transactions,
@@ -132,6 +141,47 @@ export default function App() {
             .filter((item) => item.type !== "income" && String(item.date) >= "2025-01-01")
             .reduce((sum, item) => sum + Number(item.amount), 0);
     }, [transactions]);
+
+    const handleDeleteTransaction = async (id) => {
+        const deletedTx = transactions.find(t => t.id === id);
+        const success = await deleteTransaction(id);
+        
+        if (success && deletedTx) {
+            // Find linked installment by explicit ID or by matching title and amount
+            const linkedInst = installments.find(inst => 
+                inst.transactionId === id || 
+                (inst.name === deletedTx.title && inst.monthlyInstallment === deletedTx.amount)
+            );
+            if (linkedInst) {
+                await deleteInstallment(linkedInst.id);
+            }
+        }
+        return success;
+    };
+
+    const handleDeleteInstallment = async (id) => {
+        const inst = installments.find(i => i.id === id);
+        const success = await deleteInstallment(id);
+        
+        if (success && inst) {
+            // Delete the primary transaction if it exists
+            if (inst.transactionId) {
+                await deleteTransaction(inst.transactionId);
+            }
+            
+            // Delete any generated future transactions that match the name and amount
+            const relatedTxs = transactions.filter(t => 
+                t.title.trim() === inst.name.trim() && 
+                t.amount === inst.monthlyInstallment && 
+                t.type === "expense" &&
+                t.id !== inst.transactionId // skip if already deleted
+            );
+            for (const tx of relatedTxs) {
+                await deleteTransaction(tx.id);
+            }
+        }
+        return success;
+    };
 
     const navItems = [
         {
@@ -326,22 +376,28 @@ export default function App() {
                     <Tracker
                         transactions={transactions}
                         addTransaction={addTransaction}
-                        deleteTransaction={deleteTransaction}
+                        deleteTransaction={handleDeleteTransaction}
                         updateTransaction={updateTransaction}
                         budget={budget}
                         leftBudget={leftBudget}
                         budgetInput={budgetInput}
                         setBudgetInput={setBudgetInput}
                         saveBudget={saveBudget}
+                        accounts={accounts}
+                        addInstallment={addInstallment}
                     />
                 )}
 
                 {activePage === "accounts" && (
                     <Accounts
                         accounts={accounts}
+                        error={accountsError}
                         addAccount={addAccount}
                         deleteAccount={deleteAccount}
                         updateStartingBalance={updateStartingBalance}
+                        updateAccountFields={updateAccountFields}
+                        installments={installments}
+                        deleteInstallment={handleDeleteInstallment}
                     />
                 )}
 

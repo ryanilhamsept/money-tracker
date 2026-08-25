@@ -4,6 +4,7 @@ import {
     addAccountToSupabase,
     deleteAccountFromSupabase,
     updateStartingBalanceInSupabase,
+    updateAccountFieldsInSupabase,
 } from "../services/supabase";
 import { getAccountBalanceDeltas } from "../utils/accountBalance";
 
@@ -70,6 +71,12 @@ export const useAccounts = (userId) => {
             name: account.name.trim(),
             type: account.type || "Bank",
             startingBalance: Number(account.startingBalance) || 0,
+            issuer: account.issuer || "",
+            productName: account.productName || "",
+            sharesLimit: Boolean(account.sharesLimit),
+            totalLimit: account.totalLimit || null,
+            dueDate: account.dueDate || null,
+            color: account.color || "",
         };
 
         // Optimistic update
@@ -85,7 +92,11 @@ export const useAccounts = (userId) => {
             replaceAccounts(
                 accountsRef.current.filter((acc) => acc.id !== newAccount.id)
             );
-            setError("Failed to sync new account to database.");
+            setError(
+                err.code === "23505"
+                    ? `Nama akun "${newAccount.name}" sudah dipakai. Coba nama lain.`
+                    : "Gagal menyimpan akun ke database."
+            );
             return false;
         }
     };
@@ -138,6 +149,37 @@ export const useAccounts = (userId) => {
                 )
             );
             setError("Failed to update starting balance in database.");
+            return false;
+        }
+    };
+
+    const updateAccountFields = async (id, fields) => {
+        const originalAccount = accounts.find((acc) => acc.id === id);
+        if (!originalAccount) return false;
+
+        // Optimistic update
+        replaceAccounts(
+            accountsRef.current.map((acc) =>
+                acc.id === id ? { ...acc, ...fields } : acc
+            )
+        );
+
+        try {
+            const result = await updateAccountFieldsInSupabase(id, fields);
+            if (result?.success === false) {
+                throw new Error(result.error || "Database rejected account update.");
+            }
+            setError(null);
+            return true;
+        } catch (err) {
+            console.error("Error updating account fields in database:", err);
+            // Revert
+            replaceAccounts(
+                accountsRef.current.map((acc) =>
+                    acc.id === id ? originalAccount : acc
+                )
+            );
+            setError("Gagal menyimpan perubahan kartu.");
             return false;
         }
     };
@@ -215,6 +257,7 @@ export const useAccounts = (userId) => {
         addAccount,
         deleteAccount,
         updateStartingBalance,
+        updateAccountFields,
         applyTransactionBalanceChange,
         syncAccountBalancesForTransaction,
         reloadAccounts: () => loadAccounts({ showLoading: false }),

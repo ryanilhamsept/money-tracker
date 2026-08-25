@@ -329,6 +329,10 @@ export const useTransactions = ({
             date: normalizeDate(updatedForm.date),
             type: updatedForm.type || existing?.type || "expense",
             rowNumber: existing ? existing.rowNumber : 0,
+            installmentTotalLoan:
+                updatedForm.installmentTotalLoan !== undefined
+                    ? updatedForm.installmentTotalLoan
+                    : existing?.installmentTotalLoan ?? null,
         };
 
         setTransactions((current) =>

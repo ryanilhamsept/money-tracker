@@ -35,6 +35,7 @@ import {
 } from "../utils/date";
 
 import { formatCurrency } from "../utils/currency";
+import { findCreditCardForSource } from "../utils/accountBalance";
 
 export default function Tracker({
     transactions,
@@ -46,6 +47,8 @@ export default function Tracker({
     budgetInput,
     setBudgetInput,
     saveBudget,
+    accounts = [],
+    addInstallment,
 }) {
     const [query, setQuery] = useState("");
     const [categoryFilter, setCategoryFilter] = useState("all");
@@ -75,7 +78,25 @@ export default function Tracker({
         date: today(),
     });
 
+    const [isInstallment, setIsInstallment] = useState(false);
+    const [installmentDetails, setInstallmentDetails] = useState({
+        provider: "",
+        totalLoan: "",
+        remainingTerm: "",
+        dueDate: "",
+    });
 
+    const isSpendCC = form.danaDipakai === "Spend CC";
+
+    // Amount = cicilan bulanan; begitu Total Harga Barang & Sisa Tenor keisi,
+    // hitung otomatis (dibulatkan ke atas) biar konsisten.
+    const recalcInstallmentAmount = (totalLoanVal, remainingTermVal) => {
+        const totalLoanNum = Number(String(totalLoanVal || "").replace(/[^\d]/g, ""));
+        const termNum = Number(remainingTermVal || "");
+        if (totalLoanNum > 0 && termNum > 0) {
+            setForm((prev) => ({ ...prev, amount: String(Math.ceil(totalLoanNum / termNum)) }));
+        }
+    };
 
     const currentMonthTransactions = useMemo(() => {
         return transactions.filter(
@@ -162,13 +183,77 @@ export default function Tracker({
             ? form.source
             : (activeFundSources[0] || "Mandiri");
 
-        try {
-            const wasSaved = await addTransaction({
-                ...form,
-                source: activeSource,
-            });
+        const wantsInstallment = isSpendCC && isInstallment;
+        const totalLoan = Number(String(installmentDetails.totalLoan || "").replace(/[^\d]/g, ""));
 
-            if (!wasSaved) return;
+        if (wantsInstallment && !totalLoan) {
+            isSubmittingRef.current = false;
+            setIsSubmitting(false);
+            return;
+        }
+
+        try {
+            let firstTransactionId = null;
+
+            if (wantsInstallment) {
+                const term = Number(installmentDetails.remainingTerm) || 1;
+                const [yearStr, monthStr, dayStr] = form.date.split('-');
+                const y = parseInt(yearStr, 10);
+                const m = parseInt(monthStr, 10) - 1;
+                const d = parseInt(dayStr, 10);
+
+                for (let i = 0; i < term; i++) {
+                    const nextDate = new Date(y, m + i, d);
+                    const outY = nextDate.getFullYear();
+                    const outM = String(nextDate.getMonth() + 1).padStart(2, '0');
+                    const outD = String(nextDate.getDate()).padStart(2, '0');
+                    const dateString = `${outY}-${outM}-${outD}`;
+
+                    const currentTxId = crypto.randomUUID();
+                    if (i === 0) firstTransactionId = currentTxId;
+
+                    await addTransaction({
+                        ...form,
+                        title: form.title.trim(),
+                        amount: amount,
+                        date: dateString,
+                        id: currentTxId,
+                        source: activeSource,
+                        installmentTotalLoan: i === 0 ? totalLoan : 0,
+                    });
+                }
+            } else {
+                firstTransactionId = crypto.randomUUID();
+                await addTransaction({
+                    ...form,
+                    title: form.title.trim(),
+                    amount: amount,
+                    id: firstTransactionId,
+                    source: activeSource,
+                    installmentTotalLoan: null,
+                });
+            }
+
+            if (wantsInstallment && firstTransactionId) {
+                const matchedCard = findCreditCardForSource(accounts, activeSource);
+                if (matchedCard && addInstallment) {
+                    await addInstallment({
+                        accountId: matchedCard.id,
+                        transactionId: firstTransactionId,
+                        name: form.title.trim(),
+                        provider: installmentDetails.provider.trim(),
+                        totalLoan,
+                        remainingBalance: totalLoan - amount,
+                        monthlyInstallment: amount,
+                        remainingTerm: installmentDetails.remainingTerm
+                            ? Number(installmentDetails.remainingTerm)
+                            : null,
+                        dueDate: installmentDetails.dueDate
+                            ? Number(installmentDetails.dueDate)
+                            : null,
+                    });
+                }
+            }
 
             setForm({
                 title: "",
@@ -178,6 +263,8 @@ export default function Tracker({
                 danaDipakai: "Spend Bulanan",
                 date: today(),
             });
+            setIsInstallment(false);
+            setInstallmentDetails({ provider: "", totalLoan: "", remainingTerm: "", dueDate: "" });
         } catch (error) {
             console.error("Failed to add transaction:", error);
         } finally {
@@ -426,15 +513,108 @@ export default function Tracker({
                                         label=""
                                         value={form.danaDipakai}
                                         options={danaDipakaiOptions}
-                                        onChange={(value) =>
+                                        onChange={(value) => {
                                             setForm((prev) => ({
                                                 ...prev,
                                                 danaDipakai: value,
-                                            }))
-                                        }
+                                            }));
+                                            if (value !== "Spend CC") {
+                                                setIsInstallment(false);
+                                            }
+                                        }}
                                     />
                                 </div>
                             </div>
+
+                            {isSpendCC && (
+                                <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                                    <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                                        <input
+                                            type="checkbox"
+                                            checked={isInstallment}
+                                            onChange={(event) => setIsInstallment(event.target.checked)}
+                                            className="h-4 w-4 rounded border-slate-300 text-pink-500 focus:ring-pink-200"
+                                        />
+                                        Ini cicilan?
+                                    </label>
+
+                                    {isInstallment && (
+                                        <>
+                                            <p className="text-xs font-medium text-slate-500">
+                                                Transaksi akan otomatis dibuat untuk sisa tenor (bulan) ke depan. Limit kartu akan terpotong per bulan sebesar cicilan.
+                                            </p>
+
+                                            <div className="space-y-2">
+                                                <span className="text-xs font-bold text-slate-600">Provider (opsional)</span>
+                                                <input
+                                                    value={installmentDetails.provider}
+                                                    onChange={(event) =>
+                                                        setInstallmentDetails((prev) => ({
+                                                            ...prev,
+                                                            provider: event.target.value,
+                                                        }))
+                                                    }
+                                                    placeholder="Home Credit"
+                                                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-pink-200"
+                                                />
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <span className="text-xs font-bold text-slate-600">Total Harga Barang (Rp)</span>
+                                                <input
+                                                    value={installmentDetails.totalLoan}
+                                                    onChange={(event) => {
+                                                        const value = event.target.value;
+                                                        setInstallmentDetails((prev) => ({
+                                                            ...prev,
+                                                            totalLoan: value,
+                                                        }));
+                                                        recalcInstallmentAmount(value, installmentDetails.remainingTerm);
+                                                    }}
+                                                    inputMode="numeric"
+                                                    placeholder="3000000"
+                                                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-pink-200"
+                                                />
+                                            </div>
+
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div className="space-y-2">
+                                                    <span className="text-xs font-bold text-slate-600">Sisa Tenor (bulan)</span>
+                                                    <input
+                                                        value={installmentDetails.remainingTerm}
+                                                        onChange={(event) => {
+                                                            const value = event.target.value.replace(/[^\d]/g, "");
+                                                            setInstallmentDetails((prev) => ({
+                                                                ...prev,
+                                                                remainingTerm: value,
+                                                            }));
+                                                            recalcInstallmentAmount(installmentDetails.totalLoan, value);
+                                                        }}
+                                                        inputMode="numeric"
+                                                        placeholder="6"
+                                                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-pink-200"
+                                                    />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <span className="text-xs font-bold text-slate-600">Tanggal Jatuh Tempo</span>
+                                                    <input
+                                                        value={installmentDetails.dueDate}
+                                                        onChange={(event) =>
+                                                            setInstallmentDetails((prev) => ({
+                                                                ...prev,
+                                                                dueDate: event.target.value.replace(/[^\d]/g, "").slice(0, 2),
+                                                            }))
+                                                        }
+                                                        inputMode="numeric"
+                                                        placeholder="10"
+                                                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-pink-200"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            )}
 
                             <label className="block min-w-0 space-y-2">
                                 <span className="flex items-center gap-2 text-sm font-semibold text-slate-600">
@@ -525,6 +705,9 @@ export default function Tracker({
                             transactions={paginatedTransactions}
                             deleteTransaction={deleteTransaction}
                             updateTransaction={updateTransaction}
+                            accounts={accounts}
+                            addInstallment={addInstallment}
+                            addTransaction={addTransaction}
                         />
 
                         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white/70 p-3 text-sm">

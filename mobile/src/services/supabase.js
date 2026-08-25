@@ -43,6 +43,12 @@ const mapAccountFromDB = (a) => ({
   name: a.name,
   type: a.type,
   startingBalance: Number(a.starting_balance),
+  issuer: a.issuer || "",
+  productName: a.product_name || "",
+  sharesLimit: Boolean(a.shares_limit),
+  totalLimit: a.total_limit != null ? Number(a.total_limit) : null,
+  dueDate: a.due_date != null ? Number(a.due_date) : null,
+  color: a.color || "",
 });
 
 const mapTransactionFromDB = (t) => ({
@@ -55,6 +61,7 @@ const mapTransactionFromDB = (t) => ({
   source: t.source,
   danaDipakai: t.dana_dipakai,
   type: t.type === "income" ? "income" : "expense",
+  installmentTotalLoan: t.installment_total_loan,
   createdAt: t.created_at,
 });
 
@@ -68,6 +75,7 @@ const mapTransactionToDB = (t) => ({
   source: t.source,
   dana_dipakai: t.danaDipakai,
   type: t.type === "income" ? "income" : "expense",
+  installment_total_loan: t.installmentTotalLoan != null ? Number(t.installmentTotalLoan) : null,
 });
 
 export const addTransaction = async (transaction) => {
@@ -91,6 +99,71 @@ export const deleteTransaction = async (id) => {
   const { error } = await supabase.from("transactions").delete().eq("id", id);
   if (error) throw error;
 };
+
+// --- Installments ---
+
+const mapInstallmentFromDB = (i) => ({
+  id: i.id,
+  accountId: i.account_id,
+  transactionId: i.transaction_id,
+  name: i.name,
+  provider: i.provider,
+  totalLoan: Number(i.total_loan),
+  remainingBalance: Number(i.remaining_balance),
+  monthlyInstallment: Number(i.monthly_installment),
+  remainingTerm: i.remaining_term,
+  dueDate: i.due_date,
+  createdAt: i.created_at,
+});
+
+const mapInstallmentToDB = (i) => ({
+  id: i.id,
+  account_id: i.accountId,
+  transaction_id: i.transactionId || null,
+  name: i.name,
+  provider: i.provider || "",
+  total_loan: Number(i.totalLoan) || 0,
+  remaining_balance: Number(i.remainingBalance) || 0,
+  monthly_installment: Number(i.monthlyInstallment) || 0,
+  remaining_term: i.remainingTerm || null,
+  due_date: i.dueDate || null,
+});
+
+export const getInstallments = async () => {
+  const { data, error } = await supabase
+    .from("installments")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Error fetching installments:", error);
+    return [];
+  }
+  return data.map(mapInstallmentFromDB);
+};
+
+export const addInstallment = async (installment) => {
+  const { error } = await supabase
+    .from("installments")
+    .insert([mapInstallmentToDB(installment)]);
+
+  if (error) throw error;
+};
+
+export const updateInstallment = async (installment) => {
+  const { error } = await supabase
+    .from("installments")
+    .update(mapInstallmentToDB(installment))
+    .eq("id", installment.id);
+
+  if (error) throw error;
+};
+
+export const deleteInstallment = async (id) => {
+  const { error } = await supabase.from("installments").delete().eq("id", id);
+  if (error) throw error;
+};
+
 
 export const getBudget = async (userId) => {
   if (!userId) return 0;
@@ -130,6 +203,24 @@ export const updateAccountBalance = async (accountId, newBalance) => {
   if (error) throw error;
 };
 
+export const updateAccountFields = async (id, fields) => {
+  const dbPayload = {};
+  if (fields.startingBalance !== undefined) dbPayload.starting_balance = Number(fields.startingBalance);
+  if (fields.totalLimit !== undefined) dbPayload.total_limit = fields.totalLimit;
+  if (fields.dueDate !== undefined) dbPayload.due_date = fields.dueDate;
+  if (fields.issuer !== undefined) dbPayload.issuer = fields.issuer;
+  if (fields.productName !== undefined) dbPayload.product_name = fields.productName;
+  if (fields.sharesLimit !== undefined) dbPayload.shares_limit = fields.sharesLimit;
+  if (fields.color !== undefined) dbPayload.color = fields.color;
+
+  const { error } = await supabase
+    .from("accounts")
+    .update(dbPayload)
+    .eq("id", id);
+
+  if (error) throw error;
+};
+
 export const addAccount = async (account) => {
   const { error } = await supabase.from("accounts").insert([
     {
@@ -137,6 +228,12 @@ export const addAccount = async (account) => {
       name: account.name,
       type: account.type,
       starting_balance: Number(account.startingBalance) || 0,
+      issuer: account.issuer || null,
+      product_name: account.productName || null,
+      shares_limit: Boolean(account.sharesLimit),
+      total_limit: account.totalLimit != null && account.totalLimit !== "" ? Number(account.totalLimit) : null,
+      due_date: account.dueDate != null && account.dueDate !== "" ? Number(account.dueDate) : null,
+      color: account.color || null,
     },
   ]);
 

@@ -18,8 +18,13 @@ import {
   updateTransaction,
   deleteTransaction,
   updateAccountBalance,
+  updateAccountFields,
   addAccount,
   deleteAccount,
+  getInstallments,
+  addInstallment,
+  updateInstallment,
+  deleteInstallment,
   getBudget,
   saveBudget,
   getGoals,
@@ -103,6 +108,7 @@ export default function App() {
   const [showPinManager, setShowPinManager] = useState(false);
   const [accounts, setAccounts] = useState([]);
   const [transactions, setTransactions] = useState([]);
+  const [installments, setInstallments] = useState([]);
   const [goals, setGoals] = useState([]);
   const [splitBills, setSplitBills] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -150,9 +156,10 @@ export default function App() {
       setError("");
       setIsLoading(true);
 
-      const [nextAccounts, nextTransactions, nextBudget, nextGoals, nextSplitBills] = await Promise.all([
+      const [nextAccounts, nextTransactions, nextInstallments, nextBudget, nextGoals, nextSplitBills] = await Promise.all([
         getAccounts(),
         getTransactions(),
+        getInstallments(),
         getBudget(user.id),
         getGoals(),
         getSplitBills(),
@@ -168,6 +175,7 @@ export default function App() {
             return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
           })
       );
+      setInstallments(nextInstallments);
       setBudget(nextBudget);
       setGoals(nextGoals);
       setSplitBills(nextSplitBills);
@@ -357,15 +365,118 @@ export default function App() {
     setEditingTransaction(null);
   };
 
-  const handleFormSubmit = async (form) => {
+  const handleFormSubmit = async (form, wantsInstallment, installmentDetails) => {
     if (editingTransaction) {
       const payload = { ...form, id: editingTransaction.id };
       await updateTransaction(payload);
       await applyBalanceDeltas(editingTransaction, payload);
+      
+      const isNewlyConverted = wantsInstallment && !editingTransaction.installmentTotalLoan;
+      if (isNewlyConverted) {
+          const term = Number(installmentDetails.remainingTerm) || 1;
+          const [yearStr, monthStr, dayStr] = payload.date.split('-');
+          const y = parseInt(yearStr, 10);
+          const m = parseInt(monthStr, 10) - 1;
+          const d = parseInt(dayStr, 10);
+          
+          for (let i = 1; i < term; i++) {
+              const nextDate = new Date(y, m + i, d);
+              const outY = nextDate.getFullYear();
+              const outM = String(nextDate.getMonth() + 1).padStart(2, '0');
+              const outD = String(nextDate.getDate()).padStart(2, '0');
+              const dateString = `${outY}-${outM}-${outD}`;
+              
+              await addTransaction({
+                  ...payload,
+                  id: generateId(),
+                  date: dateString,
+                  installmentTotalLoan: null,
+              });
+          }
+          
+          let normalizedSource = payload.source.trim();
+          if (normalizedSource === "Credit Card - BCA") normalizedSource = "CC BCA";
+          if (normalizedSource === "Credit Card - BNI") normalizedSource = "CC BNI";
+          
+          const matchedCard = accounts.find(a => a.name === normalizedSource);
+          if (matchedCard) {
+              const totalLoan = Number(installmentDetails.totalLoan);
+              const amount = Number(payload.amount);
+              await addInstallment({
+                  id: generateId(),
+                  accountId: matchedCard.id,
+                  transactionId: payload.id,
+                  name: payload.title.trim(),
+                  provider: installmentDetails.provider || "",
+                  totalLoan,
+                  remainingBalance: totalLoan - amount,
+                  monthlyInstallment: amount,
+                  remainingTerm: term,
+                  dueDate: installmentDetails.dueDate ? Number(installmentDetails.dueDate) : (matchedCard.dueDate || null),
+              });
+          }
+      }
     } else {
-      const payload = { ...form, id: generateId() };
-      await addTransaction(payload);
+      let firstTransactionId = null;
+      if (wantsInstallment) {
+          const term = Number(installmentDetails.remainingTerm) || 1;
+          const [yearStr, monthStr, dayStr] = form.date.split('-');
+          const y = parseInt(yearStr, 10);
+          const m = parseInt(monthStr, 10) - 1;
+          const d = parseInt(dayStr, 10);
+
+          for (let i = 0; i < term; i++) {
+              const nextDate = new Date(y, m + i, d);
+              const outY = nextDate.getFullYear();
+              const outM = String(nextDate.getMonth() + 1).padStart(2, '0');
+              const outD = String(nextDate.getDate()).padStart(2, '0');
+              const dateString = `${outY}-${outM}-${outD}`;
+              
+              const currentTxId = generateId();
+              if (i === 0) firstTransactionId = currentTxId;
+
+              await addTransaction({
+                  ...form,
+                  id: currentTxId,
+                  date: dateString,
+                  installmentTotalLoan: i === 0 ? Number(installmentDetails.totalLoan) : 0,
+              });
+          }
+      } else {
+          firstTransactionId = generateId();
+          await addTransaction({ ...form, id: firstTransactionId });
+      }
+      
+      const payload = { 
+          ...form, 
+          id: firstTransactionId,
+          installmentTotalLoan: wantsInstallment ? Number(installmentDetails.totalLoan) : null,
+      };
       await applyBalanceDeltas(null, payload);
+      
+      if (wantsInstallment && firstTransactionId) {
+          let normalizedSource = form.source.trim();
+          if (normalizedSource === "Credit Card - BCA") normalizedSource = "CC BCA";
+          if (normalizedSource === "Credit Card - BNI") normalizedSource = "CC BNI";
+
+          const matchedCard = accounts.find(a => a.name === normalizedSource);
+          if (matchedCard) {
+              const totalLoan = Number(installmentDetails.totalLoan);
+              const amount = Number(form.amount);
+              await addInstallment({
+                  id: generateId(),
+                  accountId: matchedCard.id,
+                  transactionId: firstTransactionId,
+                  name: form.title.trim(),
+                  provider: installmentDetails.provider || "",
+                  totalLoan,
+                  remainingBalance: totalLoan - amount,
+                  monthlyInstallment: amount,
+                  remainingTerm: Number(installmentDetails.remainingTerm),
+                  dueDate: installmentDetails.dueDate ? Number(installmentDetails.dueDate) : (matchedCard.dueDate || null),
+              });
+          }
+      }
     }
     closeForm();
     await loadDashboard();
@@ -373,11 +484,47 @@ export default function App() {
 
   const handleFormDelete = async () => {
     if (!editingTransaction) return;
+    
+    // Cascading delete for installments
+    const linkedInst = installments.find(inst => 
+        inst.transactionId === editingTransaction.id || 
+        (inst.name.trim() === editingTransaction.title.trim() && inst.monthlyInstallment === editingTransaction.amount)
+    );
+    
     await deleteTransaction(editingTransaction.id);
     await applyBalanceDeltas(editingTransaction, null);
+    
+    if (linkedInst) {
+        await deleteInstallment(linkedInst.id);
+    }
+    
     closeForm();
     await loadDashboard();
   };
+
+  const handleDeleteInstallment = async (instId) => {
+    const inst = installments.find(i => i.id === instId);
+    if (!inst) return;
+    
+    await deleteInstallment(instId);
+    
+    if (inst.transactionId) {
+        await deleteTransaction(inst.transactionId);
+    }
+    
+    const relatedTxs = transactions.filter(t => 
+        t.title.trim() === inst.name.trim() && 
+        t.amount === inst.monthlyInstallment && 
+        t.type === "expense" &&
+        t.id !== inst.transactionId
+    );
+    for (const tx of relatedTxs) {
+        await deleteTransaction(tx.id);
+    }
+    
+    await loadDashboard();
+  };
+
 
   const handleAddAccount = async (account) => {
     await addAccount(account);
@@ -391,6 +538,11 @@ export default function App() {
 
   const handleUpdateAccountBalance = async (id, newBalance) => {
     await updateAccountBalance(id, newBalance);
+    await loadDashboard();
+  };
+
+  const handleUpdateAccountFields = async (id, fields) => {
+    await updateAccountFields(id, fields);
     await loadDashboard();
   };
 
@@ -761,6 +913,9 @@ export default function App() {
           onAdd={handleAddAccount}
           onDelete={handleDeleteAccount}
           onUpdateBalance={handleUpdateAccountBalance}
+          onUpdateFields={handleUpdateAccountFields}
+          installments={installments}
+          onDeleteInstallment={handleDeleteInstallment}
         />
       ) : null}
 

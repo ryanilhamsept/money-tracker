@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Switch,
 } from "react-native";
 import { categories, incomeCategories, fundSources, danaDipakaiOptions } from "../constants/options";
 import Dropdown from "./Dropdown";
@@ -79,28 +80,44 @@ export default function TransactionForm({ visible, initial, onClose, onSubmit, o
   const [form, setForm] = useState(emptyForm);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  
+  const [wantsInstallment, setWantsInstallment] = useState(false);
+  const [totalLoan, setTotalLoan] = useState("");
+  const [remainingTerm, setRemainingTerm] = useState("");
+  const [provider, setProvider] = useState("");
+  const [dueDate, setDueDate] = useState("");
 
   const isEdit = Boolean(initial);
 
   useEffect(() => {
     if (visible) {
-      setForm(
-        initial
-          ? {
-              type: initial.type === "income" ? "income" : "expense",
-              title: initial.title || "",
-              amount: formatThousands(initial.amount),
-              category:
-                initial.category ||
-                (initial.type === "income" ? incomeCategories[0] : categories[0]),
-              source: initial.source || fundSources[0],
-              danaDipakai: initial.danaDipakai || danaDipakaiOptions[0],
-              date: initial.date || todayISO(),
-              time: initial.time || "",
-            }
-          : emptyForm
-      );
-      setErrorMessage("");
+      if (initial) {
+        setForm({
+          type: initial.type === "income" ? "income" : "expense",
+          title: initial.title || "",
+          amount: formatThousands(initial.amount),
+          category:
+            initial.category ||
+            (initial.type === "income" ? incomeCategories[0] : categories[0]),
+          source: initial.source || fundSources[0],
+          danaDipakai: initial.danaDipakai || danaDipakaiOptions[0],
+          date: initial.date || todayISO(),
+          time: initial.time || "",
+        });
+        setErrorMessage("");
+        setWantsInstallment(Boolean(initial.installmentTotalLoan));
+        setTotalLoan(initial.installmentTotalLoan ? formatThousands(String(initial.installmentTotalLoan)) : "");
+        setRemainingTerm(initial.installmentRemainingTerm ? String(initial.installmentRemainingTerm) : "");
+        setProvider(initial.installmentProvider || "");
+        setDueDate(initial.installmentDueDate ? String(initial.installmentDueDate) : "");
+      } else {
+        setForm(emptyForm);
+        setWantsInstallment(false);
+        setTotalLoan("");
+        setRemainingTerm("");
+        setProvider("");
+        setDueDate("");
+      }
     }
   }, [visible, initial]);
 
@@ -112,6 +129,26 @@ export default function TransactionForm({ visible, initial, onClose, onSubmit, o
       type,
       category: type === "income" ? incomeCategories[0] : categories[0],
     }));
+  };
+
+  const recalcInstallmentAmount = (loanVal, termVal) => {
+    const totalLoanNum = parseAmountRounded(loanVal);
+    const termNum = Number(String(termVal || "").replace(/[^\d]/g, ""));
+    if (totalLoanNum > 0 && termNum > 0) {
+      setForm((f) => ({ ...f, amount: formatThousands(String(Math.ceil(totalLoanNum / termNum))) }));
+    }
+  };
+
+  const handleTotalLoanChange = (v) => {
+    const formatted = formatThousands(v);
+    setTotalLoan(formatted);
+    recalcInstallmentAmount(formatted, remainingTerm);
+  };
+
+  const handleRemainingTermChange = (v) => {
+    const digitsOnly = String(v || "").replace(/[^\d]/g, "");
+    setRemainingTerm(digitsOnly);
+    recalcInstallmentAmount(totalLoan, digitsOnly);
   };
 
   const handleSubmit = async () => {
@@ -133,6 +170,20 @@ export default function TransactionForm({ visible, initial, onClose, onSubmit, o
       setErrorMessage("Waktu harus format HH:mm.");
       return;
     }
+    if (wantsInstallment) {
+        if (!totalLoan) {
+            setErrorMessage("Total Harga Barang wajib diisi untuk cicilan.");
+            return;
+        }
+        if (!isEdit && !remainingTerm) {
+            setErrorMessage("Tenor cicilan wajib diisi.");
+            return;
+        }
+        if (isEdit && !initial.installmentTotalLoan && !remainingTerm) {
+            setErrorMessage("Sisa tenor wajib diisi untuk mengubah ke cicilan.");
+            return;
+        }
+    }
 
     setErrorMessage("");
     setIsSaving(true);
@@ -142,6 +193,11 @@ export default function TransactionForm({ visible, initial, onClose, onSubmit, o
         title: form.title.trim(),
         amount,
         danaDipakai: form.type === "income" ? "" : form.danaDipakai,
+      }, wantsInstallment, {
+          totalLoan: parseAmountRounded(totalLoan),
+          remainingTerm: remainingTerm,
+          provider: provider,
+          dueDate: dueDate,
       });
     } catch (err) {
       setErrorMessage(err.message || "Gagal menyimpan transaksi.");
@@ -170,7 +226,7 @@ export default function TransactionForm({ visible, initial, onClose, onSubmit, o
           style={styles.sheetWrap}
         >
           <View style={styles.sheet}>
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <ScrollView style={{ flexShrink: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 80 }}>
               <Text style={styles.title}>
                 {isEdit ? "Edit Transaksi" : "Tambah Transaksi"}
               </Text>
@@ -270,12 +326,80 @@ export default function TransactionForm({ visible, initial, onClose, onSubmit, o
                 onChange={setField("source")}
               />
               {form.type === "expense" ? (
-                <DropdownPicker
-                  label="Dana Dipakai"
-                  options={danaDipakaiOptions}
-                  value={form.danaDipakai}
-                  onChange={setField("danaDipakai")}
-                />
+                <>
+                  <DropdownPicker
+                    label="Dana Dipakai"
+                    options={danaDipakaiOptions}
+                    value={form.danaDipakai}
+                    onChange={setField("danaDipakai")}
+                  />
+                  
+                  {form.danaDipakai === "Spend CC" && (
+                    <>
+                      <View style={styles.installmentToggleRow}>
+                        <Text style={styles.installmentToggleLabel}>Ini cicilan?</Text>
+                        <Switch
+                            value={wantsInstallment}
+                            onValueChange={setWantsInstallment}
+                            trackColor={{ false: "#e2e8f0", true: "#ec4899" }}
+                            disabled={isEdit && Boolean(initial?.installmentTotalLoan)}
+                        />
+                      </View>
+                      
+                      {wantsInstallment && (
+                        <View style={styles.installmentCard}>
+                            <Text style={styles.installmentInfoText}>
+                              Amount di atas dicatat sebagai cicilan bulanan.
+                            </Text>
+                            <View style={styles.inputGroup}>
+                              <TextInput
+                                style={styles.input}
+                                placeholder="Provider (opsional)"
+                                placeholderTextColor="#94a3b8"
+                                value={provider}
+                                onChangeText={setProvider}
+                              />
+                            </View>
+                            <View style={styles.inputGroup}>
+                              <TextInput
+                                style={styles.input}
+                                placeholder="Total Harga Barang (Rp)"
+                                placeholderTextColor="#94a3b8"
+                                keyboardType="numeric"
+                                value={totalLoan}
+                                onChangeText={handleTotalLoanChange}
+                                editable={!(isEdit && Boolean(initial?.installmentTotalLoan))}
+                              />
+                            </View>
+                            {!(isEdit && Boolean(initial?.installmentTotalLoan)) && (
+                                <View style={styles.installmentRow}>
+                                    <View style={[styles.inputGroup, { flex: 1 }]}>
+                                        <TextInput
+                                          style={styles.input}
+                                          placeholder="Sisa Tenor (Bulan)"
+                                          placeholderTextColor="#94a3b8"
+                                          keyboardType="numeric"
+                                          value={remainingTerm}
+                                          onChangeText={handleRemainingTermChange}
+                                        />
+                                    </View>
+                                    <View style={[styles.inputGroup, { flex: 1 }]}>
+                                        <TextInput
+                                          style={styles.input}
+                                          placeholder="Tgl Jatuh Tempo"
+                                          placeholderTextColor="#94a3b8"
+                                          keyboardType="numeric"
+                                          value={dueDate}
+                                          onChangeText={(v) => setDueDate(v.replace(/[^\d]/g, "").slice(0, 2))}
+                                        />
+                                    </View>
+                                </View>
+                            )}
+                        </View>
+                      )}
+                    </>
+                  )}
+                </>
               ) : null}
 
               {errorMessage ? (
@@ -327,13 +451,14 @@ const styles = StyleSheet.create({
   },
   sheetWrap: {
     maxHeight: "88%",
+    flexShrink: 1,
   },
   sheet: {
     backgroundColor: "#ffffff",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 20,
-    paddingBottom: 32,
+    flexShrink: 1,
   },
   title: {
     color: "#0f172a",
@@ -373,6 +498,16 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 12,
   },
+  installmentInfoText: {
+    fontSize: 12,
+    color: "#64748b",
+    marginBottom: 12,
+    fontWeight: "500",
+  },
+  installmentRow: {
+    flexDirection: "row",
+    gap: 12,
+  },
   inputGroup: {
     gap: 8,
     marginBottom: 16,
@@ -394,10 +529,10 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   errorBox: {
-    backgroundColor: "#fff1f2",
-    borderColor: "#fecdd3",
+    backgroundColor: "#fee2e2",
     borderRadius: 12,
     borderWidth: 1,
+    borderColor: "#fecdd3",
     marginBottom: 12,
     padding: 12,
   },
@@ -447,5 +582,25 @@ const styles = StyleSheet.create({
   },
   disabled: {
     opacity: 0.6,
+  },
+  installmentToggleRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+    paddingHorizontal: 4,
+  },
+  installmentToggleLabel: {
+    color: "#0f172a",
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  installmentCard: {
+    backgroundColor: "#fef2f2",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#fecaca",
+    padding: 16,
+    marginBottom: 16,
   },
 });

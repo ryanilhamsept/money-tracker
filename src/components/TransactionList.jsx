@@ -22,6 +22,7 @@ import {
 import { Button } from "./ui/button";
 import { formatCurrency } from "../utils/currency";
 import { formatDisplayDate, normalizeDate } from "../utils/date";
+import { findCreditCardForSource } from "../utils/accountBalance";
 
 import {
     categories,
@@ -87,10 +88,20 @@ const categoryIcons = {
     },
 };
 
+const emptyInstallmentDetails = {
+    provider: "",
+    totalLoan: "",
+    remainingTerm: "",
+    dueDate: "",
+};
+
 export default function TransactionList({
     transactions,
     deleteTransaction,
     updateTransaction,
+    accounts = [],
+    addInstallment,
+    addTransaction,
 }) {
     const [editingId, setEditingId] = useState("");
 
@@ -104,6 +115,19 @@ export default function TransactionList({
         date: "",
     });
 
+    const [isInstallment, setIsInstallment] = useState(false);
+    const [installmentDetails, setInstallmentDetails] = useState(emptyInstallmentDetails);
+
+    // Amount = cicilan bulanan; begitu Total Harga Barang & Sisa Tenor keisi,
+    // hitung otomatis (dibulatkan ke atas) biar konsisten.
+    const recalcInstallmentAmount = (totalLoanVal, remainingTermVal) => {
+        const totalLoanNum = Number(String(totalLoanVal || "").replace(/[^\d]/g, ""));
+        const termNum = Number(remainingTermVal || "");
+        if (totalLoanNum > 0 && termNum > 0) {
+            setEditForm((prev) => ({ ...prev, amount: String(Math.ceil(totalLoanNum / termNum)) }));
+        }
+    };
+
     const openEdit = (item) => {
         setEditingId(item.id);
 
@@ -116,6 +140,8 @@ export default function TransactionList({
             type: item.type || "expense",
             date: normalizeDate(item.date),
         });
+        setIsInstallment(false);
+        setInstallmentDetails(emptyInstallmentDetails);
     };
 
     const closeEdit = () => {
@@ -130,11 +156,69 @@ export default function TransactionList({
             type: "expense",
             date: "",
         });
+        setIsInstallment(false);
+        setInstallmentDetails(emptyInstallmentDetails);
     };
 
     const saveEdit = async (id) => {
-        const wasSaved = await updateTransaction(id, editForm);
+        const wantsInstallment = editForm.danaDipakai === "Spend CC" && isInstallment;
+        const totalLoan = Number(String(installmentDetails.totalLoan || "").replace(/[^\d]/g, ""));
+
+        if (wantsInstallment && !totalLoan) return;
+
+        const existingTransaction = transactions.find((t) => t.id === id);
+        const isNewlyConverted = wantsInstallment && !existingTransaction?.installmentTotalLoan;
+
+        const wasSaved = await updateTransaction(id, {
+            ...editForm,
+            installmentTotalLoan: wantsInstallment ? totalLoan : null,
+        });
+
         if (wasSaved) {
+            if (wantsInstallment && addInstallment) {
+                const matchedCard = findCreditCardForSource(accounts, editForm.source);
+                if (matchedCard) {
+                    const monthlyAmount = Number(String(editForm.amount).replace(/[^\d]/g, ""));
+                    await addInstallment({
+                        accountId: matchedCard.id,
+                        transactionId: id,
+                        name: editForm.title.trim(),
+                        provider: installmentDetails.provider.trim(),
+                        totalLoan,
+                        remainingBalance: totalLoan - monthlyAmount,
+                        monthlyInstallment: monthlyAmount,
+                        remainingTerm: installmentDetails.remainingTerm
+                            ? Number(installmentDetails.remainingTerm)
+                            : null,
+                        dueDate: installmentDetails.dueDate
+                            ? Number(installmentDetails.dueDate)
+                            : null,
+                    });
+                }
+            }
+
+            if (isNewlyConverted && addTransaction) {
+                const term = Number(installmentDetails.remainingTerm) || 1;
+                const [yearStr, monthStr, dayStr] = editForm.date.split('-');
+                const y = parseInt(yearStr, 10);
+                const m = parseInt(monthStr, 10) - 1;
+                const d = parseInt(dayStr, 10);
+
+                for (let i = 1; i < term; i++) {
+                    const nextDate = new Date(y, m + i, d);
+                    const outY = nextDate.getFullYear();
+                    const outM = String(nextDate.getMonth() + 1).padStart(2, '0');
+                    const outD = String(nextDate.getDate()).padStart(2, '0');
+                    const dateString = `${outY}-${outM}-${outD}`;
+
+                    addTransaction({
+                        ...editForm,
+                        date: dateString,
+                        installmentTotalLoan: null,
+                    });
+                }
+            }
+
             closeEdit();
         }
     };
@@ -320,12 +404,15 @@ export default function TransactionList({
 
                                 <select
                                     value={editForm.danaDipakai}
-                                    onChange={(event) =>
+                                    onChange={(event) => {
                                         setEditForm((prev) => ({
                                             ...prev,
                                             danaDipakai: event.target.value,
-                                        }))
-                                    }
+                                        }));
+                                        if (event.target.value !== "Spend CC") {
+                                            setIsInstallment(false);
+                                        }
+                                    }}
                                     className="w-full min-w-0 max-w-full rounded-2xl border-2 border-slate-100 bg-white px-3 py-2 outline-none focus:border-pink-400"
                                 >
                                     {danaDipakaiOptions.map((item) => (
@@ -334,6 +421,84 @@ export default function TransactionList({
                                         </option>
                                     ))}
                                 </select>
+
+                                {editForm.danaDipakai === "Spend CC" && (
+                                    <div className="space-y-3 rounded-2xl border-2 border-slate-100 bg-slate-50 p-3">
+                                        <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                                            <input
+                                                type="checkbox"
+                                                checked={isInstallment}
+                                                onChange={(event) => setIsInstallment(event.target.checked)}
+                                                className="h-4 w-4 rounded border-slate-300 text-pink-500 focus:ring-pink-200"
+                                            />
+                                            Ini cicilan?
+                                        </label>
+
+                                        {isInstallment && (
+                                            <>
+                                                <p className="text-xs font-medium text-slate-500">
+                                                    Amount di atas dicatat sebagai cicilan bulanan. Limit kartu akan kepotong sebesar Total Harga Barang penuh.
+                                                </p>
+
+                                                <input
+                                                    value={installmentDetails.provider}
+                                                    onChange={(event) =>
+                                                        setInstallmentDetails((prev) => ({
+                                                            ...prev,
+                                                            provider: event.target.value,
+                                                        }))
+                                                    }
+                                                    placeholder="Provider (opsional)"
+                                                    className="w-full min-w-0 max-w-full rounded-xl border-2 border-slate-100 bg-white px-3 py-2 text-sm outline-none focus:border-pink-400"
+                                                />
+
+                                                <input
+                                                    value={installmentDetails.totalLoan}
+                                                    onChange={(event) => {
+                                                        const value = event.target.value;
+                                                        setInstallmentDetails((prev) => ({
+                                                            ...prev,
+                                                            totalLoan: value,
+                                                        }));
+                                                        recalcInstallmentAmount(value, installmentDetails.remainingTerm);
+                                                    }}
+                                                    inputMode="numeric"
+                                                    placeholder="Total Harga Barang (Rp)"
+                                                    className="w-full min-w-0 max-w-full rounded-xl border-2 border-slate-100 bg-white px-3 py-2 text-sm outline-none focus:border-pink-400"
+                                                />
+
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <input
+                                                        value={installmentDetails.remainingTerm}
+                                                        onChange={(event) => {
+                                                            const value = event.target.value.replace(/[^\d]/g, "");
+                                                            setInstallmentDetails((prev) => ({
+                                                                ...prev,
+                                                                remainingTerm: value,
+                                                            }));
+                                                            recalcInstallmentAmount(installmentDetails.totalLoan, value);
+                                                        }}
+                                                        inputMode="numeric"
+                                                        placeholder="Sisa Tenor (bulan)"
+                                                        className="w-full min-w-0 max-w-full rounded-xl border-2 border-slate-100 bg-white px-3 py-2 text-sm outline-none focus:border-pink-400"
+                                                    />
+                                                    <input
+                                                        value={installmentDetails.dueDate}
+                                                        onChange={(event) =>
+                                                            setInstallmentDetails((prev) => ({
+                                                                ...prev,
+                                                                dueDate: event.target.value.replace(/[^\d]/g, "").slice(0, 2),
+                                                            }))
+                                                        }
+                                                        inputMode="numeric"
+                                                        placeholder="Tgl Jatuh Tempo"
+                                                        className="w-full min-w-0 max-w-full rounded-xl border-2 border-slate-100 bg-white px-3 py-2 text-sm outline-none focus:border-pink-400"
+                                                    />
+                                                </div>
+                                            </>
+                                        )}
+                                    </div>
+                                )}
 
                                 <div className="grid grid-cols-2 gap-2">
                                     <Button

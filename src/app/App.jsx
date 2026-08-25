@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
-    CalendarDays,
+    PiggyBank,
     Home,
     PieChart,
     Wallet,
@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 
 import Tracker from "../components/Tracker";
-import DailyReport from "../components/DailyReport";
+import Plan from "../components/Plan";
 import MonthlyReport from "../components/MonthlyReport";
 import Accounts from "../components/Accounts";
 import Login from "../components/Login";
@@ -145,9 +145,9 @@ export default function App() {
             icon: Wallet,
         },
         {
-            id: "daily-report",
-            label: "Daily",
-            icon: CalendarDays,
+            id: "plan",
+            label: "Plan",
+            icon: PiggyBank,
         },
         {
             id: "report",
@@ -345,8 +345,8 @@ export default function App() {
                     />
                 )}
 
-                {activePage === "daily-report" && (
-                    <DailyReport transactions={transactions} />
+                {activePage === "plan" && (
+                    <Plan userId={user?.id} />
                 )}
 
                 {activePage === "report" && (

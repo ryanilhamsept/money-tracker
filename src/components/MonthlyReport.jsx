@@ -143,9 +143,27 @@ const formatMonthLabel = (yyyyMm) => {
     return `${MONTH_NAMES_ID[Number(month) - 1]} ${year}`;
 };
 
+const SPARKLINE_WIDTH = 600;
+const SPARKLINE_HEIGHT = 90;
+const buildSparklinePath = (values) => {
+    if (values.length === 0) return "";
+    const max = Math.max(1, ...values);
+    const min = Math.min(0, ...values);
+    const range = max - min || 1;
+
+    return values
+        .map((v, i) => {
+            const x = values.length > 1 ? (i / (values.length - 1)) * SPARKLINE_WIDTH : SPARKLINE_WIDTH / 2;
+            const y = 8 + (1 - (v - min) / range) * (SPARKLINE_HEIGHT - 16);
+            return `${i === 0 ? "M" : "L"} ${x} ${y}`;
+        })
+        .join(" ");
+};
+
 export default function MonthlyReport({ transactions, budget = 0 }) {
     const [selectedMonth, setSelectedMonth] = useState(currentMonth());
     const [expandedMonthlyCategory, setExpandedMonthlyCategory] = useState("");
+    const [expandedDailyDate, setExpandedDailyDate] = useState("");
     const [hoveredSlice, setHoveredSlice] = useState(null);
     const monthlyTransactions = useMemo(() => {
         return transactions.filter((item) => {
@@ -170,6 +188,27 @@ export default function MonthlyReport({ transactions, budget = 0 }) {
             .reduce((sum, item) => sum + Number(item.amount), 0);
     }, [monthlyExpenses]);
     const monthLeftBudget = Math.max(0, budget - monthSpendBulanan);
+
+    const dailySpendingData = useMemo(() => {
+        const grouped = monthlyTransactions.reduce((acc, item) => {
+            const key = normalizeDate(item.date);
+            if (!acc[key]) acc[key] = [];
+            acc[key].push(item);
+            return acc;
+        }, {});
+
+        return Object.entries(grouped)
+            .sort((a, b) => b[0].localeCompare(a[0]))
+            .map(([date, list]) => ({
+                date,
+                transactions: list.sort(
+                    (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
+                ),
+                amount: list
+                    .filter((item) => item.type !== "income")
+                    .reduce((sum, item) => sum + Number(item.amount), 0),
+            }));
+    }, [monthlyTransactions]);
 
     const [aiReview, setAiReview] = useState("");
     const [isReviewLoading, setIsReviewLoading] = useState(false);
@@ -232,6 +271,15 @@ export default function MonthlyReport({ transactions, budget = 0 }) {
         const isCurrentMonth = selectedMonth === currentMonth();
         return isCurrentMonth ? Math.min(new Date().getDate(), totalDaysInMonth) : totalDaysInMonth;
     }, [selectedMonth]);
+
+    const dailySparklineValues = useMemo(() => {
+        const byDay = {};
+        monthlyExpenses.forEach((item) => {
+            const day = Number(normalizeDate(item.date).split("-")[2]);
+            byDay[day] = (byDay[day] || 0) + Number(item.amount);
+        });
+        return Array.from({ length: activeDaysCount }, (_, i) => byDay[i + 1] || 0);
+    }, [monthlyExpenses, activeDaysCount]);
 
     const dailyAverage = useMemo(() => {
         if (monthlyTotal === 0) return 0;
@@ -670,6 +718,115 @@ export default function MonthlyReport({ transactions, budget = 0 }) {
                         </div>
                     </motion.div>
                 </div>
+
+                <div className="rounded-3xl bg-gradient-to-br from-emerald-900 via-emerald-700 to-emerald-600 p-6 text-white shadow-xl">
+                    <p className="text-xs font-bold uppercase tracking-widest text-emerald-200">
+                        Spending Activity
+                    </p>
+                    <h3 className="mt-1 text-xl font-black">Ringkasan Pengeluaran Harian</h3>
+
+                    <svg
+                        viewBox={`0 0 ${SPARKLINE_WIDTH} ${SPARKLINE_HEIGHT}`}
+                        className="mt-5 h-24 w-full"
+                        preserveAspectRatio="none"
+                    >
+                        <path
+                            d={buildSparklinePath(dailySparklineValues)}
+                            fill="none"
+                            stroke="#ffffff"
+                            strokeWidth="2.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                        />
+                    </svg>
+
+                    <div className="mt-2 flex justify-between text-xs font-bold text-emerald-200">
+                        <span>1 {formatMonthLabel(selectedMonth).split(" ")[0].slice(0, 3)}</span>
+                        <span>
+                            {activeDaysCount} {formatMonthLabel(selectedMonth).split(" ")[0].slice(0, 3)}
+                        </span>
+                    </div>
+                </div>
+
+                <Card className="overflow-hidden rounded-3xl border-0 bg-white shadow-xl">
+                    <CardContent className="p-6">
+                        <h3 className="mb-5 text-2xl font-black text-slate-900">
+                            Rincian Harian
+                        </h3>
+                        {dailySpendingData.length === 0 ? (
+                            <div className="rounded-3xl bg-slate-50 p-8 text-center text-slate-500">
+                                Belum ada pengeluaran bulan ini.
+                            </div>
+                        ) : (
+                            <div className="space-y-4">
+                                {dailySpendingData.map((item) => (
+                                    <div key={item.date} className="rounded-3xl bg-slate-50 p-4">
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setExpandedDailyDate((current) =>
+                                                    current === item.date ? "" : item.date
+                                                )
+                                            }
+                                            className="flex w-full min-w-0 items-center justify-between gap-4 text-left"
+                                        >
+                                            <div className="min-w-0">
+                                                <p className="font-black text-slate-900">
+                                                    {formatDisplayDate(item.date)}
+                                                </p>
+                                                <p className="text-sm font-medium text-slate-500">
+                                                    {item.transactions.length} transaksi
+                                                </p>
+                                            </div>
+                                            <p className="shrink-0 text-lg font-black text-rose-500">
+                                                -{formatCurrency(item.amount)}
+                                            </p>
+                                        </button>
+
+                                        {expandedDailyDate === item.date && (
+                                            <div className="mt-4 space-y-2 border-t border-slate-200 pt-4">
+                                                {item.transactions.map((t) => {
+                                                    const categoryData =
+                                                        categoryIcons[t.category] || categoryIcons["Miscellaneous"];
+                                                    const Icon = categoryData.icon;
+                                                    const isIncome = t.type === "income";
+                                                    return (
+                                                        <div
+                                                            key={t.id}
+                                                            className="flex min-w-0 items-center justify-between gap-3 rounded-2xl bg-white p-3 shadow-sm"
+                                                        >
+                                                            <div className="flex min-w-0 items-center gap-3">
+                                                                <div className={`shrink-0 rounded-2xl p-2 ${categoryData.bg}`}>
+                                                                    <Icon className={`h-4 w-4 ${categoryData.color}`} />
+                                                                </div>
+                                                                <div className="min-w-0">
+                                                                    <p className="truncate font-bold text-slate-900">
+                                                                        {t.title}
+                                                                    </p>
+                                                                    <p className="text-xs font-medium text-slate-500">
+                                                                        {t.category} • {t.source} • {t.danaDipakai}
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                            <p
+                                                                className={`shrink-0 font-black ${
+                                                                    isIncome ? "text-emerald-500" : "text-rose-500"
+                                                                }`}
+                                                            >
+                                                                {isIncome ? "+" : "-"}
+                                                                {formatCurrency(t.amount)}
+                                                            </p>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
 
                 <Card className="overflow-hidden rounded-3xl border-0 bg-white shadow-xl">
                     <CardContent className="p-6">

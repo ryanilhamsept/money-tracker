@@ -262,3 +262,64 @@ export const updateStartingBalanceInSupabase = async (id, balance) => {
 
     return { success: true, data: mapAccountFromDB(data) };
 };
+
+// --- Goals (Plan) API ---
+// Tabel "goals" dipakai bareng sama app lain (skema name/required/collected,
+// bukan title/targetAmount/savedAmount) -- mapper di bawah nyesuain ke itu.
+
+const mapGoalFromDB = (g) => ({
+    id: g.id,
+    title: g.name,
+    icon: g.icon || "🎯",
+    color: g.color || "#8b5cf6",
+    targetAmount: Number(g.required),
+    savedAmount: Number(g.collected),
+    deadline: g.deadline,
+    note: g.note,
+    createdAt: g.created_at,
+});
+
+const mapGoalToDB = (g) => ({
+    id: g.id,
+    name: g.title,
+    icon: g.icon || null,
+    color: g.color || null,
+    required: Number(g.targetAmount) || 0,
+    collected: Number(g.savedAmount) || 0,
+    deadline: g.deadline || null,
+    note: g.note || null,
+});
+
+export const getGoalsFromSupabase = async () => {
+    const { data, error } = await supabase
+        .from("goals")
+        .select("*")
+        .order("created_at", { ascending: true });
+
+    if (error) {
+        console.error("Error fetching goals:", error);
+        return [];
+    }
+    return data.map(mapGoalFromDB);
+};
+
+export const addGoalToSupabase = async (goal, userId) => {
+    const { error } = await supabase.from("goals").insert([
+        { ...mapGoalToDB(goal), user_id: userId, updated_at: new Date().toISOString() },
+    ]);
+    if (error) throw error;
+};
+
+export const updateGoalInSupabase = async (goal) => {
+    const { error } = await supabase
+        .from("goals")
+        .update({ ...mapGoalToDB(goal), updated_at: new Date().toISOString() })
+        .eq("id", goal.id);
+
+    if (error) throw error;
+};
+
+export const deleteGoalFromSupabase = async (id) => {
+    const { error } = await supabase.from("goals").delete().eq("id", id);
+    if (error) throw error;
+};

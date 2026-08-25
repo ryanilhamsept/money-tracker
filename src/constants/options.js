@@ -35,4 +35,5 @@ export const danaDipakaiOptions = import.meta.env.VITE_DANA_DIPAKAI_OPTIONS
         "Spend CC",
         "Other",
         "Liburan",
+        "Gajian",
     ];

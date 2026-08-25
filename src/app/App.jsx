@@ -128,10 +128,9 @@ export default function App() {
 
 
     const totalAllTimeSpending = useMemo(() => {
-        return transactions.reduce(
-            (sum, item) => sum + Number(item.amount),
-            0
-        );
+        return transactions
+            .filter((item) => item.type !== "income" && String(item.date) >= "2025-01-01")
+            .reduce((sum, item) => sum + Number(item.amount), 0);
     }, [transactions]);
 
     const navItems = [
@@ -351,7 +350,7 @@ export default function App() {
                 )}
 
                 {activePage === "report" && (
-                    <MonthlyReport transactions={transactions} />
+                    <MonthlyReport transactions={transactions} budget={budget} />
                 )}
             </div>
 

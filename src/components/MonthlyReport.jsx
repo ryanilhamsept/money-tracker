@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import {
     FileText,
@@ -22,6 +22,8 @@ import {
     ArrowDownRight,
     Percent,
     LineChart,
+    Sparkles,
+    RotateCw,
 } from "lucide-react";
 import { Card, CardContent } from "./ui/card";
 import {
@@ -36,6 +38,7 @@ import {
     normalizeDate,
 } from "../utils/date";
 import { formatCurrency } from "../utils/currency";
+import { reviewSpending } from "../services/gemini";
 const categoryIcons = {
     "Account Transfer": {
         icon: ArrowLeftRight,
@@ -130,7 +133,17 @@ const getArcPath = (x, y, radius, startAngle, endAngle) => {
     ].join(" ");
 };
 
-export default function MonthlyReport({ transactions }) {
+const MONTH_NAMES_ID = [
+    "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+    "Juli", "Agustus", "September", "Oktober", "November", "Desember",
+];
+const formatMonthLabel = (yyyyMm) => {
+    const [year, month] = String(yyyyMm || "").split("-");
+    if (!year || !month) return yyyyMm;
+    return `${MONTH_NAMES_ID[Number(month) - 1]} ${year}`;
+};
+
+export default function MonthlyReport({ transactions, budget = 0 }) {
     const [selectedMonth, setSelectedMonth] = useState(currentMonth());
     const [expandedMonthlyCategory, setExpandedMonthlyCategory] = useState("");
     const [hoveredSlice, setHoveredSlice] = useState(null);
@@ -150,6 +163,66 @@ export default function MonthlyReport({ transactions }) {
             0
         );
     }, [monthlyExpenses]);
+
+    const monthSpendBulanan = useMemo(() => {
+        return monthlyExpenses
+            .filter((item) => item.danaDipakai === "Spend Bulanan")
+            .reduce((sum, item) => sum + Number(item.amount), 0);
+    }, [monthlyExpenses]);
+    const monthLeftBudget = Math.max(0, budget - monthSpendBulanan);
+
+    const [aiReview, setAiReview] = useState("");
+    const [isReviewLoading, setIsReviewLoading] = useState(false);
+    const [reviewError, setReviewError] = useState("");
+    const reviewCacheRef = useRef({});
+
+    const generateReview = async (forceRefresh) => {
+        if (monthlyTransactions.length === 0) {
+            setAiReview("");
+            setReviewError("");
+            return;
+        }
+        if (!forceRefresh && reviewCacheRef.current[selectedMonth]) {
+            setAiReview(reviewCacheRef.current[selectedMonth]);
+            setReviewError("");
+            return;
+        }
+
+        setIsReviewLoading(true);
+        setReviewError("");
+        try {
+            const text = await reviewSpending({
+                monthLabel: formatMonthLabel(selectedMonth),
+                total: formatCurrency(monthlyTotal),
+                budget: budget > 0 ? formatCurrency(budget) : "belum di-set",
+                leftBudget: budget > 0 ? formatCurrency(monthLeftBudget) : "-",
+                categoryBreakdown: categoryReport
+                    .map((c) => `${c.category} ${formatCurrency(c.total)} (${c.percentage}%)`)
+                    .join(", "),
+                highestTransaction: highestTransaction
+                    ? `${highestTransaction.title} ${formatCurrency(highestTransaction.amount)}`
+                    : "-",
+                comparisonText: comparisonPercentage
+                    ? `${comparisonPercentage.isIncrease ? "naik" : "turun"} ${comparisonPercentage.percent}% (${formatCurrency(comparisonPercentage.diff)})`
+                    : "belum ada data bulan lalu",
+            });
+            reviewCacheRef.current[selectedMonth] = text;
+            setAiReview(text);
+        } catch (err) {
+            setReviewError(
+                err.message === "QUOTA_EXCEEDED"
+                    ? "Kuota AI Review harian sudah penuh, coba lagi besok ya."
+                    : err.message || "Gagal generate review."
+            );
+        } finally {
+            setIsReviewLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        generateReview(false);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedMonth, monthlyTransactions.length, budget]);
 
     const activeDaysCount = useMemo(() => {
         const [yearStr, monthStr] = selectedMonth.split("-");
@@ -408,6 +481,46 @@ export default function MonthlyReport({ transactions }) {
                     </div>
                 </CardContent>
             </Card>
+
+            {monthlyTransactions.length > 0 ? (
+                <motion.div
+                    initial={{ opacity: 0, y: 15 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="rounded-3xl border border-pink-100 bg-pink-50/70 p-5 shadow-lg"
+                >
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <Sparkles className="h-5 w-5 text-pink-500" />
+                            <h3 className="text-base font-black text-pink-700">AI Review</h3>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => generateReview(true)}
+                            disabled={isReviewLoading}
+                            className="flex items-center gap-1.5 rounded-full border border-pink-200 bg-white px-3 py-1.5 text-xs font-bold text-pink-600 shadow-sm transition hover:bg-pink-50 disabled:opacity-60"
+                        >
+                            <RotateCw className={`h-3.5 w-3.5 ${isReviewLoading ? "animate-spin" : ""}`} />
+                            Ulangi
+                        </button>
+                    </div>
+
+                    <div className="mt-3">
+                        {isReviewLoading ? (
+                            <p className="text-sm font-semibold text-pink-400">
+                                Lagi nganalisa pengeluaran kamu...
+                            </p>
+                        ) : reviewError ? (
+                            <p className="text-sm font-bold text-rose-600">{reviewError}</p>
+                        ) : aiReview ? (
+                            <p className="text-sm font-medium leading-relaxed text-pink-900">
+                                {aiReview}
+                            </p>
+                        ) : null}
+                    </div>
+                </motion.div>
+            ) : null}
+
             <div className="min-w-0 space-y-6 overflow-hidden">
                 {/* Monthly Insights / Quick Stats Grid */}
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

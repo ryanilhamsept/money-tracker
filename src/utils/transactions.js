@@ -57,4 +57,7 @@ export const normalizeTransaction = (item) => ({
     ),
     type: item.type === "income" ? "income" : "expense",
     date: item.date,
+    time: item.time || "",
+    createdAt: item.createdAt,
+    installmentTotalLoan: item.installmentTotalLoan ?? null,
 });

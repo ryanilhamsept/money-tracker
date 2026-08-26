@@ -29,6 +29,7 @@ const mirrorToGoogleSheet = async (payload) => {
 const mapTransactionFromDB = (t) => ({
     id: t.id,
     date: t.date,
+    time: t.time || "",
     title: t.title,
     category: t.category,
     amount: Number(t.amount),
@@ -42,6 +43,7 @@ const mapTransactionFromDB = (t) => ({
 const mapTransactionToDB = (t) => ({
     id: t.id,
     date: t.date,
+    time: t.time || null,
     title: t.title,
     category: t.category,
     amount: Number(t.amount),
@@ -118,6 +120,7 @@ export const getTransactionsFromSupabase = async () => {
             .from("transactions")
             .select("*")
             .order("date", { ascending: false })
+            .order("time", { ascending: false, nullsFirst: false })
             .order("created_at", { ascending: false })
             .range(from, from + PAGE_SIZE - 1);
 

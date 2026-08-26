@@ -76,6 +76,7 @@ export default function Tracker({
         source: activeFundSources[0] || "Mandiri",
         danaDipakai: "Spend Bulanan",
         date: today(),
+        time: "",
     });
 
     const [isInstallment, setIsInstallment] = useState(false);
@@ -262,6 +263,7 @@ export default function Tracker({
                 source: activeFundSources[0] || "Mandiri",
                 danaDipakai: "Spend Bulanan",
                 date: today(),
+                time: "",
             });
             setIsInstallment(false);
             setInstallmentDetails({ provider: "", totalLoan: "", remainingTerm: "", dueDate: "" });
@@ -616,25 +618,46 @@ export default function Tracker({
                                 </div>
                             )}
 
-                            <label className="block min-w-0 space-y-2">
-                                <span className="flex items-center gap-2 text-sm font-semibold text-slate-600">
-                                    <CalendarDays className="h-4 w-4 text-indigo-500" />
-                                    Tanggal
-                                </span>
+                            <div className="grid min-w-0 grid-cols-[1fr_120px] gap-3">
+                                <label className="block min-w-0 space-y-2">
+                                    <span className="flex items-center gap-2 text-sm font-semibold text-slate-600">
+                                        <CalendarDays className="h-4 w-4 text-indigo-500" />
+                                        Tanggal
+                                    </span>
 
-                                <input
-                                    value={form.date}
-                                    onChange={(event) =>
-                                        setForm((prev) => ({
-                                            ...prev,
-                                            date: event.target.value,
-                                        }))
-                                    }
-                                    type="date"
-                                    style={{ WebkitAppearance: "none" }}
-                                    className="w-full min-w-0 max-w-full appearance-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base outline-none focus:ring-2 focus:ring-pink-200"
-                                />
-                            </label>
+                                    <input
+                                        value={form.date}
+                                        onChange={(event) =>
+                                            setForm((prev) => ({
+                                                ...prev,
+                                                date: event.target.value,
+                                            }))
+                                        }
+                                        type="date"
+                                        style={{ WebkitAppearance: "none" }}
+                                        className="w-full min-w-0 max-w-full appearance-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base outline-none focus:ring-2 focus:ring-pink-200"
+                                    />
+                                </label>
+
+                                <label className="block min-w-0 space-y-2">
+                                    <span className="text-sm font-semibold text-slate-600">
+                                        Waktu
+                                    </span>
+
+                                    <input
+                                        value={form.time}
+                                        onChange={(event) =>
+                                            setForm((prev) => ({
+                                                ...prev,
+                                                time: event.target.value,
+                                            }))
+                                        }
+                                        type="time"
+                                        style={{ WebkitAppearance: "none" }}
+                                        className="w-full min-w-0 max-w-full appearance-none rounded-2xl border border-slate-200 bg-white px-3 py-3 text-base outline-none focus:ring-2 focus:ring-pink-200"
+                                    />
+                                </label>
+                            </div>
 
                             <Button
                                 type="submit"

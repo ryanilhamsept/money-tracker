@@ -113,6 +113,7 @@ export default function TransactionList({
         danaDipakai: "Spend Bulanan",
         type: "expense",
         date: "",
+        time: "",
     });
 
     const [isInstallment, setIsInstallment] = useState(false);
@@ -139,6 +140,7 @@ export default function TransactionList({
             danaDipakai: item.danaDipakai,
             type: item.type || "expense",
             date: normalizeDate(item.date),
+            time: item.time || "",
         });
         setIsInstallment(false);
         setInstallmentDetails(emptyInstallmentDetails);
@@ -155,6 +157,7 @@ export default function TransactionList({
             danaDipakai: "Spend Bulanan",
             type: "expense",
             date: "",
+            time: "",
         });
         setIsInstallment(false);
         setInstallmentDetails(emptyInstallmentDetails);
@@ -301,6 +304,7 @@ export default function TransactionList({
                                             <div className="mt-5 flex items-center gap-2 text-sm font-semibold text-slate-500">
                                                 <CalendarDays className="h-4 w-4 text-indigo-500" />
                                                 {formatDisplayDate(item.date)}
+                                                {item.time ? ` • ${item.time}` : ""}
                                             </div>
                                         </div>
                                     </div>
@@ -355,18 +359,32 @@ export default function TransactionList({
                                     className="w-full min-w-0 max-w-full rounded-2xl border-2 border-slate-100 bg-white px-3 py-2 outline-none focus:border-pink-400"
                                 />
 
-                                <input
-                                    value={editForm.date}
-                                    onChange={(event) =>
-                                        setEditForm((prev) => ({
-                                            ...prev,
-                                            date: event.target.value,
-                                        }))
-                                    }
-                                    type="date"
-                                    style={{ WebkitAppearance: "none" }}
-                                    className="w-full min-w-0 max-w-full appearance-none rounded-2xl border-2 border-slate-100 bg-white px-3 py-2 text-base outline-none focus:border-pink-400"
-                                />
+                                <div className="grid min-w-0 grid-cols-[1fr_100px] gap-2">
+                                    <input
+                                        value={editForm.date}
+                                        onChange={(event) =>
+                                            setEditForm((prev) => ({
+                                                ...prev,
+                                                date: event.target.value,
+                                            }))
+                                        }
+                                        type="date"
+                                        style={{ WebkitAppearance: "none" }}
+                                        className="w-full min-w-0 max-w-full appearance-none rounded-2xl border-2 border-slate-100 bg-white px-3 py-2 text-base outline-none focus:border-pink-400"
+                                    />
+                                    <input
+                                        value={editForm.time}
+                                        onChange={(event) =>
+                                            setEditForm((prev) => ({
+                                                ...prev,
+                                                time: event.target.value,
+                                            }))
+                                        }
+                                        type="time"
+                                        style={{ WebkitAppearance: "none" }}
+                                        className="w-full min-w-0 max-w-full appearance-none rounded-2xl border-2 border-slate-100 bg-white px-3 py-2 text-base outline-none focus:border-pink-400"
+                                    />
+                                </div>
 
                                 <select
                                     value={editForm.category}

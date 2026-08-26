@@ -398,6 +398,7 @@ export default function App() {
                         updateAccountFields={updateAccountFields}
                         installments={installments}
                         deleteInstallment={handleDeleteInstallment}
+                        transactions={transactions}
                     />
                 )}
 

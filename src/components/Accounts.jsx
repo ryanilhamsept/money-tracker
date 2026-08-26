@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 
 import { formatCurrency } from "../utils/currency";
+import { findCreditCardForSource } from "../utils/accountBalance";
 
 const CARD_COLORS = ["#0f172a", "#1e293b", "#1d4ed8", "#78350f", "#1e3a8a"];
 
@@ -28,6 +29,7 @@ export default function Accounts({
     updateAccountFields,
     installments = [],
     deleteInstallment,
+    transactions = [],
 }) {
     const [searchQuery, setSearchQuery] = useState("");
     const [filterType, setFilterType] = useState("all");
@@ -426,6 +428,44 @@ export default function Accounts({
                         </div>
                     )
                 )}
+
+                {isCard && !isEditing && (() => {
+                    const cardTransactions = transactions.filter(
+                        (t) =>
+                            t.danaDipakai === "Spend CC" &&
+                            t.date >= "2026-08-25" &&
+                            findCreditCardForSource(accounts, t.source)?.id === account.id
+                    );
+                    if (cardTransactions.length === 0) return null;
+
+                    return (
+                        <div className="mt-3 space-y-2">
+                            <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                                Riwayat Transaksi ({cardTransactions.length})
+                            </p>
+                            {cardTransactions.map((t) => (
+                                <div
+                                    key={t.id}
+                                    className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2"
+                                >
+                                    <div className="min-w-0">
+                                        <p className="truncate text-xs font-bold text-slate-700">
+                                            {t.title}
+                                        </p>
+                                        <p className="text-[11px] font-semibold text-slate-500">
+                                            {t.date}
+                                            {t.time ? ` • ${t.time}` : ""}
+                                            {t.installmentTotalLoan ? " • Cicilan" : ""}
+                                        </p>
+                                    </div>
+                                    <p className="shrink-0 text-xs font-bold text-slate-700">
+                                        {formatCurrency(t.installmentTotalLoan || t.amount)}
+                                    </p>
+                                </div>
+                            ))}
+                        </div>
+                    );
+                })()}
 
                 {isCard && !isEditing && (() => {
                     const cardInstallments = installments.filter(

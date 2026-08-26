@@ -1,6 +1,6 @@
 const normalizeName = (value) => String(value || "").trim().toLowerCase();
 
-const GENERIC_SOURCE_WORDS = new Set(["credit", "card", "kartu", "kredit", "cc"]);
+const GENERIC_SOURCE_WORDS = new Set(["credit", "card", "kartu", "kredit", "cc", "bayar"]);
 
 const tokenize = (value) =>
   normalizeName(value)
@@ -26,9 +26,10 @@ const findAccountForSource = (accounts, source) => {
   return null;
 };
 
-// Transaksi "Spend CC" belum tentu nyebut nama kartu persis (mis. source
-// "Credit Card - BCA" vs nama akun "CC BCA"), jadi dicocokin longgar lewat
-// kata kunci yang sama (mis. "bca") di antara akun bertipe Kartu Kredit.
+// Transaksi "Spend CC" (dan judul "Bayar CC ...") belum tentu nyebut nama
+// kartu persis (mis. source "Credit Card - BCA" vs nama akun "CC BCA"), jadi
+// dicocokin longgar lewat kata kunci yang sama (mis. "bca") di antara akun
+// bertipe Kartu Kredit.
 const findCreditCardForSource = (accounts, source) => {
   const creditCardAccounts = accounts.filter(
     (account) => normalizeName(account.type) === "kartu kredit"
@@ -48,26 +49,71 @@ const findCreditCardForSource = (accounts, source) => {
   );
 };
 
-const getTransactionAccountEffect = (accounts, transaction) => {
-  if (!transaction) return null;
+// Balikin daftar {account, amount} buat satu transaksi. Kebanyakan transaksi
+// cuma nyentuh 1 akun; "Bayar CC ..." nyentuh 2 (akun pembayar kepotong,
+// limit kartu ke-lunasin).
+const getTransactionAccountEffects = (accounts, transaction) => {
+  if (!transaction) return [];
 
   const amount = Number(transaction.amount) || 0;
-  if (amount <= 0) return null;
+  if (amount <= 0) return [];
+
+  const isIncome = transaction.type === "income";
+
+  const isCcBillPayment = String(transaction.title || "")
+    .trim()
+    .toLowerCase()
+    .startsWith("bayar cc");
+
+  if (isCcBillPayment) {
+    const effects = [];
+
+    // Uang keluar dari akun pembayar kayak expense biasa.
+    const payingAccount = findAccountForSource(accounts, transaction.source);
+    if (payingAccount) {
+      const sign = isIncome ? -1 : 1;
+      effects.push({ account: payingAccount, amount: amount * sign });
+    }
+
+    // Bayar tagihan ngurangin saldo terpakai kartu -- tanda sama kayak
+    // expense di akun biasa (kebalikan dari transaksi Spend CC). Kartunya
+    // dikenali dari judul (mis. "Bayar CC BCA") karena danaDipakai aja
+    // gak nyebut kartu mana.
+    const targetCard = findCreditCardForSource(accounts, transaction.title);
+    if (targetCard) {
+      const sign = isIncome ? -1 : 1;
+      effects.push({ account: targetCard, amount: amount * sign });
+    }
+
+    return effects;
+  }
 
   const isCreditCardSpend = transaction.danaDipakai === "Spend CC";
+
+  // Buat cicilan, amount transaksi = cicilan bulanan (kecatet sebagai
+  // spending bulan ini), tapi limit kartu kepotong sebesar harga barang
+  // penuh (installmentTotalLoan) sejak awal.
+  const hasInstallmentTotal =
+    transaction.installmentTotalLoan !== undefined &&
+    transaction.installmentTotalLoan !== null;
+  const effectAmount =
+    isCreditCardSpend && hasInstallmentTotal
+      ? Number(transaction.installmentTotalLoan) || 0
+      : amount;
+
   const account = isCreditCardSpend
     ? findCreditCardForSource(accounts, transaction.source)
     : findAccountForSource(accounts, transaction.source);
 
-  if (!account) return null;
+  if (!account || effectAmount <= 0) return [];
 
   // Akun biasa: expense ngurangin saldo, income nambah.
   // Kartu kredit: expense nambah saldo terpakai (utang), income/refund ngurangin.
   const sign = isCreditCardSpend
-    ? (transaction.type === "income" ? 1 : -1)
-    : (transaction.type === "income" ? -1 : 1);
+    ? (isIncome ? 1 : -1)
+    : (isIncome ? -1 : 1);
 
-  return { account, amount: amount * sign };
+  return [{ account, amount: effectAmount * sign }];
 };
 
 // Sama persis logic-nya sama src/utils/accountBalance.js di app web,
@@ -91,14 +137,14 @@ export const getAccountBalanceDeltas = (
     deltas.set(effect.account.id, current);
   };
 
-  const previousEffect = getTransactionAccountEffect(
+  const previousEffects = getTransactionAccountEffects(
     accounts,
     previousTransaction
   );
-  const nextEffect = getTransactionAccountEffect(accounts, nextTransaction);
+  const nextEffects = getTransactionAccountEffects(accounts, nextTransaction);
 
-  addDelta(previousEffect, previousEffect?.amount || 0);
-  addDelta(nextEffect, -(nextEffect?.amount || 0));
+  previousEffects.forEach((effect) => addDelta(effect, effect.amount));
+  nextEffects.forEach((effect) => addDelta(effect, -effect.amount));
 
   return [...deltas.values()].filter((delta) => delta.amount !== 0);
 };

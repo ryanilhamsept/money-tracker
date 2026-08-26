@@ -24,6 +24,8 @@ import {
     LineChart,
     Sparkles,
     RotateCw,
+    Send,
+    X,
 } from "lucide-react";
 import { Card, CardContent } from "./ui/card";
 import {
@@ -38,7 +40,7 @@ import {
     normalizeDate,
 } from "../utils/date";
 import { formatCurrency } from "../utils/currency";
-import { reviewSpending } from "../services/gemini";
+import { reviewSpending, replyToReview } from "../services/gemini";
 const categoryIcons = {
     "Account Transfer": {
         icon: ArrowLeftRight,
@@ -215,6 +217,12 @@ export default function MonthlyReport({ transactions, budget = 0 }) {
     const [reviewError, setReviewError] = useState("");
     const reviewCacheRef = useRef({});
 
+    const [reviewThread, setReviewThread] = useState([]);
+    const [commentInput, setCommentInput] = useState("");
+    const [isReplyLoading, setIsReplyLoading] = useState(false);
+    const [replyError, setReplyError] = useState("");
+    const reviewThreadCacheRef = useRef({});
+
     const generateReview = async (forceRefresh) => {
         if (monthlyTransactions.length === 0) {
             setAiReview("");
@@ -230,23 +238,12 @@ export default function MonthlyReport({ transactions, budget = 0 }) {
         setIsReviewLoading(true);
         setReviewError("");
         try {
-            const text = await reviewSpending({
-                monthLabel: formatMonthLabel(selectedMonth),
-                total: formatCurrency(monthlyTotal),
-                budget: budget > 0 ? formatCurrency(budget) : "belum di-set",
-                leftBudget: budget > 0 ? formatCurrency(monthLeftBudget) : "-",
-                categoryBreakdown: categoryReport
-                    .map((c) => `${c.category} ${formatCurrency(c.total)} (${c.percentage}%)`)
-                    .join(", "),
-                highestTransaction: highestTransaction
-                    ? `${highestTransaction.title} ${formatCurrency(highestTransaction.amount)}`
-                    : "-",
-                comparisonText: comparisonPercentage
-                    ? `${comparisonPercentage.isIncrease ? "naik" : "turun"} ${comparisonPercentage.percent}% (${formatCurrency(comparisonPercentage.diff)})`
-                    : "belum ada data bulan lalu",
-            });
+            const text = await reviewSpending(reviewSummary);
             reviewCacheRef.current[selectedMonth] = text;
             setAiReview(text);
+            reviewThreadCacheRef.current[selectedMonth] = [];
+            setReviewThread([]);
+            setReplyError("");
         } catch (err) {
             setReviewError(
                 err.message === "QUOTA_EXCEEDED"
@@ -258,9 +255,45 @@ export default function MonthlyReport({ transactions, budget = 0 }) {
         }
     };
 
+    const handleSendComment = async () => {
+        const comment = commentInput.trim();
+        if (!comment || isReplyLoading) return;
+
+        const threadWithComment = [...reviewThread, { role: "user", text: comment }];
+        setReviewThread(threadWithComment);
+        setCommentInput("");
+        setReplyError("");
+        setIsReplyLoading(true);
+        try {
+            const replyText = await replyToReview(reviewSummary, aiReview, comment);
+            const updatedThread = [...threadWithComment, { role: "ai", text: replyText }];
+            reviewThreadCacheRef.current[selectedMonth] = updatedThread;
+            setReviewThread(updatedThread);
+        } catch (err) {
+            reviewThreadCacheRef.current[selectedMonth] = threadWithComment;
+            setReplyError(
+                err.message === "QUOTA_EXCEEDED"
+                    ? "Kuota AI harian sudah penuh, coba lagi besok ya."
+                    : err.message || "Gagal kirim komentar."
+            );
+        } finally {
+            setIsReplyLoading(false);
+        }
+    };
+
+    const handleClearThread = () => {
+        reviewThreadCacheRef.current[selectedMonth] = [];
+        setReviewThread([]);
+        setCommentInput("");
+        setReplyError("");
+    };
+
     useEffect(() => {
         setReviewError("");
         setAiReview(reviewCacheRef.current[selectedMonth] || "");
+        setReviewThread(reviewThreadCacheRef.current[selectedMonth] || []);
+        setCommentInput("");
+        setReplyError("");
     }, [selectedMonth, monthlyTransactions.length]);
 
     const activeDaysCount = useMemo(() => {
@@ -361,6 +394,26 @@ export default function MonthlyReport({ transactions, budget = 0 }) {
             .filter((item) => item.total > 0)
             .sort((a, b) => b.total - a.total);
     }, [monthlyExpenses, monthlyTotal]);
+
+    const reviewSummary = useMemo(
+        () => ({
+            monthLabel: formatMonthLabel(selectedMonth),
+            total: formatCurrency(monthlyTotal),
+            budget: budget > 0 ? formatCurrency(budget) : "belum di-set",
+            leftBudget: budget > 0 ? formatCurrency(monthLeftBudget) : "-",
+            categoryBreakdown: categoryReport
+                .map((c) => `${c.category} ${formatCurrency(c.total)} (${c.percentage}%)`)
+                .join(", "),
+            highestTransaction: highestTransaction
+                ? `${highestTransaction.title} ${formatCurrency(highestTransaction.amount)}`
+                : "-",
+            comparisonText: comparisonPercentage
+                ? `${comparisonPercentage.isIncrease ? "naik" : "turun"} ${comparisonPercentage.percent}% (${formatCurrency(comparisonPercentage.diff)})`
+                : "belum ada data bulan lalu",
+        }),
+        [selectedMonth, monthlyTotal, budget, monthLeftBudget, categoryReport, highestTransaction, comparisonPercentage]
+    );
+
     const sourceReport = useMemo(() => {
         return fundSources
             .map((source) => {
@@ -571,6 +624,70 @@ export default function MonthlyReport({ transactions, budget = 0 }) {
                             </p>
                         )}
                     </div>
+
+                    {aiReview && !isReviewLoading ? (
+                        <div className="mt-4 space-y-3 border-t border-pink-200/70 pt-3">
+                            {reviewThread.length > 0 ? (
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs font-bold uppercase tracking-wide text-pink-400">
+                                        Diskusi
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={handleClearThread}
+                                        className="flex items-center gap-1 rounded-full px-2 py-1 text-xs font-bold text-pink-400 transition hover:bg-pink-100 hover:text-pink-600"
+                                    >
+                                        <X className="h-3.5 w-3.5" />
+                                        Tutup
+                                    </button>
+                                </div>
+                            ) : null}
+                            {reviewThread.map((entry, idx) =>
+                                entry.role === "user" ? (
+                                    <div key={idx} className="ml-auto max-w-[85%] rounded-2xl rounded-tr-sm bg-pink-600 px-3.5 py-2 text-sm font-medium text-white shadow-sm">
+                                        {entry.text}
+                                    </div>
+                                ) : (
+                                    <div key={idx} className="mr-auto max-w-[85%] rounded-2xl rounded-tl-sm bg-white px-3.5 py-2 text-sm font-medium leading-relaxed text-pink-900 shadow-sm">
+                                        {entry.text}
+                                    </div>
+                                )
+                            )}
+                            {isReplyLoading ? (
+                                <p className="text-xs font-semibold text-pink-400">AI lagi mikir...</p>
+                            ) : null}
+                            {replyError ? (
+                                <p className="text-xs font-bold text-rose-600">{replyError}</p>
+                            ) : null}
+
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="text"
+                                    name="ai-review-comment"
+                                    autoComplete="off"
+                                    value={commentInput}
+                                    onChange={(e) => setCommentInput(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter") {
+                                            e.preventDefault();
+                                            handleSendComment();
+                                        }
+                                    }}
+                                    disabled={isReplyLoading}
+                                    placeholder="Bantah atau tanya balik AI-nya..."
+                                    className="flex-1 rounded-full border border-pink-200 bg-white px-3.5 py-2 text-sm font-medium text-pink-900 placeholder:text-pink-300 focus:outline-none focus:ring-2 focus:ring-pink-300 disabled:opacity-60"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={handleSendComment}
+                                    disabled={isReplyLoading || !commentInput.trim()}
+                                    className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-pink-600 text-white shadow-sm transition hover:bg-pink-700 disabled:opacity-40"
+                                >
+                                    <Send className="h-4 w-4" />
+                                </button>
+                            </div>
+                        </div>
+                    ) : null}
                 </motion.div>
             ) : null}
 

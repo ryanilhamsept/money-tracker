@@ -44,3 +44,23 @@ Kasih review singkat (maksimal 4 kalimat, bahasa Indonesia santai kayak ngobrol,
 
     return callClaude([{ type: "text", text: prompt }]);
 };
+
+export const replyToReviewClaude = async (summary, previousReview, userComment) => {
+    const prompt = `Kamu adalah asisten keuangan pribadi yang santai tapi tajam. Sebelumnya kamu kasih review soal pengeluaran bulan ${summary.monthLabel} ke user:
+"${previousReview}"
+
+Konteks data pengeluaran:
+- Total pengeluaran: Rp${summary.total}
+- Budget manual: Rp${summary.budget}
+- Sisa budget (Spend Bulanan): Rp${summary.leftBudget}
+- Breakdown kategori (dari terbesar): ${summary.categoryBreakdown}
+- Transaksi terbesar: ${summary.highestTransaction}
+- Dibanding bulan lalu: ${summary.comparisonText}
+
+User membalas/menanggapi review kamu tadi dengan komentar ini:
+"${userComment}"
+
+Tanggapi komentar user tersebut secara singkat (maksimal 3 kalimat, bahasa Indonesia santai kayak ngobrol). Kalau user mengoreksi konteks yang kamu lewatkan, akui itu dan sesuaikan pendapatmu. Kalau user cuma nanya, jawab langsung. Jangan pakai markdown, bullet, atau heading -- langsung satu paragraf ngalir aja.`;
+
+    return callClaude([{ type: "text", text: prompt }]);
+};

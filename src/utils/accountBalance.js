@@ -26,8 +26,12 @@ const tokenize = (str) =>
         .split(/\s+/)
         .filter(Boolean);
 
-const GENERIC_SOURCE_WORDS = new Set(["credit", "card", "kartu", "kredit", "cc"]);
+const GENERIC_SOURCE_WORDS = new Set(["credit", "card", "kartu", "kredit", "cc", "bayar"]);
 
+// "Spend CC" transactions (and "Bayar CC" titles) don't necessarily name the
+// card exactly (e.g. source "Credit Card - BCA" / title "Bayar CC BCA" vs
+// account name "CC BCA"), so match loosely by shared keyword (e.g. "bca")
+// among the Kartu Kredit accounts.
 export const findCreditCardForSource = (accounts, source) => {
     const creditCardAccounts = accounts.filter(
         (account) => normalizeName(account.type) === "kartu kredit"
@@ -49,31 +53,70 @@ export const findCreditCardForSource = (accounts, source) => {
     );
 };
 
-const getTransactionAccountEffect = (accounts, transaction) => {
-    if (!transaction) {
-        return null;
+// Returns a list of {account, amount} effects for a single transaction.
+// Most transactions touch exactly one account; "Bayar CC" touches two (the
+// paying account loses cash, the card's used balance goes down).
+const getTransactionAccountEffects = (accounts, transaction) => {
+    if (!transaction) return [];
+
+    const amount = Number(transaction.amount) || 0;
+    if (amount <= 0) return [];
+
+    const isIncome = transaction.type === "income";
+
+    const isCcBillPayment = String(transaction.title || "")
+        .trim()
+        .toLowerCase()
+        .startsWith("bayar cc");
+
+    if (isCcBillPayment) {
+        const effects = [];
+
+        // Cash leaves the paying account like a normal expense.
+        const payingAccount = findAccountForSource(accounts, transaction.source);
+        if (payingAccount) {
+            const sign = isIncome ? -1 : 1;
+            effects.push({ account: payingAccount, amount: amount * sign });
+        }
+
+        // Paying the bill reduces the card's used balance -- same sign as a
+        // normal account expense (opposite direction of a Spend CC purchase).
+        // Card is identified from the title (e.g. "Bayar CC BCA") since
+        // danaDipakai alone doesn't say which card.
+        const targetCard = findCreditCardForSource(accounts, transaction.title);
+        if (targetCard) {
+            const sign = isIncome ? -1 : 1;
+            effects.push({ account: targetCard, amount: amount * sign });
+        }
+
+        return effects;
     }
 
-    const isCreditCardSpend = transaction.danaDipakai === "Spend CC" || String(transaction.source || "").toLowerCase().includes("credit card");
-    
-    const hasInstallmentTotal = transaction.installmentTotalLoan !== undefined && transaction.installmentTotalLoan !== null;
-    const effectAmount = isCreditCardSpend && hasInstallmentTotal
-        ? Number(transaction.installmentTotalLoan) || 0
-        : Number(transaction.amount) || 0;
-        
+    const isCreditCardSpend =
+        transaction.danaDipakai === "Spend CC" ||
+        String(transaction.source || "").toLowerCase().includes("credit card");
+
+    const hasInstallmentTotal =
+        transaction.installmentTotalLoan !== undefined &&
+        transaction.installmentTotalLoan !== null;
+    const effectAmount =
+        isCreditCardSpend && hasInstallmentTotal
+            ? Number(transaction.installmentTotalLoan) || 0
+            : amount;
+
     const account = isCreditCardSpend
         ? findCreditCardForSource(accounts, transaction.source)
         : findAccountForSource(accounts, transaction.source);
 
-    if (!account || effectAmount <= 0) {
-        return null;
-    }
+    if (!account || effectAmount <= 0) return [];
 
     // Normal accounts: expense subtracts from balance, income adds.
     // Credit cards: expense adds to the used balance (debt owed), income/refund reduces it.
-    // (Note: The sign logic is dependent on addDelta which uses -(nextEffect) so returning 1 for expense is correct)
-    const sign = transaction.type === "income" ? -1 : 1;
-    return { account, amount: effectAmount * sign };
+    const sign = isCreditCardSpend
+        ? (isIncome ? 1 : -1)
+        : (isIncome ? -1 : 1);
+
+    return [{ account, amount: effectAmount * sign }];
 };
 
 export const getAccountBalanceDeltas = (
@@ -95,15 +138,14 @@ export const getAccountBalanceDeltas = (
         deltas.set(effect.account.id, current);
     };
 
-    const previousEffect = getTransactionAccountEffect(
+    const previousEffects = getTransactionAccountEffects(
         accounts,
         previousTransaction
     );
-    const nextEffect = getTransactionAccountEffect(accounts, nextTransaction);
+    const nextEffects = getTransactionAccountEffects(accounts, nextTransaction);
 
-    addDelta(previousEffect, previousEffect?.amount || 0);
-    addDelta(nextEffect, -(nextEffect?.amount || 0));
+    previousEffects.forEach((effect) => addDelta(effect, effect.amount));
+    nextEffects.forEach((effect) => addDelta(effect, -effect.amount));
 
     return [...deltas.values()].filter((delta) => delta.amount !== 0);
 };
-

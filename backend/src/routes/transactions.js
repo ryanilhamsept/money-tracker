@@ -54,6 +54,7 @@ module.exports = function transactionRoutes(pool) {
     router.put("/:id", async (req, res) => {
         try {
             const t = { ...req.body, id: req.params.id };
+            console.log("🔄 UPDATE transaction:", { id: t.id, title: t.title, installmentTotalLoan: t.installmentTotalLoan });
             const { rows } = await pool.query(
                 `UPDATE transactions
                  SET date = $2, time = $3, title = $4, category = $5, amount = $6,
@@ -62,6 +63,7 @@ module.exports = function transactionRoutes(pool) {
                  RETURNING *`,
                 [t.id, t.date, t.time || null, t.title, t.category, Number(t.amount), t.source, t.danaDipakai || null, t.type, t.installmentTotalLoan ?? null]
             );
+            console.log("✅ UPDATE success:", rows[0]?.id);
 
             mirrorToGoogleSheet({
                 action: "update",
@@ -76,7 +78,8 @@ module.exports = function transactionRoutes(pool) {
 
             res.json({ success: true, data: mapFromDB(rows[0]) });
         } catch (err) {
-            console.error("PUT /transactions error:", err);
+            console.error("❌ PUT /transactions error:", err.message);
+            console.error("Stack:", err.stack);
             res.status(500).json({ error: err.message });
         }
     });

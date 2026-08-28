@@ -270,6 +270,7 @@ export default function TransactionList({
                         ...editForm,
                         date: dateString,
                         installmentTotalLoan: null,
+                        type: editForm.type || "expense",
                     });
                 }
             }

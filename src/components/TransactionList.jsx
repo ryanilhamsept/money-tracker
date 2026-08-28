@@ -252,7 +252,7 @@ export default function TransactionList({
                 }
             }
 
-            if (isNewlyConverted && addTransaction) {
+            if (wantsInstallment && addTransaction) {
                 const term = Number(installmentDetails.remainingTerm) || 1;
                 const [yearStr, monthStr, dayStr] = editForm.date.split('-');
                 const y = parseInt(yearStr, 10);

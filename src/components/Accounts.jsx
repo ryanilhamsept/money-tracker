@@ -17,6 +17,7 @@ import {
 
 import { formatCurrency } from "../utils/currency";
 import { findCreditCardForSource } from "../utils/accountBalance";
+import { getCurrentCycleStart, getStatementDay } from "../utils/billingCycle";
 
 const CARD_COLORS = ["#0f172a", "#1e293b", "#1d4ed8", "#78350f", "#1e3a8a"];
 
@@ -41,6 +42,7 @@ export default function Accounts({
     const [paymentAccountId, setPaymentAccountId] = useState(null);
     const [paymentForm, setPaymentForm] = useState({ amount: "", date: new Date().toISOString().split("T")[0] });
     const [paymentLoading, setPaymentLoading] = useState(false);
+    const [expandedGroups, setExpandedGroups] = useState({});
 
     // Modal form state
     const emptyNewAccount = {
@@ -480,20 +482,132 @@ export default function Accounts({
                 )}
 
                 {isCard && !isEditing && (() => {
+                    // Cuma tampilkan transaksi sejak tutup buku terakhir -- yang
+                    // sebelum itu sudah masuk tagihan yang lalu.
+                    const cycleStart = getCurrentCycleStart(getStatementDay(account));
                     const cardTransactions = transactions.filter(
                         (t) =>
                             t.danaDipakai === "Spend CC" &&
-                            t.date >= "2026-08-25" &&
+                            t.date >= cycleStart &&
                             findCreditCardForSource(accounts, t.source)?.id === account.id
                     );
                     if (cardTransactions.length === 0) return null;
+
+                    // Cicilan parent (installmentTotalLoan > 0) jadi header kartu,
+                    // transaksi lain dengan judul sama = pembayaran cicilannya.
+                    const parents = cardTransactions.filter(
+                        (t) => Number(t.installmentTotalLoan) > 0
+                    );
+                    const parentTitles = new Set(parents.map((t) => t.title));
+
+                    const cardInstallments = installments.filter(
+                        (i) => i.accountId === account.id
+                    );
+
+                    const groups = new Map();
+                    parents.forEach((parent) => {
+                        groups.set(parent.title, {
+                            parent,
+                            // Parent ikut dihitung: dia juga salah satu pembayaran,
+                            // cuma kebetulan yang nyimpen total pinjamannya.
+                            // Diurut menaik biar kebaca cicilan ke-1, ke-2, dst.
+                            children: cardTransactions
+                                .filter((t) => t.title === parent.title)
+                                .sort((a, b) => String(a.date).localeCompare(String(b.date))),
+                            installment: cardInstallments.find(
+                                (i) => i.name === parent.title
+                            ),
+                        });
+                    });
+
+                    const ungrouped = cardTransactions.filter(
+                        (t) => !parentTitles.has(t.title)
+                    );
+                    const toggleGroup = (groupKey) => {
+                        setExpandedGroups((prev) => ({
+                            ...prev,
+                            [groupKey]: !prev[groupKey],
+                        }));
+                    };
 
                     return (
                         <div className="mt-3 space-y-2">
                             <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
                                 Riwayat Transaksi ({cardTransactions.length})
                             </p>
-                            {cardTransactions.map((t) => (
+
+                            {/* Grouped installments */}
+                            {Array.from(groups.entries()).map(([title, { parent, children, installment }]) => {
+                                const isExpanded = expandedGroups[title];
+
+                                return (
+                                    <div key={title}>
+                                        <div className="flex items-center gap-1">
+                                            <button
+                                                onClick={() => toggleGroup(title)}
+                                                className="min-w-0 flex-1 flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 hover:bg-slate-100 transition text-left"
+                                            >
+                                                <div className="min-w-0">
+                                                    <p className="truncate text-xs font-bold text-slate-700">
+                                                        {title}
+                                                    </p>
+                                                    <p className="text-[11px] font-semibold text-slate-500">
+                                                        {installment
+                                                            ? `Sisa ${formatCurrency(installment.remainingBalance)} dari ${formatCurrency(installment.totalLoan)}`
+                                                            : `Cicilan • ${children.length}x pembayaran`}
+                                                        {installment?.remainingTerm ? ` • ${installment.remainingTerm}x` : ""}
+                                                        {installment?.dueDate ? ` • Tgl ${installment.dueDate}` : ""}
+                                                    </p>
+                                                </div>
+                                                <div className="flex items-center gap-2 shrink-0">
+                                                    <p className="text-xs font-bold text-slate-700">
+                                                        {formatCurrency(parent.installmentTotalLoan)}
+                                                    </p>
+                                                    <svg
+                                                        className={`w-4 h-4 text-slate-400 transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                                                        fill="none"
+                                                        stroke="currentColor"
+                                                        viewBox="0 0 24 24"
+                                                    >
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                    </svg>
+                                                </div>
+                                            </button>
+                                            {installment && (
+                                                <button
+                                                    onClick={() => deleteInstallment?.(installment.id)}
+                                                    title="Hapus Cicilan"
+                                                    className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition"
+                                                >
+                                                    <Trash2 className="h-3.5 w-3.5" />
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        {isExpanded && (
+                                            <div className="mt-1 ml-4 space-y-1 border-l-2 border-slate-200 pl-3">
+                                                {children.map((t) => (
+                                                    <div
+                                                        key={t.id}
+                                                        className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-white px-3 py-2"
+                                                    >
+                                                        <p className="text-[11px] font-semibold text-slate-600">
+                                                            {t.date}
+                                                            {t.time ? ` • ${t.time}` : ""}
+                                                        </p>
+                                                        <p className="shrink-0 text-xs font-bold text-slate-700">
+                                                            {formatCurrency(t.amount)}
+                                                        </p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+
+                            {/* Ungrouped transactions */}
+                            {ungrouped.map((t) => (
                                 <div
                                     key={t.id}
                                     className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2"
@@ -505,49 +619,11 @@ export default function Accounts({
                                         <p className="text-[11px] font-semibold text-slate-500">
                                             {t.date}
                                             {t.time ? ` • ${t.time}` : ""}
-                                            {t.installmentTotalLoan ? " • Cicilan" : ""}
                                         </p>
                                     </div>
                                     <p className="shrink-0 text-xs font-bold text-slate-700">
-                                        {formatCurrency(t.installmentTotalLoan || t.amount)}
+                                        {formatCurrency(t.amount)}
                                     </p>
-                                </div>
-                            ))}
-                        </div>
-                    );
-                })()}
-
-                {isCard && !isEditing && (() => {
-                    const cardInstallments = installments.filter(
-                        (i) => i.accountId === account.id
-                    );
-                    if (cardInstallments.length === 0) return null;
-
-                    return (
-                        <div className="mt-3 space-y-2">
-                            {cardInstallments.map((inst) => (
-                                <div
-                                    key={inst.id}
-                                    className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2"
-                                >
-                                    <div className="min-w-0">
-                                        <p className="truncate text-xs font-bold text-slate-700">
-                                            {inst.name}
-                                            {inst.provider ? ` • ${inst.provider}` : ""}
-                                        </p>
-                                        <p className="text-[11px] font-semibold text-slate-500">
-                                            Sisa {formatCurrency(inst.remainingBalance)} dari {formatCurrency(inst.totalLoan)}
-                                            {inst.remainingTerm ? ` • ${inst.remainingTerm}x` : ""}
-                                            {inst.dueDate ? ` • Tgl ${inst.dueDate}` : ""}
-                                        </p>
-                                    </div>
-                                    <button
-                                        onClick={() => deleteInstallment?.(inst.id)}
-                                        title="Hapus Cicilan"
-                                        className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition"
-                                    >
-                                        <Trash2 className="h-3.5 w-3.5" />
-                                    </button>
                                 </div>
                             ))}
                         </div>

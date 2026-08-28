@@ -36,6 +36,10 @@ import {
 
 import { formatCurrency } from "../utils/currency";
 import { findCreditCardForSource } from "../utils/accountBalance";
+import {
+    getFirstInstallmentMonthOffset,
+    getStatementDay,
+} from "../utils/billingCycle";
 
 export default function Tracker({
     transactions,
@@ -195,6 +199,7 @@ export default function Tracker({
 
         try {
             let firstTransactionId = null;
+            const matchedCard = findCreditCardForSource(accounts, activeSource);
 
             if (wantsInstallment) {
                 const term = Number(installmentDetails.remainingTerm) || 1;
@@ -203,8 +208,15 @@ export default function Tracker({
                 const m = parseInt(monthStr, 10) - 1;
                 const d = parseInt(dayStr, 10);
 
+                // Cicilan pertama nempel di tagihan pertama setelah belanja.
+                // Kartu tutup buku tiap tanggal `statementDay`, jadi belanja
+                // pada/sesudah tanggal itu baru ditagih bulan berikutnya --
+                // belanja 29 Agu (tutup buku 25) jatuh di Sep, Okt, Nov.
+                const statementDay = getStatementDay(matchedCard);
+                const monthOffset = getFirstInstallmentMonthOffset(d, statementDay);
+
                 for (let i = 0; i < term; i++) {
-                    const nextDate = new Date(y, m + i, d);
+                    const nextDate = new Date(y, m + i + monthOffset, d);
                     const outY = nextDate.getFullYear();
                     const outM = String(nextDate.getMonth() + 1).padStart(2, '0');
                     const outD = String(nextDate.getDate()).padStart(2, '0');
@@ -236,7 +248,6 @@ export default function Tracker({
             }
 
             if (wantsInstallment && firstTransactionId) {
-                const matchedCard = findCreditCardForSource(accounts, activeSource);
                 if (matchedCard && addInstallment) {
                     await addInstallment({
                         accountId: matchedCard.id,

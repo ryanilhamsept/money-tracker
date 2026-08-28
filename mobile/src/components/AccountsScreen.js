@@ -73,6 +73,10 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
   const [editCardVal, setEditCardVal] = useState({ startingBalance: "", totalLimit: "", dueDate: "" });
   const [newAccount, setNewAccount] = useState(emptyNewAccount);
   const [isSaving, setIsSaving] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentAccountId, setPaymentAccountId] = useState(null);
+  const [paymentForm, setPaymentForm] = useState({ amount: "", date: new Date().toISOString().split("T")[0] });
+  const [paymentLoading, setPaymentLoading] = useState(false);
 
   const isCreditCardForm = newAccount.type === "Kartu Kredit";
 
@@ -169,6 +173,32 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
       setEditingId(null);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handlePaymentSubmit = async () => {
+    if (!paymentAccountId || !paymentForm.amount || !paymentForm.date) return;
+    const amount = parseAmountRounded(paymentForm.amount);
+    if (amount <= 0) return;
+    setPaymentLoading(true);
+    try {
+      const response = await fetch(`/api/accounts/${paymentAccountId}/pay-cc`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount, date: paymentForm.date }),
+      });
+      if (response.ok) {
+        setShowPaymentModal(false);
+        setPaymentForm({ amount: "", date: new Date().toISOString().split("T")[0] });
+        setPaymentAccountId(null);
+      } else {
+        const err = await response.json();
+        alert("Error: " + (err.error || "Payment failed"));
+      }
+    } catch (err) {
+      alert("Error: " + err.message);
+    } finally {
+      setPaymentLoading(false);
     }
   };
 
@@ -307,6 +337,18 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
                   <Text style={styles.remainingMetaText}>Due Day {account.dueDate}</Text>
                 ) : null}
               </View>
+              {used > 0 && (
+                <Pressable
+                  onPress={() => {
+                    setPaymentAccountId(account.id);
+                    setPaymentForm({ amount: formatThousands(used), date: new Date().toISOString().split("T")[0] });
+                    setShowPaymentModal(true);
+                  }}
+                  style={styles.paymentButton}
+                >
+                  <Text style={styles.paymentButtonText}>Bayar Tagihan</Text>
+                </Pressable>
+              )}
             </View>
           )
         )}
@@ -575,6 +617,65 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
           </KeyboardAvoidingView>
         </View>
       </Modal>
+
+      {/* Payment Modal */}
+      <Modal visible={showPaymentModal} transparent animationType="slide">
+        <View style={styles.backdrop}>
+          <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"}>
+            <View style={styles.sheet}>
+              <Text style={styles.sheetTitle}>Bayar Tagihan CC</Text>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Jumlah Pembayaran (Rp)</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="0"
+                  placeholderTextColor="#94a3b8"
+                  keyboardType="numeric"
+                  value={paymentForm.amount}
+                  onChangeText={(v) =>
+                    setPaymentForm((p) => ({ ...p, amount: formatThousands(v) }))
+                  }
+                  autoFocus
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Tanggal Pembayaran</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="2026-08-28"
+                  placeholderTextColor="#94a3b8"
+                  value={paymentForm.date}
+                  onChangeText={(v) =>
+                    setPaymentForm((p) => ({ ...p, date: v }))
+                  }
+                />
+              </View>
+
+              <Pressable
+                style={[styles.saveButton, paymentLoading && styles.disabled]}
+                onPress={handlePaymentSubmit}
+                disabled={paymentLoading}
+              >
+                {paymentLoading ? (
+                  <ActivityIndicator color="#ffffff" />
+                ) : (
+                  <Text style={styles.saveButtonText}>Bayar</Text>
+                )}
+              </Pressable>
+
+              <Pressable
+                style={styles.cancelButton}
+                onPress={() => setShowPaymentModal(false)}
+                disabled={paymentLoading}
+              >
+                <Text style={styles.cancelButtonText}>Batal</Text>
+              </Pressable>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -620,6 +721,8 @@ const styles = StyleSheet.create({
   progressFill: { height: "100%", borderRadius: 3, backgroundColor: "#ffffff" },
   remainingMetaRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 8 },
   remainingMetaText: { color: "rgba(255,255,255,0.7)", fontSize: 11, fontWeight: "700" },
+  paymentButton: { backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 10, paddingVertical: 10, marginTop: 12 },
+  paymentButtonText: { color: "#ffffff", fontSize: 13, fontWeight: "700", textAlign: "center" },
 
   editCardPanel: { backgroundColor: "#f4f7fb", borderRadius: 16, padding: 14, gap: 10 },
   editCardRow: { flexDirection: "row", gap: 10 },

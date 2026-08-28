@@ -37,6 +37,10 @@ export default function Accounts({
     const [editingId, setEditingId] = useState(null);
     const [editBalanceVal, setEditBalanceVal] = useState("");
     const [editCardVal, setEditCardVal] = useState({ startingBalance: "", totalLimit: "", dueDate: "" });
+    const [showPaymentModal, setShowPaymentModal] = useState(false);
+    const [paymentAccountId, setPaymentAccountId] = useState(null);
+    const [paymentForm, setPaymentForm] = useState({ amount: "", date: new Date().toISOString().split("T")[0] });
+    const [paymentLoading, setPaymentLoading] = useState(false);
 
     // Modal form state
     const emptyNewAccount = {
@@ -163,6 +167,43 @@ export default function Accounts({
 
     const handleEditCancel = () => {
         setEditingId(null);
+    };
+
+    const handlePaymentSubmit = async (e) => {
+        e.preventDefault();
+        if (!paymentAccountId || !paymentForm.amount || !paymentForm.date) return;
+
+        const amount = Number(String(paymentForm.amount).replace(/[^\d-]/g, "")) || 0;
+        if (amount <= 0) return;
+
+        setPaymentLoading(true);
+        try {
+            const response = await fetch(`/api/accounts/${paymentAccountId}/pay-cc`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ amount, date: paymentForm.date }),
+            });
+
+            if (response.ok) {
+                // Refresh account list
+                const refreshResp = await fetch("/api/accounts");
+                if (refreshResp.ok) {
+                    const data = await refreshResp.json();
+                    // Trigger parent to re-fetch accounts (via callback)
+                    // For now, just close modal and let parent handle refresh
+                }
+                setShowPaymentModal(false);
+                setPaymentForm({ amount: "", date: new Date().toISOString().split("T")[0] });
+                setPaymentAccountId(null);
+            } else {
+                const err = await response.json();
+                alert("Error: " + (err.error || "Payment failed"));
+            }
+        } catch (err) {
+            alert("Error: " + err.message);
+        } finally {
+            setPaymentLoading(false);
+        }
     };
 
     // Helper to get corresponding icon for account type
@@ -390,7 +431,7 @@ export default function Accounts({
                             {(() => {
                                 const cardInstallments = installments.filter(i => i.accountId === account.id);
                                 const pendingInstallments = cardInstallments.reduce((sum, inst) => sum + (Number(inst.remainingBalance) || 0), 0);
-                                
+
                                 const totalLimit = Number(account.totalLimit) || 0;
                                 const used = (Number(account.balance) || 0) + pendingInstallments;
                                 const remaining = totalLimit - used;
@@ -422,6 +463,18 @@ export default function Accounts({
                                                 <span>Due Day {account.dueDate}</span>
                                             ) : null}
                                         </div>
+                                        {used > 0 && (
+                                            <button
+                                                onClick={() => {
+                                                    setPaymentAccountId(account.id);
+                                                    setPaymentForm({ amount: String(used), date: new Date().toISOString().split("T")[0] });
+                                                    setShowPaymentModal(true);
+                                                }}
+                                                className="mt-3 w-full rounded-lg bg-white/20 px-3 py-2 text-sm font-bold text-white hover:bg-white/30 transition"
+                                            >
+                                                Bayar Tagihan
+                                            </button>
+                                        )}
                                     </>
                                 );
                             })()}
@@ -912,6 +965,85 @@ export default function Accounts({
                                         className="flex-1 rounded-2xl bg-gradient-to-r from-pink-500 to-indigo-500 py-3.5 text-sm font-bold text-white hover:opacity-95 shadow-md hover:shadow-lg transition"
                                     >
                                         Simpan Akun
+                                    </button>
+                                </div>
+                            </form>
+                        </motion.div>
+                    </div>
+                )}
+
+                {/* Payment Modal */}
+                {showPaymentModal && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            className="w-full max-w-md rounded-[2rem] border border-slate-100 bg-white p-6 shadow-2xl"
+                        >
+                            <div className="flex items-center justify-between mb-6">
+                                <h3 className="text-xl font-black text-slate-950">
+                                    Bayar Tagihan CC
+                                </h3>
+                                <button
+                                    onClick={() => setShowPaymentModal(false)}
+                                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-100 bg-white text-slate-400 hover:bg-slate-50 transition"
+                                >
+                                    <X className="h-5 w-5" />
+                                </button>
+                            </div>
+
+                            <form onSubmit={handlePaymentSubmit} className="space-y-4">
+                                <div className="space-y-2">
+                                    <label className="text-sm font-bold text-slate-700">
+                                        Jumlah Pembayaran (Rp)
+                                    </label>
+                                    <div className="flex items-center overflow-hidden rounded-2xl border border-slate-200 bg-white px-4 py-3 focus-within:ring-2 focus-within:ring-pink-200">
+                                        <span className="mr-2 text-lg font-bold text-slate-500">Rp</span>
+                                        <input
+                                            value={paymentForm.amount}
+                                            onChange={(e) =>
+                                                handleBalanceChange(e.target.value, (val) =>
+                                                    setPaymentForm((prev) => ({ ...prev, amount: val }))
+                                                )
+                                            }
+                                            inputMode="numeric"
+                                            placeholder="0"
+                                            className="w-full outline-none font-bold text-slate-900 text-lg"
+                                            autoFocus
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <label className="text-sm font-bold text-slate-700">
+                                        Tanggal Pembayaran
+                                    </label>
+                                    <input
+                                        type="date"
+                                        value={paymentForm.date}
+                                        onChange={(e) =>
+                                            setPaymentForm((prev) => ({ ...prev, date: e.target.value }))
+                                        }
+                                        className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none focus:ring-2 focus:ring-pink-200 font-medium text-slate-900"
+                                    />
+                                </div>
+
+                                <div className="pt-4 flex gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPaymentModal(false)}
+                                        disabled={paymentLoading}
+                                        className="flex-1 rounded-2xl border border-slate-200 py-3.5 text-sm font-bold text-slate-500 hover:bg-slate-50 transition disabled:opacity-50"
+                                    >
+                                        Batal
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={paymentLoading}
+                                        className="flex-1 rounded-2xl bg-gradient-to-r from-pink-500 to-indigo-500 py-3.5 text-sm font-bold text-white hover:opacity-95 shadow-md hover:shadow-lg transition disabled:opacity-50"
+                                    >
+                                        {paymentLoading ? "Memproses..." : "Bayar"}
                                     </button>
                                 </div>
                             </form>

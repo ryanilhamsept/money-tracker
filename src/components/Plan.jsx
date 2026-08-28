@@ -6,11 +6,11 @@ import { Card, CardContent } from "./ui/card";
 import { formatCurrency } from "../utils/currency";
 import { formatDisplayDate } from "../utils/date";
 import {
-    getGoalsFromSupabase,
-    addGoalToSupabase,
-    updateGoalInSupabase,
-    deleteGoalFromSupabase,
-} from "../services/supabase";
+    getGoals as getGoalsFromSupabase,
+    createGoal as addGoalToSupabase,
+    updateGoal as updateGoalInSupabase,
+    deleteGoal as deleteGoalFromSupabase,
+} from "../services/api";
 
 const GOAL_ICONS = ["✈️", "🚨", "🏠", "🚗", "📚", "📈", "💳", "🎯", "🎁", "💍", "🛍️", "🏥"];
 const GOAL_COLORS = ["#8b5cf6", "#f97316", "#22c55e", "#3b82f6", "#f59e0b", "#a855f7", "#ef4444", "#14b8a6"];
@@ -132,8 +132,7 @@ export default function Plan({ userId }) {
                         savedAmount: parseAmount(form.savedAmount),
                         deadline: form.deadline || null,
                         note: form.note.trim() || null,
-                    },
-                    userId
+                    }
                 );
             }
             closeForm();

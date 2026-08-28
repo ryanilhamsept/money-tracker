@@ -6,11 +6,11 @@ import {
     normalizeTransaction,
 } from "../utils/transactions";
 import {
-    syncTransactionToSupabase,
-    deleteTransactionFromSupabase,
-    getTransactionsFromSupabase,
-    updateTransactionToSupabase,
-} from "../services/supabase";
+    createTransaction as syncTransactionToSupabase,
+    deleteTransaction as deleteTransactionFromSupabase,
+    getTransactions as getTransactionsFromSupabase,
+    updateTransaction as updateTransactionToSupabase,
+} from "../services/api";
 
 const assertSuccessfulSync = (result) => {
     if (result?.success === false) {

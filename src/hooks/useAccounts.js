@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
-    getAccountsFromSupabase,
-    addAccountToSupabase,
-    deleteAccountFromSupabase,
-    updateStartingBalanceInSupabase,
-    updateAccountFieldsInSupabase,
-} from "../services/supabase";
+    getAccounts as getAccountsFromSupabase,
+    createAccount as addAccountToSupabase,
+    deleteAccount as deleteAccountFromSupabase,
+    updateStartingBalance as updateStartingBalanceInSupabase,
+    updateAccountFields as updateAccountFieldsInSupabase,
+} from "../services/api";
 import { getAccountBalanceDeltas } from "../utils/accountBalance";
 
 const DEFAULT_ACCOUNTS = [

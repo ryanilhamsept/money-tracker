@@ -1,0 +1,20 @@
+{
+  "name": "money-tracker-api",
+  "version": "1.0.0",
+  "description": "REST API backend for Money Tracker",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "node --watch src/index.js",
+    "start": "node src/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "jose": "^6.2.10",
+    "pg": "^8.16.0"
+  }
+}

@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { parseAmountInput } from "../utils/parser";
 import {
-    getBudgetFromSupabase,
-    saveBudgetToSupabase,
-} from "../services/supabase";
+    getBudget as getBudgetFromSupabase,
+    saveBudget as saveBudgetToSupabase,
+} from "../services/api";
 
 export const useBudget = (userId) => {
     const [budget, setBudget] = useState(0);
@@ -11,7 +11,7 @@ export const useBudget = (userId) => {
 
     const loadBudget = async () => {
         try {
-            const data = await getBudgetFromSupabase(userId);
+            const data = await getBudgetFromSupabase();
 
             setBudget(Number(data.budget) || 0);
             return true;
@@ -41,7 +41,7 @@ export const useBudget = (userId) => {
         setBudgetInput("");
 
         try {
-            await saveBudgetToSupabase(userId, newBudget);
+            await saveBudgetToSupabase(newBudget);
             await loadBudget();
         } catch (err) {
             console.error("SAVE BUDGET ERROR:", err);

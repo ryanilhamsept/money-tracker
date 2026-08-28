@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
-    getInstallmentsFromSupabase,
-    addInstallmentToSupabase,
-    updateInstallmentInSupabase,
-    deleteInstallmentFromSupabase,
-} from "../services/supabase";
+    getInstallments as getInstallmentsFromSupabase,
+    createInstallment as addInstallmentToSupabase,
+    updateInstallment as updateInstallmentInSupabase,
+    deleteInstallment as deleteInstallmentFromSupabase,
+} from "../services/api";
 
 export const useInstallments = (userId) => {
     const [installments, setInstallments] = useState([]);

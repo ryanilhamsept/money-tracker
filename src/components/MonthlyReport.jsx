@@ -40,7 +40,7 @@ import {
     normalizeDate,
 } from "../utils/date";
 import { formatCurrency } from "../utils/currency";
-import { reviewSpending, replyToReview } from "../services/gemini";
+import { reviewSpending, replyToReview } from "../services/api";
 const categoryIcons = {
     "Account Transfer": {
         icon: ArrowLeftRight,
@@ -199,12 +199,19 @@ export default function MonthlyReport({ transactions, budget = 0 }) {
             return acc;
         }, {});
 
+        const sortTimestamp = (item) => {
+            if (item.time) {
+                return new Date(`${normalizeDate(item.date)}T${item.time}`).getTime();
+            }
+            return new Date(item.createdAt || 0).getTime();
+        };
+
         return Object.entries(grouped)
             .sort((a, b) => b[0].localeCompare(a[0]))
             .map(([date, list]) => ({
                 date,
                 transactions: list.sort(
-                    (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
+                    (a, b) => sortTimestamp(b) - sortTimestamp(a)
                 ),
                 amount: list
                     .filter((item) => item.type !== "income")

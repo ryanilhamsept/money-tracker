@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import {
     ArrowLeftRight,
@@ -17,6 +17,8 @@ import {
     Pencil,
     Trash2,
     X,
+    ChevronDown,
+    Package,
 } from "lucide-react";
 
 import { Button } from "./ui/button";
@@ -104,6 +106,8 @@ export default function TransactionList({
     addTransaction,
 }) {
     const [editingId, setEditingId] = useState("");
+    const [expandedGroups, setExpandedGroups] = useState({});
+    const [paidInstallments, setPaidInstallments] = useState({});
 
     const [editForm, setEditForm] = useState({
         title: "",
@@ -118,6 +122,54 @@ export default function TransactionList({
 
     const [isInstallment, setIsInstallment] = useState(false);
     const [installmentDetails, setInstallmentDetails] = useState(emptyInstallmentDetails);
+
+    // Simple grouping: if title appears multiple times = installment group
+    const groupedTransactions = useMemo(() => {
+        const titleCounts = {};
+        transactions.forEach(tx => {
+            titleCounts[tx.title] = (titleCounts[tx.title] || 0) + 1;
+        });
+
+        const groups = {};
+        const processedIds = new Set();
+
+        // Find primary transactions (ones with installmentTotalLoan)
+        transactions.filter(tx => tx.installmentTotalLoan).forEach(primary => {
+            const groupKey = primary.title;
+            if (titleCounts[primary.title] > 1 && !groups[groupKey]) {
+                groups[groupKey] = {
+                    key: groupKey,
+                    title: primary.title,
+                    totalLoan: primary.installmentTotalLoan,
+                    transactions: [],
+                    primary: primary,
+                };
+            }
+            processedIds.add(primary.id);
+        });
+
+        // Add all transactions with matching titles to groups
+        transactions.forEach(tx => {
+            const groupKey = tx.title;
+            if (groups[groupKey]) {
+                groups[groupKey].transactions.push(tx);
+                processedIds.add(tx.id);
+            }
+        });
+
+        // Sort by date
+        Object.values(groups).forEach(group => {
+            group.transactions.sort((a, b) => new Date(a.date) - new Date(b.date));
+        });
+
+        const ungrouped = transactions.filter(tx => !processedIds.has(tx.id));
+
+        return { groups: Object.values(groups), ungrouped };
+    }, [transactions]);
+
+    const toggleGroupExpanded = (groupKey) => {
+        setExpandedGroups(prev => ({ ...prev, [groupKey]: !prev[groupKey] }));
+    };
 
     // Amount = cicilan bulanan; begitu Total Harga Barang & Sisa Tenor keisi,
     // hitung otomatis (dibulatkan ke atas) biar konsisten.
@@ -236,7 +288,85 @@ export default function TransactionList({
 
     return (
         <div className="space-y-4">
-            {transactions.map((item) => {
+            {/* Grouped installments */}
+            {groupedTransactions.groups.map((group) => (
+                <motion.div
+                    key={group.key}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="overflow-hidden rounded-[2rem] border border-pink-200 bg-gradient-to-br from-pink-50 to-purple-50 shadow-lg"
+                >
+                    <button
+                        onClick={() => toggleGroupExpanded(group.key)}
+                        className="w-full p-5 text-left hover:bg-white/50 transition"
+                    >
+                        <div className="flex items-start justify-between gap-4">
+                            <div className="flex min-w-0 flex-1 items-start gap-4">
+                                <div className="shrink-0 rounded-[1.4rem] bg-pink-200 p-4">
+                                    <Package className="h-6 w-6 text-pink-600" />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                    <div className="flex min-w-0 items-center gap-2">
+                                        <h3 className="truncate text-xl font-black text-slate-950">
+                                            {group.title}
+                                        </h3>
+                                        <span className="shrink-0 rounded-full bg-pink-500 px-3 py-1 text-xs font-bold text-white">
+                                            Cicilian {group.transactions.length}x
+                                        </span>
+                                    </div>
+                                    <p className="mt-2 text-sm font-semibold text-slate-500">
+                                        Total: {formatCurrency(group.totalLoan)} • {group.transactions.length} pembayaran
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <div className="text-right">
+                                    <p className="text-lg font-black text-pink-600">
+                                        {formatCurrency(group.transactions[0]?.amount || 0)}
+                                    </p>
+                                    <p className="text-xs font-medium text-slate-400">per bulan</p>
+                                </div>
+                                <ChevronDown
+                                    className={`h-5 w-5 text-pink-600 shrink-0 transition-transform ${
+                                        expandedGroups[group.key] ? 'rotate-180' : ''
+                                    }`}
+                                />
+                            </div>
+                        </div>
+                    </button>
+
+                    {expandedGroups[group.key] && (
+                        <div className="border-t border-pink-200 p-5 space-y-3">
+                            {group.transactions.map((tx, idx) => (
+                                <div key={tx.id} className="flex items-center justify-between gap-3 rounded-xl bg-white p-4">
+                                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                                        <input
+                                            type="checkbox"
+                                            checked={paidInstallments[tx.id] || false}
+                                            onChange={() => setPaidInstallments(prev => ({ ...prev, [tx.id]: !prev[tx.id] }))}
+                                            className="h-5 w-5 rounded border-slate-300 text-pink-600"
+                                        />
+                                        <div className="min-w-0 flex-1">
+                                            <p className="font-bold text-slate-900">
+                                                Bayar {idx + 1}: {formatDisplayDate(tx.date)}
+                                            </p>
+                                            <p className="text-xs font-medium text-slate-400">
+                                                {tx.category} • {tx.source}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <p className={`shrink-0 font-black ${paidInstallments[tx.id] ? 'line-through text-slate-400' : 'text-rose-500'}`}>
+                                        {formatCurrency(tx.amount)}
+                                    </p>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </motion.div>
+            ))}
+
+            {/* Ungrouped transactions */}
+            {groupedTransactions.ungrouped.map((item) => {
                 const isEditing = editingId === item.id;
 
                 const categoryData =

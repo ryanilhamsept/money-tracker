@@ -113,7 +113,7 @@ const getTransactionAccountEffects = (accounts, transaction) => {
     // Normal accounts: expense subtracts from balance, income adds.
     // Credit cards: expense adds to the used balance (debt owed), income/refund reduces it.
     const sign = isCreditCardSpend
-        ? (isIncome ? 1 : -1)
+        ? (isIncome ? -1 : 1)
         : (isIncome ? -1 : 1);
 
     return [{ account, amount: effectAmount * sign }];

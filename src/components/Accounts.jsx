@@ -429,11 +429,8 @@ export default function Accounts({
                             style={{ backgroundColor: account.color || "#0f172a" }}
                         >
                             {(() => {
-                                const cardInstallments = installments.filter(i => i.accountId === account.id);
-                                const pendingInstallments = cardInstallments.reduce((sum, inst) => sum + (Number(inst.remainingBalance) || 0), 0);
-
                                 const totalLimit = Number(account.totalLimit) || 0;
-                                const used = (Number(account.balance) || 0) + pendingInstallments;
+                                const used = Number(account.balance) || 0;
                                 const remaining = totalLimit - used;
                                 const usedPct = totalLimit > 0
                                     ? Math.min(100, Math.max(0, (used / totalLimit) * 100))

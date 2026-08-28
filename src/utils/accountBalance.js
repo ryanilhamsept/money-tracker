@@ -96,19 +96,21 @@ const getTransactionAccountEffects = (accounts, transaction) => {
         transaction.danaDipakai === "Spend CC" ||
         String(transaction.source || "").toLowerCase().includes("credit card");
 
-    const hasInstallmentTotal =
+    // Exclude parent cicilan transactions from balance (installmentTotalLoan > 0 means parent)
+    // Only count child installment payments (installmentTotalLoan = 0 or null)
+    const isParentCicilan =
+        isCreditCardSpend &&
         transaction.installmentTotalLoan !== undefined &&
-        transaction.installmentTotalLoan !== null;
-    const effectAmount =
-        isCreditCardSpend && hasInstallmentTotal
-            ? Number(transaction.installmentTotalLoan) || 0
-            : amount;
+        transaction.installmentTotalLoan !== null &&
+        Number(transaction.installmentTotalLoan) > 0;
+
+    if (isParentCicilan) return [];
 
     const account = isCreditCardSpend
         ? findCreditCardForSource(accounts, transaction.source)
         : findAccountForSource(accounts, transaction.source);
 
-    if (!account || effectAmount <= 0) return [];
+    if (!account || amount <= 0) return [];
 
     // Normal accounts: expense subtracts from balance, income adds.
     // Credit cards: expense adds to the used balance (debt owed), income/refund reduces it.
@@ -116,7 +118,7 @@ const getTransactionAccountEffects = (accounts, transaction) => {
         ? (isIncome ? 1 : -1)
         : (isIncome ? -1 : 1);
 
-    return [{ account, amount: effectAmount * sign }];
+    return [{ account, amount: amount * sign }];
 };
 
 export const getAccountBalanceDeltas = (

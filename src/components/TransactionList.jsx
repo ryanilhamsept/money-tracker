@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import {
     ArrowLeftRight,
@@ -17,8 +17,6 @@ import {
     Pencil,
     Trash2,
     X,
-    ChevronDown,
-    Package,
 } from "lucide-react";
 
 import { Button } from "./ui/button";
@@ -106,8 +104,6 @@ export default function TransactionList({
     addTransaction,
 }) {
     const [editingId, setEditingId] = useState("");
-    const [expandedGroups, setExpandedGroups] = useState({});
-    const [paidInstallments, setPaidInstallments] = useState({});
 
     const [editForm, setEditForm] = useState({
         title: "",
@@ -122,75 +118,6 @@ export default function TransactionList({
 
     const [isInstallment, setIsInstallment] = useState(false);
     const [installmentDetails, setInstallmentDetails] = useState(emptyInstallmentDetails);
-
-    // Group installment transactions
-    const groupedTransactions = useMemo(() => {
-        const groups = {};
-        const ungrouped = [];
-        const processedIds = new Set();
-
-        // First pass: find all installment groups (by transactions with installmentTotalLoan)
-        const installmentPrimaries = transactions.filter(tx => tx.installmentTotalLoan);
-
-        installmentPrimaries.forEach(primary => {
-            const groupKey = `${primary.title}-${primary.installmentTotalLoan}`;
-            if (!groups[groupKey]) {
-                groups[groupKey] = {
-                    key: groupKey,
-                    title: primary.title,
-                    totalLoan: primary.installmentTotalLoan,
-                    transactions: [primary],
-                    primary: primary,
-                };
-                processedIds.add(primary.id);
-            }
-        });
-
-        // Second pass: match generated payment transactions to installment groups
-        transactions.forEach(tx => {
-            if (processedIds.has(tx.id)) return; // Already processed
-            if (tx.installmentTotalLoan) return; // Skip primary transactions
-
-            // Check if this transaction matches any installment group by title and amount
-            const matchingGroup = Object.values(groups).find(group =>
-                group.title === tx.title &&
-                Number(group.transactions[0].amount) === Number(tx.amount)
-            );
-
-            if (matchingGroup) {
-                matchingGroup.transactions.push(tx);
-                processedIds.add(tx.id);
-            }
-        });
-
-        // Third pass: ungrouped transactions
-        transactions.forEach(tx => {
-            if (!processedIds.has(tx.id)) {
-                ungrouped.push(tx);
-            }
-        });
-
-        // Sort transactions within each group by date
-        Object.values(groups).forEach(group => {
-            group.transactions.sort((a, b) => new Date(a.date) - new Date(b.date));
-        });
-
-        return { groups: Object.values(groups), ungrouped };
-    }, [transactions]);
-
-    const toggleGroupExpanded = (groupKey) => {
-        setExpandedGroups(prev => ({
-            ...prev,
-            [groupKey]: !prev[groupKey]
-        }));
-    };
-
-    const togglePaidInstallment = (txId, isPaid) => {
-        setPaidInstallments(prev => ({
-            ...prev,
-            [txId]: isPaid ? !prev[txId] : true
-        }));
-    };
 
     // Amount = cicilan bulanan; begitu Total Harga Barang & Sisa Tenor keisi,
     // hitung otomatis (dibulatkan ke atas) biar konsisten.
@@ -309,100 +236,7 @@ export default function TransactionList({
 
     return (
         <div className="space-y-4">
-            {/* Render grouped installments first */}
-            {groupedTransactions.groups.map((group) => {
-                const isExpanded = expandedGroups[group.key];
-                const monthlyAmount = group.transactions[0]?.amount || 0;
-                const totalPayments = group.transactions.length;
-
-                return (
-                    <motion.div
-                        key={group.key}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="overflow-hidden rounded-[2rem] border border-pink-200 bg-gradient-to-br from-pink-50 to-purple-50 shadow-lg"
-                    >
-                        {/* Parent installment card */}
-                        <button
-                            onClick={() => toggleGroupExpanded(group.key)}
-                            className="w-full p-5 text-left hover:bg-white/50 transition"
-                        >
-                            <div className="flex items-start justify-between gap-4">
-                                <div className="flex min-w-0 flex-1 items-start gap-4">
-                                    <div className="shrink-0 rounded-[1.4rem] bg-pink-200 p-4">
-                                        <Package className="h-6 w-6 text-pink-600" />
-                                    </div>
-                                    <div className="min-w-0 flex-1">
-                                        <div className="flex min-w-0 items-center gap-2">
-                                            <h3 className="truncate text-xl font-black text-slate-950">
-                                                {group.title}
-                                            </h3>
-                                            <span className="shrink-0 rounded-full bg-pink-500 px-3 py-1 text-xs font-bold text-white">
-                                                Cicilian {totalPayments}x
-                                            </span>
-                                        </div>
-                                        <p className="mt-2 text-sm font-semibold text-slate-500">
-                                            Total: {formatCurrency(group.totalLoan)} • {totalPayments} pembayaran
-                                        </p>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                    <div className="text-right">
-                                        <p className="text-lg font-black text-pink-600">
-                                            {formatCurrency(monthlyAmount)}
-                                        </p>
-                                        <p className="text-xs font-medium text-slate-400">
-                                            per bulan
-                                        </p>
-                                    </div>
-                                    <ChevronDown
-                                        className={`h-5 w-5 text-pink-600 shrink-0 transition-transform ${
-                                            isExpanded ? 'rotate-180' : ''
-                                        }`}
-                                    />
-                                </div>
-                            </div>
-                        </button>
-
-                        {/* Expanded payment details */}
-                        {isExpanded && (
-                            <div className="border-t border-pink-200 p-5 space-y-3">
-                                {group.transactions
-                                    .sort((a, b) => new Date(a.date) - new Date(b.date))
-                                    .map((tx, idx) => (
-                                        <div
-                                            key={tx.id}
-                                            className="flex items-center justify-between gap-3 rounded-xl bg-white p-4"
-                                        >
-                                            <div className="flex items-center gap-3 min-w-0 flex-1">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={paidInstallments[tx.id] || false}
-                                                    onChange={() => togglePaidInstallment(tx.id, paidInstallments[tx.id])}
-                                                    className="h-5 w-5 rounded border-slate-300 text-pink-600 focus:ring-pink-500"
-                                                />
-                                                <div className="min-w-0 flex-1">
-                                                    <p className="font-bold text-slate-900">
-                                                        Bayar {idx + 1}: {formatDisplayDate(tx.date)}
-                                                    </p>
-                                                    <p className="text-xs font-medium text-slate-400">
-                                                        {tx.category} • {tx.source}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                            <p className={`shrink-0 font-black ${paidInstallments[tx.id] ? 'line-through text-slate-400' : 'text-rose-500'}`}>
-                                                {formatCurrency(tx.amount)}
-                                            </p>
-                                        </div>
-                                    ))}
-                            </div>
-                        )}
-                    </motion.div>
-                );
-            })}
-
-            {/* Render ungrouped transactions */}
-            {groupedTransactions.ungrouped.map((item) => {
+            {transactions.map((item) => {
                 const isEditing = editingId === item.id;
 
                 const categoryData =

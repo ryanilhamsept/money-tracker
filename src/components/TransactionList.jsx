@@ -149,14 +149,12 @@ export default function TransactionList({
         // Second pass: match generated payment transactions to installment groups
         transactions.forEach(tx => {
             if (processedIds.has(tx.id)) return; // Already processed
+            if (tx.installmentTotalLoan) return; // Skip primary transactions
 
-            // Check if this transaction matches any installment group
+            // Check if this transaction matches any installment group by title and amount
             const matchingGroup = Object.values(groups).find(group =>
                 group.title === tx.title &&
-                group.transactions[0].amount === tx.amount &&
-                group.transactions[0].category === tx.category &&
-                group.transactions[0].source === tx.source &&
-                !tx.installmentTotalLoan // Payment transactions have null installmentTotalLoan
+                Number(group.transactions[0].amount) === Number(tx.amount)
             );
 
             if (matchingGroup) {

@@ -1,10 +1,18 @@
-const { createRemoteJWKSet, jwtVerify } = require("jose");
-
 const SUPABASE_URL = process.env.SUPABASE_URL;
 
-const JWKS = SUPABASE_URL
-    ? createRemoteJWKSet(new URL(`${SUPABASE_URL}/auth/v1/.well-known/jwks.json`))
-    : null;
+// `jose` v6 is ESM-only. Node 22+ lets CommonJS require() an ES module, but
+// Vercel's runtime does not, so it is pulled in with a dynamic import()
+// instead -- the one form that works in both. Loaded once and reused.
+let josePromise = null;
+const loadJose = () => (josePromise ||= import("jose"));
+
+let jwksPromise = null;
+const loadJwks = () => {
+    jwksPromise ||= loadJose().then(({ createRemoteJWKSet }) =>
+        createRemoteJWKSet(new URL(`${SUPABASE_URL}/auth/v1/.well-known/jwks.json`))
+    );
+    return jwksPromise;
+};
 
 /**
  * JWT auth middleware — verifies Supabase-issued JWTs against the project's
@@ -12,7 +20,7 @@ const JWKS = SUPABASE_URL
  * skipped (dev mode).
  */
 const authMiddleware = async (req, res, next) => {
-    if (!JWKS) {
+    if (!SUPABASE_URL) {
         req.userId = "dev-user";
         return next();
     }
@@ -25,6 +33,8 @@ const authMiddleware = async (req, res, next) => {
     const token = authHeader.slice(7);
 
     try {
+        const [{ jwtVerify }, JWKS] = await Promise.all([loadJose(), loadJwks()]);
+
         const { payload } = await jwtVerify(token, JWKS, {
             issuer: `${SUPABASE_URL}/auth/v1`,
         });

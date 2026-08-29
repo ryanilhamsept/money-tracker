@@ -104,6 +104,16 @@ export const updateStartingBalance = async (id, balance) => {
     return updateAccountFields(id, { startingBalance: Number(balance) });
 };
 
+// Atomically add `delta` to an account's starting balance server-side, instead
+// of overwriting with a client-computed value -- avoids clobbering concurrent
+// writes from the Gmail auto-import script or another device.
+export const adjustAccountBalance = async (id, delta) => {
+    return apiFetch(`/api/accounts/${id}/adjust-balance`, {
+        method: "POST",
+        body: JSON.stringify({ delta }),
+    });
+};
+
 // --- Budget API ---
 
 export const getBudget = async () => {

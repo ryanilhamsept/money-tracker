@@ -10,7 +10,8 @@ module.exports = function installmentRoutes(pool) {
                 `SELECT id, account_id, transaction_id, name, provider,
                         total_loan, remaining_balance, monthly_installment,
                         remaining_term, due_date, created_at
-                 FROM installments ORDER BY created_at DESC`
+                 FROM installments WHERE user_id = $1 ORDER BY created_at DESC`,
+                [req.userId]
             );
             res.json(rows.map(mapFromDB));
         } catch (err) {
@@ -25,11 +26,11 @@ module.exports = function installmentRoutes(pool) {
             const i = req.body;
             await pool.query(
                 `INSERT INTO installments (id, account_id, transaction_id, name, provider,
-                        total_loan, remaining_balance, monthly_installment, remaining_term, due_date)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+                        total_loan, remaining_balance, monthly_installment, remaining_term, due_date, user_id)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
                 [i.id, i.accountId, i.transactionId || null, i.name, i.provider || null,
                  Number(i.totalLoan) || 0, Number(i.remainingBalance) || 0, Number(i.monthlyInstallment) || 0,
-                 i.remainingTerm ?? null, i.dueDate ?? null]
+                 i.remainingTerm ?? null, i.dueDate ?? null, req.userId]
             );
 
             res.status(201).json({ success: true });
@@ -68,8 +69,9 @@ module.exports = function installmentRoutes(pool) {
                 return res.status(400).json({ error: "No valid fields to update" });
             }
 
+            values.push(req.userId);
             await pool.query(
-                `UPDATE installments SET ${setClauses.join(", ")} WHERE id = $1`,
+                `UPDATE installments SET ${setClauses.join(", ")} WHERE id = $1 AND user_id = $${paramIndex}`,
                 values
             );
 
@@ -83,7 +85,7 @@ module.exports = function installmentRoutes(pool) {
     // DELETE /api/installments/:id
     router.delete("/:id", async (req, res) => {
         try {
-            await pool.query("DELETE FROM installments WHERE id = $1", [req.params.id]);
+            await pool.query("DELETE FROM installments WHERE id = $1 AND user_id = $2", [req.params.id, req.userId]);
             res.json({ success: true });
         } catch (err) {
             console.error("DELETE /installments error:", err);

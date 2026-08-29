@@ -203,6 +203,18 @@ export const updateAccountBalance = async (accountId, newBalance) => {
   if (error) throw error;
 };
 
+// Atomically add `delta` to an account's starting balance via a Postgres
+// function, instead of overwriting with a client-computed value -- avoids
+// clobbering concurrent writes from the Gmail auto-import script or the web app.
+export const adjustAccountBalance = async (accountId, delta) => {
+  const { data, error } = await supabase.rpc("increment_account_balance", {
+    p_account_id: accountId,
+    p_delta: delta,
+  });
+  if (error) throw error;
+  return Number(data);
+};
+
 export const updateAccountFields = async (id, fields) => {
   const dbPayload = {};
   if (fields.startingBalance !== undefined) dbPayload.starting_balance = Number(fields.startingBalance);

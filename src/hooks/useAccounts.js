@@ -5,6 +5,7 @@ import {
     deleteAccount as deleteAccountFromSupabase,
     updateStartingBalance as updateStartingBalanceInSupabase,
     updateAccountFields as updateAccountFieldsInSupabase,
+    adjustAccountBalance,
 } from "../services/api";
 import { getAccountBalanceDeltas } from "../utils/accountBalance";
 
@@ -224,18 +225,26 @@ export const useAccounts = (userId) => {
             if (deltas.length === 0) return true;
 
             try {
-                await Promise.all(
-                    deltas.map((delta) => {
-                        const currentAccount = accountsRef.current.find(
-                            (account) => account.id === delta.account.id
-                        );
+                // Send just the delta and let the database add it atomically --
+                // computing and sending the full new balance from local state
+                // would clobber concurrent writes (Gmail auto-import, another
+                // device) that happened after this client last loaded accounts.
+                const results = await Promise.all(
+                    deltas.map((delta) =>
+                        adjustAccountBalance(delta.account.id, delta.amount)
+                    )
+                );
 
-                        if (!currentAccount) return Promise.resolve();
-
-                        return updateStartingBalanceInSupabase(
-                            currentAccount.id,
-                            currentAccount.startingBalance
+                // Reconcile local state with the server's authoritative balance
+                // for each touched account.
+                replaceAccounts(
+                    accountsRef.current.map((account) => {
+                        const result = results.find(
+                            (item) => item?.data?.id === account.id
                         );
+                        return result
+                            ? { ...account, startingBalance: result.data.startingBalance }
+                            : account;
                     })
                 );
 
@@ -247,7 +256,7 @@ export const useAccounts = (userId) => {
                 throw err;
             }
         },
-        []
+        [replaceAccounts]
     );
 
     return {

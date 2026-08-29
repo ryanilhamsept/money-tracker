@@ -12,6 +12,8 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { formatCurrency } from "../utils/formatters";
+import { findCreditCardForSource } from "../utils/accountBalance";
+import { getCurrentCycleStart, getStatementDay } from "../utils/billingCycle";
 import Dropdown from "./Dropdown";
 
 const ACCOUNT_TYPES = ["Bank", "Tabungan", "E-Wallet", "Kartu Kredit", "Tunai"];
@@ -65,7 +67,7 @@ const emptyNewAccount = {
   color: CARD_COLORS[0],
 };
 
-export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBalance, onUpdateFields, installments = [], onDeleteInstallment }) {
+export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBalance, onUpdateFields, installments = [], onDeleteInstallment, transactions = [], onDeleteTransaction }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -77,6 +79,11 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
   const [paymentAccountId, setPaymentAccountId] = useState(null);
   const [paymentForm, setPaymentForm] = useState({ amount: "", date: new Date().toISOString().split("T")[0] });
   const [paymentLoading, setPaymentLoading] = useState(false);
+  const [expandedGroups, setExpandedGroups] = useState({});
+
+  const toggleGroup = (groupKey) => {
+    setExpandedGroups((prev) => ({ ...prev, [groupKey]: !prev[groupKey] }));
+  };
 
   const isCreditCardForm = newAccount.type === "Kartu Kredit";
 
@@ -104,21 +111,18 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
   const creditCardTotals = useMemo(() => {
     let totalLimit = 0;
     let used = 0;
-    
+
+    // `starting_balance` udah nyakup semua transaksi cicilan (parent + tiap
+    // cicilan bulanan dicatet lewat ledger transaksi biasa), jadi nggak perlu
+    // nambahin installments.remainingBalance lagi -- itu dobel hitung.
     creditCardAccounts.forEach(a => {
         totalLimit += (Number(a.totalLimit) || 0);
         used += (Number(a.startingBalance) || 0);
-        
-        // Tambahkan tagihan cicilan
-        const accInstallments = installments.filter(inst => inst.accountId === a.id);
-        accInstallments.forEach(inst => {
-            used += (Number(inst.remainingBalance) || 0);
-        });
     });
 
     const utilization = totalLimit > 0 ? (used / totalLimit) * 100 : 0;
     return { totalLimit, used, remaining: totalLimit - used, utilization };
-  }, [creditCardAccounts, installments]);
+  }, [creditCardAccounts]);
 
   const handleAddSubmit = async () => {
     if (!newAccount.name.trim()) return;
@@ -207,14 +211,42 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
     const isEditing = editingId === account.id;
     const isCardEditing = isEditing && isCard;
     const totalLimit = Number(account.totalLimit) || 0;
-    
-    // Hitung limit terpakai = saldo awal + semua sisa tagihan cicilan untuk kartu ini
-    const accInstallments = installments.filter(inst => inst.accountId === account.id);
-    const installmentsTotal = accInstallments.reduce((sum, inst) => sum + (Number(inst.remainingBalance) || 0), 0);
-    
-    const used = (Number(account.startingBalance) || 0) + installmentsTotal;
+
+    // `starting_balance` udah nyakup semua transaksi cicilan lewat ledger
+    // transaksi biasa, jadi ini nggak perlu nambahin installments.remainingBalance
+    // lagi (itu dobel hitung -- lihat riwayat transaksi di bawah buat rinciannya).
+    const used = Number(account.startingBalance) || 0;
     const remaining = totalLimit - used;
     const usedPct = totalLimit > 0 ? Math.min(100, Math.max(0, (used / totalLimit) * 100)) : 0;
+
+    // Riwayat transaksi kartu ini sejak tutup buku terakhir -- yang sebelum itu
+    // sudah masuk tagihan yang lalu. Mirror dari Accounts.jsx (web).
+    const cycleStart = getCurrentCycleStart(getStatementDay(account));
+    const cardTransactions = isCard
+      ? transactions.filter(
+          (t) =>
+            t.danaDipakai === "Spend CC" &&
+            t.date >= cycleStart &&
+            findCreditCardForSource(accounts, t.source)?.id === account.id
+        )
+      : [];
+
+    const parents = cardTransactions.filter((t) => Number(t.installmentTotalLoan) > 0);
+    const parentTitles = new Set(parents.map((t) => t.title));
+    const cardInstallments = installments.filter((i) => i.accountId === account.id);
+
+    const historyGroups = new Map();
+    parents.forEach((parent) => {
+      historyGroups.set(parent.title, {
+        parent,
+        children: cardTransactions
+          .filter((t) => t.title === parent.title)
+          .sort((a, b) => String(a.date).localeCompare(String(b.date))),
+        installment: cardInstallments.find((i) => i.name === parent.title),
+      });
+    });
+
+    const historyUngrouped = cardTransactions.filter((t) => !parentTitles.has(t.title));
 
     return (
       <View key={account.id} style={styles.accountCard}>
@@ -353,27 +385,97 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
           )
         )}
         
-        {isCard && accInstallments.length > 0 && (
+        {isCard && cardTransactions.length > 0 && (
             <View style={styles.installmentsWrap}>
-                {accInstallments.map((inst) => (
-                    <View key={inst.id} style={styles.installmentItem}>
+                <Text style={styles.historyTitle}>
+                    RIWAYAT TRANSAKSI ({cardTransactions.length})
+                </Text>
+
+                {Array.from(historyGroups.entries()).map(([title, { parent, children, installment }]) => {
+                    const isExpanded = expandedGroups[title];
+                    return (
+                        <View key={title}>
+                            <View style={styles.historyGroupRow}>
+                                <Pressable
+                                    style={styles.installmentItem}
+                                    onPress={() => toggleGroup(title)}
+                                >
+                                    <View style={styles.installmentInfo}>
+                                        <Text style={styles.installmentName} numberOfLines={1}>
+                                            {title}
+                                        </Text>
+                                        <Text style={styles.installmentTerm}>
+                                            {installment
+                                                ? `Sisa ${formatCurrency(installment.remainingBalance)} dari ${formatCurrency(installment.totalLoan)}`
+                                                : `Cicilan • ${children.length}x pembayaran`}
+                                            {installment?.remainingTerm ? ` • ${installment.remainingTerm}x` : ""}
+                                            {installment?.dueDate ? ` • Tgl ${installment.dueDate}` : ""}
+                                        </Text>
+                                    </View>
+                                    <View style={styles.historyGroupRight}>
+                                        <Text style={styles.installmentName}>
+                                            {formatCurrency(parent.installmentTotalLoan)}
+                                        </Text>
+                                        <Text style={styles.historyChevron}>{isExpanded ? "▲" : "▼"}</Text>
+                                    </View>
+                                </Pressable>
+                                {installment && (
+                                    <Pressable
+                                        style={styles.installmentDelete}
+                                        onPress={() => onDeleteInstallment?.(installment.id)}
+                                    >
+                                        <Text style={styles.iconButtonDangerText}>🗑</Text>
+                                    </Pressable>
+                                )}
+                            </View>
+
+                            {isExpanded && (
+                                <View style={styles.historyGroupChildren}>
+                                    {children.map((t) => (
+                                        <View key={t.id} style={styles.historyChildItem}>
+                                            <Text style={styles.historyChildMeta}>
+                                                {t.date}
+                                                {t.time ? ` • ${t.time}` : ""}
+                                            </Text>
+                                            <View style={styles.historyAmountRow}>
+                                                <Text style={styles.installmentName}>
+                                                    {formatCurrency(t.amount)}
+                                                </Text>
+                                                <Pressable
+                                                    style={styles.checkbox}
+                                                    onPress={() => onDeleteTransaction?.(t.id)}
+                                                >
+                                                    <Text style={styles.checkboxMark}> </Text>
+                                                </Pressable>
+                                            </View>
+                                        </View>
+                                    ))}
+                                </View>
+                            )}
+                        </View>
+                    );
+                })}
+
+                {historyUngrouped.map((t) => (
+                    <View key={t.id} style={styles.installmentItem}>
                         <View style={styles.installmentInfo}>
                             <Text style={styles.installmentName} numberOfLines={1}>
-                                {inst.name}
-                                {inst.provider ? ` • ${inst.provider}` : ""}
+                                {t.title}
                             </Text>
                             <Text style={styles.installmentTerm}>
-                                Sisa {formatCurrency(inst.remainingBalance)} dari {formatCurrency(inst.totalLoan)}
-                                {inst.remainingTerm ? ` • ${inst.remainingTerm}x` : ""}
-                                {inst.dueDate ? ` • Tgl ${inst.dueDate}` : ""}
+                                {t.date}
+                                {t.time ? ` • ${t.time}` : ""}
                             </Text>
                         </View>
-                        <Pressable
-                            style={styles.installmentDelete}
-                            onPress={() => onDeleteInstallment?.(inst.id)}
-                        >
-                            <Text style={styles.iconButtonDangerText}>🗑</Text>
-                        </Pressable>
+                        <View style={styles.historyAmountRow}>
+                            <Text style={styles.installmentName}>{formatCurrency(t.amount)}</Text>
+                            <Pressable
+                                style={styles.checkbox}
+                                onPress={() => onDeleteTransaction?.(t.id)}
+                            >
+                                <Text style={styles.checkboxMark}> </Text>
+                            </Pressable>
+                        </View>
                     </View>
                 ))}
             </View>
@@ -758,7 +860,73 @@ const styles = StyleSheet.create({
   installmentsWrap: {
     marginTop: 12,
   },
+  historyTitle: {
+    color: "#94a3b8",
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+    marginBottom: 8,
+    textTransform: "uppercase",
+  },
+  historyGroupRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  historyGroupRight: {
+    alignItems: "flex-end",
+    flexDirection: "row",
+    gap: 8,
+  },
+  historyChevron: {
+    color: "#94a3b8",
+    fontSize: 10,
+  },
+  historyGroupChildren: {
+    marginLeft: 16,
+    marginTop: -4,
+    marginBottom: 8,
+    paddingLeft: 12,
+    borderLeftWidth: 2,
+    borderLeftColor: "#e2e8f0",
+    gap: 6,
+  },
+  historyChildItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#ffffff",
+    borderColor: "#f1f5f9",
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  historyChildMeta: {
+    color: "#64748b",
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  historyAmountRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  checkbox: {
+    alignItems: "center",
+    justifyContent: "center",
+    height: 18,
+    width: 18,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderColor: "#cbd5e1",
+    backgroundColor: "#ffffff",
+  },
+  checkboxMark: {
+    fontSize: 11,
+  },
   installmentItem: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",

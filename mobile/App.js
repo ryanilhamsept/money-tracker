@@ -18,6 +18,7 @@ import {
   updateTransaction,
   deleteTransaction,
   updateAccountBalance,
+  adjustAccountBalance,
   updateAccountFields,
   addAccount,
   deleteAccount,
@@ -338,13 +339,21 @@ export default function App() {
       );
       if (deltas.length === 0) return;
 
-      await Promise.all(
-        deltas.map((delta) =>
-          updateAccountBalance(
-            delta.account.id,
-            Number(delta.account.startingBalance) + delta.amount
-          )
-        )
+      // Send just the delta and let the database add it atomically -- computing
+      // the full new balance from local `accounts` state and overwriting would
+      // clobber concurrent writes from the Gmail auto-import script or the web app.
+      const results = await Promise.all(
+        deltas.map(async (delta) => ({
+          id: delta.account.id,
+          newBalance: await adjustAccountBalance(delta.account.id, delta.amount),
+        }))
+      );
+
+      setAccounts((current) =>
+        current.map((acc) => {
+          const result = results.find((item) => item.id === acc.id);
+          return result ? { ...acc, startingBalance: result.newBalance } : acc;
+        })
       );
     },
     [accounts]
@@ -499,6 +508,26 @@ export default function App() {
     }
     
     closeForm();
+    await loadDashboard();
+  };
+
+  const handleDeleteTransactionById = async (id) => {
+    const tx = transactions.find((t) => t.id === id);
+    if (!tx) return;
+
+    const linkedInst = installments.find(
+      (inst) =>
+        inst.transactionId === id ||
+        (inst.name.trim() === tx.title.trim() && inst.monthlyInstallment === tx.amount)
+    );
+
+    await deleteTransaction(id);
+    await applyBalanceDeltas(tx, null);
+
+    if (linkedInst) {
+      await deleteInstallment(linkedInst.id);
+    }
+
     await loadDashboard();
   };
 
@@ -916,6 +945,8 @@ export default function App() {
           onUpdateFields={handleUpdateAccountFields}
           installments={installments}
           onDeleteInstallment={handleDeleteInstallment}
+          transactions={transactions}
+          onDeleteTransaction={handleDeleteTransactionById}
         />
       ) : null}
 

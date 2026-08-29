@@ -167,14 +167,54 @@ export default function Tracker({
             });
     }, [currentMonthTransactions, query, categoryFilter, sourceFilter]);
 
-    const totalHistoryPages = Math.max(
-        1,
-        Math.ceil(filteredTransactions.length / historyPageSize)
-    );
+    // Dikelompokkan per tanggal dulu sebelum dipaginasi, biar transaksi di satu
+    // tanggal nggak pernah kepotong jadi dua grup terpisah di dua halaman
+    // (mirror dari mobile app: mobile/App.js dateGroupsAll/transactionPages).
+    const dateGroupsAll = useMemo(() => {
+        const groups = {};
+        filteredTransactions.forEach((item) => {
+            const key = normalizeDate(item.date);
+            if (!groups[key]) groups[key] = [];
+            groups[key].push(item);
+        });
+        return Object.entries(groups)
+            .sort((a, b) => b[0].localeCompare(a[0]))
+            .map(([date, items]) => ({
+                date,
+                items,
+                total: items
+                    .filter((item) => item.type !== "income")
+                    .reduce((sum, item) => sum + Number(item.amount), 0),
+            }));
+    }, [filteredTransactions]);
 
-    const paginatedTransactions = filteredTransactions.slice(
-        (historyPage - 1) * historyPageSize,
-        historyPage * historyPageSize
+    const historyPages = useMemo(() => {
+        const pages = [];
+        let current = [];
+        let currentCount = 0;
+        dateGroupsAll.forEach((group) => {
+            if (currentCount > 0 && currentCount + group.items.length > historyPageSize) {
+                pages.push(current);
+                current = [];
+                currentCount = 0;
+            }
+            current.push(group);
+            currentCount += group.items.length;
+        });
+        if (current.length > 0) pages.push(current);
+        return pages.length > 0 ? pages : [[]];
+    }, [dateGroupsAll]);
+
+    const totalHistoryPages = historyPages.length;
+
+    // Derive the in-range page during render instead of syncing it back via an
+    // effect (avoids the extra render pass react-hooks/set-state-in-effect warns about).
+    const safeHistoryPage = Math.min(Math.max(historyPage, 1), totalHistoryPages);
+
+    const groupedPageTransactions = historyPages[safeHistoryPage - 1] || [];
+
+    const paginatedTransactions = groupedPageTransactions.flatMap(
+        (group) => group.items
     );
 
     const handleSubmit = async (event) => {
@@ -699,7 +739,10 @@ export default function Tracker({
 
                                     <input
                                         value={query}
-                                        onChange={(event) => setQuery(event.target.value)}
+                                        onChange={(event) => {
+                                            setQuery(event.target.value);
+                                            setHistoryPage(1);
+                                        }}
                                         placeholder="Search"
                                         className="w-full min-w-0 rounded-2xl border border-slate-200 bg-white py-2 pl-9 pr-3 outline-none focus:ring-2 focus:ring-pink-200"
                                     />
@@ -707,9 +750,10 @@ export default function Tracker({
 
                                 <select
                                     value={categoryFilter}
-                                    onChange={(event) =>
-                                        setCategoryFilter(event.target.value)
-                                    }
+                                    onChange={(event) => {
+                                        setCategoryFilter(event.target.value);
+                                        setHistoryPage(1);
+                                    }}
                                     className="rounded-2xl border border-slate-200 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-pink-200"
                                 >
                                     <option value="all">All categories</option>
@@ -723,9 +767,10 @@ export default function Tracker({
 
                                 <select
                                     value={sourceFilter}
-                                    onChange={(event) =>
-                                        setSourceFilter(event.target.value)
-                                    }
+                                    onChange={(event) => {
+                                        setSourceFilter(event.target.value);
+                                        setHistoryPage(1);
+                                    }}
                                     className="rounded-2xl border border-slate-200 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-pink-200"
                                 >
                                     <option value="all">All sources</option>
@@ -740,7 +785,7 @@ export default function Tracker({
                         </div>
 
                         <TransactionList
-                            transactions={paginatedTransactions}
+                            dateGroups={groupedPageTransactions}
                             deleteTransaction={deleteTransaction}
                             updateTransaction={updateTransaction}
                             accounts={accounts}
@@ -759,28 +804,22 @@ export default function Tracker({
                                     type="button"
                                     variant="outline"
                                     className="rounded-xl border-slate-200"
-                                    disabled={historyPage === 1}
-                                    onClick={() =>
-                                        setHistoryPage((page) => Math.max(1, page - 1))
-                                    }
+                                    disabled={safeHistoryPage === 1}
+                                    onClick={() => setHistoryPage(safeHistoryPage - 1)}
                                 >
                                     Previous
                                 </Button>
 
                                 <span className="text-slate-500">
-                                    Page {historyPage} / {totalHistoryPages}
+                                    Page {safeHistoryPage} / {totalHistoryPages}
                                 </span>
 
                                 <Button
                                     type="button"
                                     variant="outline"
                                     className="rounded-xl border-slate-200"
-                                    disabled={historyPage === totalHistoryPages}
-                                    onClick={() =>
-                                        setHistoryPage((page) =>
-                                            Math.min(totalHistoryPages, page + 1)
-                                        )
-                                    }
+                                    disabled={safeHistoryPage === totalHistoryPages}
+                                    onClick={() => setHistoryPage(safeHistoryPage + 1)}
                                 >
                                     Next
                                 </Button>

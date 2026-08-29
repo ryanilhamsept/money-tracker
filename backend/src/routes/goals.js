@@ -8,7 +8,8 @@ module.exports = function goalRoutes(pool) {
         try {
             const { rows } = await pool.query(
                 `SELECT id, name, icon, color, required, collected, deadline, note, created_at
-                 FROM goals ORDER BY created_at ASC`
+                 FROM goals WHERE user_id = $1 ORDER BY created_at ASC`,
+                [req.userId]
             );
             res.json(rows.map(mapFromDB));
         } catch (err) {
@@ -42,8 +43,8 @@ module.exports = function goalRoutes(pool) {
                 `UPDATE goals
                  SET name = $2, icon = $3, color = $4, required = $5, collected = $6,
                      deadline = $7, note = $8, updated_at = NOW()
-                 WHERE id = $1`,
-                [g.id, g.title, g.icon || null, g.color || null, Number(g.targetAmount) || 0, Number(g.savedAmount) || 0, g.deadline || null, g.note || null]
+                 WHERE id = $1 AND user_id = $9`,
+                [g.id, g.title, g.icon || null, g.color || null, Number(g.targetAmount) || 0, Number(g.savedAmount) || 0, g.deadline || null, g.note || null, req.userId]
             );
 
             res.json({ success: true });
@@ -56,7 +57,7 @@ module.exports = function goalRoutes(pool) {
     // DELETE /api/goals/:id
     router.delete("/:id", async (req, res) => {
         try {
-            await pool.query("DELETE FROM goals WHERE id = $1", [req.params.id]);
+            await pool.query("DELETE FROM goals WHERE id = $1 AND user_id = $2", [req.params.id, req.userId]);
             res.json({ success: true });
         } catch (err) {
             console.error("DELETE /goals error:", err);

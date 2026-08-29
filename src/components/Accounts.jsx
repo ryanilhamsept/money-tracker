@@ -31,6 +31,7 @@ export default function Accounts({
     installments = [],
     deleteInstallment,
     transactions = [],
+    deleteTransaction,
 }) {
     const [searchQuery, setSearchQuery] = useState("");
     const [filterType, setFilterType] = useState("all");
@@ -595,9 +596,17 @@ export default function Accounts({
                                                             {t.date}
                                                             {t.time ? ` • ${t.time}` : ""}
                                                         </p>
-                                                        <p className="shrink-0 text-xs font-bold text-slate-700">
-                                                            {formatCurrency(t.amount)}
-                                                        </p>
+                                                        <div className="flex shrink-0 items-center gap-2">
+                                                            <p className="text-xs font-bold text-slate-700">
+                                                                {formatCurrency(t.amount)}
+                                                            </p>
+                                                            <input
+                                                                type="checkbox"
+                                                                title="Tandai lunas & hapus dari tagihan"
+                                                                onChange={() => deleteTransaction?.(t.id)}
+                                                                className="h-4 w-4 rounded border-slate-300 text-pink-600"
+                                                            />
+                                                        </div>
                                                     </div>
                                                 ))}
                                             </div>
@@ -621,9 +630,17 @@ export default function Accounts({
                                             {t.time ? ` • ${t.time}` : ""}
                                         </p>
                                     </div>
-                                    <p className="shrink-0 text-xs font-bold text-slate-700">
-                                        {formatCurrency(t.amount)}
-                                    </p>
+                                    <div className="flex shrink-0 items-center gap-2">
+                                        <p className="text-xs font-bold text-slate-700">
+                                            {formatCurrency(t.amount)}
+                                        </p>
+                                        <input
+                                            type="checkbox"
+                                            title="Tandai lunas & hapus dari tagihan"
+                                            onChange={() => deleteTransaction?.(t.id)}
+                                            className="h-4 w-4 rounded border-slate-300 text-pink-600"
+                                        />
+                                    </div>
                                 </div>
                             ))}
                         </div>

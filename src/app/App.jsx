@@ -399,6 +399,7 @@ export default function App() {
                         installments={installments}
                         deleteInstallment={handleDeleteInstallment}
                         transactions={transactions}
+                        deleteTransaction={handleDeleteTransaction}
                     />
                 )}
 

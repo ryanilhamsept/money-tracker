@@ -96,15 +96,12 @@ const getTransactionAccountEffects = (accounts, transaction) => {
         transaction.danaDipakai === "Spend CC" ||
         String(transaction.source || "").toLowerCase().includes("credit card");
 
-    // Exclude parent cicilan transactions from balance (installmentTotalLoan > 0 means parent)
-    // Only count child installment payments (installmentTotalLoan = 0 or null)
-    const isParentCicilan =
-        isCreditCardSpend &&
-        transaction.installmentTotalLoan !== undefined &&
-        transaction.installmentTotalLoan !== null &&
-        Number(transaction.installmentTotalLoan) > 0;
-
-    if (isParentCicilan) return [];
+    // The parent cicilan transaction's own `amount` is its first month's
+    // installment charge, same as any other child payment -- it must count
+    // toward the card's used balance too. `installments.totalLoan` is only
+    // ever used for the separate "Sisa Rp.../dari Rp..." display, so nothing
+    // else applies the full loan amount to the balance; excluding the parent
+    // here used to just silently drop its first payment from "Used".
 
     const account = isCreditCardSpend
         ? findCreditCardForSource(accounts, transaction.source)

@@ -30,7 +30,7 @@ const findAccountForSource = (accounts, source) => {
 // kartu persis (mis. source "Credit Card - BCA" vs nama akun "CC BCA"), jadi
 // dicocokin longgar lewat kata kunci yang sama (mis. "bca") di antara akun
 // bertipe Kartu Kredit.
-const findCreditCardForSource = (accounts, source) => {
+export const findCreditCardForSource = (accounts, source) => {
   const creditCardAccounts = accounts.filter(
     (account) => normalizeName(account.type) === "kartu kredit"
   );
@@ -90,22 +90,15 @@ const getTransactionAccountEffects = (accounts, transaction) => {
 
   const isCreditCardSpend = transaction.danaDipakai === "Spend CC";
 
-  // Buat cicilan, amount transaksi = cicilan bulanan (kecatet sebagai
-  // spending bulan ini), tapi limit kartu kepotong sebesar harga barang
-  // penuh (installmentTotalLoan) sejak awal.
-  const hasInstallmentTotal =
-    transaction.installmentTotalLoan !== undefined &&
-    transaction.installmentTotalLoan !== null;
-  const effectAmount =
-    isCreditCardSpend && hasInstallmentTotal
-      ? Number(transaction.installmentTotalLoan) || 0
-      : amount;
-
+  // Tiap transaksi cicilan (parent maupun child) kecatet sebesar cicilan
+  // bulanannya sendiri, sama kayak transaksi CC biasa -- `installmentTotalLoan`
+  // cuma metadata buat tampilan "Sisa Rp.../dari Rp..." di kartu, gak pernah
+  // dipakai di tempat lain buat motong balance sekaligus.
   const account = isCreditCardSpend
     ? findCreditCardForSource(accounts, transaction.source)
     : findAccountForSource(accounts, transaction.source);
 
-  if (!account || effectAmount <= 0) return [];
+  if (!account || amount <= 0) return [];
 
   // Akun biasa: expense ngurangin saldo, income nambah.
   // Kartu kredit: expense nambah saldo terpakai (utang), income/refund ngurangin.
@@ -113,7 +106,7 @@ const getTransactionAccountEffects = (accounts, transaction) => {
     ? (isIncome ? 1 : -1)
     : (isIncome ? -1 : 1);
 
-  return [{ account, amount: effectAmount * sign }];
+  return [{ account, amount: amount * sign }];
 };
 
 // Sama persis logic-nya sama src/utils/accountBalance.js di app web,

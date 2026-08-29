@@ -1,18 +1,6 @@
 import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import {
-    ArrowLeftRight,
-    Utensils,
-    Car,
-    Store,
-    Lightbulb,
-    Gamepad2,
-    Globe,
-    ShoppingBag,
-    Heart,
-    BookOpen,
-    Coins,
-    CalendarDays,
     Check,
     Pencil,
     Trash2,
@@ -32,62 +20,27 @@ import {
     fundSources,
 } from "../constants/options";
 
+// Emoji + warna disamain persis sama mobile app (mobile/App.js CATEGORY_ICONS)
+// biar tampilan list transaksi konsisten di web & mobile.
 const categoryIcons = {
-    "Account Transfer": {
-        icon: ArrowLeftRight,
-        bg: "bg-green-100",
-        color: "text-green-700",
-    },
-    Food: {
-        icon: Utensils,
-        bg: "bg-orange-100",
-        color: "text-orange-600",
-    },
-    Transportation: {
-        icon: Car,
-        bg: "bg-blue-100",
-        color: "text-blue-600",
-    },
-    Groceries: {
-        icon: Store,
-        bg: "bg-yellow-100",
-        color: "text-yellow-700",
-    },
-    Utilities: {
-        icon: Lightbulb,
-        bg: "bg-amber-100",
-        color: "text-amber-600",
-    },
-    Entertainment: {
-        icon: Gamepad2,
-        bg: "bg-pink-100",
-        color: "text-pink-600",
-    },
-    Internet: {
-        icon: Globe,
-        bg: "bg-cyan-100",
-        color: "text-cyan-600",
-    },
-    Shopping: {
-        icon: ShoppingBag,
-        bg: "bg-violet-100",
-        color: "text-violet-600",
-    },
-    Health: {
-        icon: Heart,
-        bg: "bg-rose-100",
-        color: "text-rose-600",
-    },
-    Education: {
-        icon: BookOpen,
-        bg: "bg-indigo-100",
-        color: "text-indigo-600",
-    },
-    Miscellaneous: {
-        icon: Coins,
-        bg: "bg-gray-100",
-        color: "text-gray-600",
-    },
+    "Account Transfer": { emoji: "🔁", bg: "#dcfce7" },
+    Food: { emoji: "🍔", bg: "#ffedd5" },
+    Transportation: { emoji: "🚗", bg: "#dbeafe" },
+    Groceries: { emoji: "🛒", bg: "#fef9c3" },
+    Utilities: { emoji: "💡", bg: "#fef3c7" },
+    Entertainment: { emoji: "🎮", bg: "#fce7f3" },
+    Internet: { emoji: "🌐", bg: "#cffafe" },
+    Shopping: { emoji: "🛍️", bg: "#ede9fe" },
+    Health: { emoji: "❤️", bg: "#ffe4e6" },
+    Education: { emoji: "📚", bg: "#e0e7ff" },
+    Miscellaneous: { emoji: "✨", bg: "#f1f5f9" },
+};
+
+const WEEKDAYS = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+const formatDayHeader = (dateStr) => {
+    const [y, m, d] = dateStr.split("-").map(Number);
+    const dow = new Date(y, m - 1, d).getDay();
+    return `${WEEKDAYS[dow]}, ${formatDisplayDate(dateStr)}`;
 };
 
 const emptyInstallmentDetails = {
@@ -98,7 +51,7 @@ const emptyInstallmentDetails = {
 };
 
 export default function TransactionList({
-    transactions,
+    dateGroups = [],
     deleteTransaction,
     updateTransaction,
     accounts = [],
@@ -108,6 +61,11 @@ export default function TransactionList({
     const [editingId, setEditingId] = useState("");
     const [expandedGroups, setExpandedGroups] = useState({});
     const [paidInstallments, setPaidInstallments] = useState({});
+
+    const transactions = useMemo(
+        () => dateGroups.flatMap((group) => group.items),
+        [dateGroups]
+    );
 
     const [editForm, setEditForm] = useState({
         title: "",
@@ -166,6 +124,21 @@ export default function TransactionList({
 
         return { groups: Object.values(groups), ungrouped };
     }, [transactions]);
+
+    // Transaksi cicilan udah ditampilkan sebagai card tersendiri di atas, jadi
+    // di sini cuma kelompokin ulang transaksi non-cicilan per tanggal (mirror
+    // tampilan mobile app: header tanggal + total pengeluaran hari itu).
+    const dayGroupsForDisplay = useMemo(() => {
+        const ungroupedIds = new Set(
+            groupedTransactions.ungrouped.map((tx) => tx.id)
+        );
+        return dateGroups
+            .map((group) => ({
+                ...group,
+                items: group.items.filter((item) => ungroupedIds.has(item.id)),
+            }))
+            .filter((group) => group.items.length > 0);
+    }, [dateGroups, groupedTransactions]);
 
     const toggleGroupExpanded = (groupKey) => {
         setExpandedGroups(prev => ({ ...prev, [groupKey]: !prev[groupKey] }));
@@ -366,104 +339,112 @@ export default function TransactionList({
                 </motion.div>
             ))}
 
-            {/* Ungrouped transactions */}
-            {groupedTransactions.ungrouped.map((item) => {
-                const isEditing = editingId === item.id;
+            {/* Ungrouped transactions, dikelompokkan per tanggal (mirror mobile app) */}
+            {dayGroupsForDisplay.map((dayGroup) => (
+                <div key={dayGroup.date} className="space-y-3">
+                    <div className="flex items-center justify-between px-1">
+                        <h3 className="text-sm font-black text-slate-600">
+                            {formatDayHeader(dayGroup.date)}
+                        </h3>
+                        <span className="text-sm font-bold text-rose-500">
+                            Total {formatCurrency(dayGroup.total)}
+                        </span>
+                    </div>
 
-                const categoryData =
-                    categoryIcons[item.category] ||
-                    categoryIcons["Miscellaneous"];
+                    {dayGroup.items.map((item) => {
+                        const isEditing = editingId === item.id;
 
-                const Icon = categoryData.icon;
+                        const categoryData =
+                            categoryIcons[item.category] ||
+                            categoryIcons["Miscellaneous"];
 
-                return (
-                    <motion.div
-                        key={item.id}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="overflow-hidden rounded-[2rem] border border-white/70 bg-white/90 p-5 shadow-lg backdrop-blur"
-                    >
-                        {!isEditing ? (
-                            <>
-                                <div className="flex items-start justify-between gap-4">
-                                    <div className="flex min-w-0 flex-1 items-start gap-4">
-                                        <div
-                                            className={`shrink-0 rounded-[1.4rem] p-4 ${categoryData.bg}`}
-                                        >
-                                            <Icon
-                                                className={`h-6 w-6 ${categoryData.color}`}
-                                            />
-                                        </div>
-
-                                        <div className="min-w-0 flex-1">
-                                            <div className="flex min-w-0 items-start justify-between gap-3">
-                                                <div className="min-w-0">
-                                                    <h3 className="truncate text-xl font-black text-slate-950">
-                                                        {item.title}
-                                                    </h3>
-
-                                                    <p className="mt-2 text-sm font-semibold text-slate-500">
-                                                        {item.category} • {item.source} •{" "}
-                                                        {item.danaDipakai}
-                                                    </p>
-
-                                                    {item.syncState === "pending" && (
-                                                        <p className="mt-2 inline-flex rounded-full bg-indigo-50 px-3 py-1 text-xs font-black text-indigo-600">
-                                                            Queued for sync
-                                                        </p>
-                                                    )}
-
-                                                    {item.syncState === "error" && (
-                                                        <p className="mt-2 inline-flex rounded-full bg-amber-50 px-3 py-1 text-xs font-black text-amber-700">
-                                                            Will retry sync
-                                                        </p>
-                                                    )}
+                        return (
+                            <motion.div
+                                key={item.id}
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="overflow-hidden rounded-[2rem] border border-white/70 bg-white/90 p-5 shadow-lg backdrop-blur"
+                            >
+                                {!isEditing ? (
+                                    <>
+                                        <div className="flex items-start justify-between gap-4">
+                                            <div className="flex min-w-0 flex-1 items-start gap-4">
+                                                <div
+                                                    className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-2xl"
+                                                    style={{
+                                                        backgroundColor:
+                                                            item.type === "income"
+                                                                ? "#dcfce7"
+                                                                : categoryData.bg,
+                                                    }}
+                                                >
+                                                    {item.type === "income" ? "💰" : categoryData.emoji}
                                                 </div>
 
-                                                <p
-                                                    className={`shrink-0 text-right text-xl font-black sm:text-2xl ${
-                                                        item.type === "income"
-                                                            ? "text-emerald-500"
-                                                            : "text-rose-500"
-                                                    }`}
-                                                >
-                                                    {item.type === "income" ? "+" : "-"}
-                                                    {formatCurrency(item.amount)}
-                                                </p>
-                                            </div>
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="flex min-w-0 items-start justify-between gap-3">
+                                                        <div className="min-w-0">
+                                                            <h3 className="truncate text-xl font-black text-slate-950">
+                                                                {item.title}
+                                                            </h3>
 
-                                            <div className="mt-5 flex items-center gap-2 text-sm font-semibold text-slate-500">
-                                                <CalendarDays className="h-4 w-4 text-indigo-500" />
-                                                {formatDisplayDate(item.date)}
-                                                {item.time ? ` • ${item.time}` : ""}
+                                                            <p className="mt-2 text-sm font-semibold text-slate-500">
+                                                                {item.source}
+                                                                {item.danaDipakai ? ` · ${item.danaDipakai}` : ""}
+                                                                {item.time ? ` · ${item.time}` : ""}
+                                                            </p>
+
+                                                            {item.syncState === "pending" && (
+                                                                <p className="mt-2 inline-flex rounded-full bg-indigo-50 px-3 py-1 text-xs font-black text-indigo-600">
+                                                                    Queued for sync
+                                                                </p>
+                                                            )}
+
+                                                            {item.syncState === "error" && (
+                                                                <p className="mt-2 inline-flex rounded-full bg-amber-50 px-3 py-1 text-xs font-black text-amber-700">
+                                                                    Will retry sync
+                                                                </p>
+                                                            )}
+                                                        </div>
+
+                                                        <p
+                                                            className={`shrink-0 text-right text-xl font-black sm:text-2xl ${
+                                                                item.type === "income"
+                                                                    ? "text-emerald-500"
+                                                                    : "text-rose-500"
+                                                            }`}
+                                                        >
+                                                            {item.type === "income" ? "+" : "-"}
+                                                            {formatCurrency(item.amount)}
+                                                        </p>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                </div>
 
-                                <div className="mt-5 border-t border-slate-100 pt-4">
-                                    <div className="flex items-center justify-end gap-3">
-                                        <button
-                                            type="button"
-                                            onClick={() => openEdit(item)}
-                                            className="flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:bg-slate-50 active:scale-95"
-                                            aria-label="Edit transaction"
-                                        >
-                                            <Pencil className="h-5 w-5" />
-                                        </button>
+                                        <div className="mt-5 border-t border-slate-100 pt-4">
+                                            <div className="flex items-center justify-end gap-3">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => openEdit(item)}
+                                                    className="flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:bg-slate-50 active:scale-95"
+                                                    aria-label="Edit transaction"
+                                                >
+                                                    <Pencil className="h-5 w-5" />
+                                                </button>
 
-                                        <button
-                                            type="button"
-                                            onClick={() => deleteTransaction(item.id)}
-                                            className="flex h-12 w-12 items-center justify-center rounded-2xl border border-rose-100 bg-rose-50 text-rose-500 shadow-sm transition hover:bg-rose-100 active:scale-95"
-                                            aria-label="Delete transaction"
-                                        >
-                                            <Trash2 className="h-5 w-5" />
-                                        </button>
-                                    </div>
-                                </div>
-                            </>
-                        ) : (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => deleteTransaction(item.id)}
+                                                    className="flex h-12 w-12 items-center justify-center rounded-2xl border border-rose-100 bg-rose-50 text-rose-500 shadow-sm transition hover:bg-rose-100 active:scale-95"
+                                                    aria-label="Delete transaction"
+                                                >
+                                                    <Trash2 className="h-5 w-5" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </>
+                                ) : (
                             <div className="min-w-0 space-y-3 overflow-hidden">
                                 <input
                                     value={editForm.title}
@@ -670,10 +651,12 @@ export default function TransactionList({
                                     </Button>
                                 </div>
                             </div>
-                        )}
-                    </motion.div>
-                );
-            })}
+                                )}
+                            </motion.div>
+                        );
+                    })}
+                </div>
+            ))}
         </div>
     );
 }

@@ -159,6 +159,10 @@ export default function Tracker({
             .sort((a, b) => {
                 const dateCompare = normalizeDate(b.date).localeCompare(normalizeDate(a.date));
                 if (dateCompare !== 0) return dateCompare;
+
+                const timeCompare = String(b.time || "").localeCompare(String(a.time || ""));
+                if (timeCompare !== 0) return timeCompare;
+
                 return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
             });
     }, [currentMonthTransactions, query, categoryFilter, sourceFilter]);

@@ -6,9 +6,33 @@ const GMAIL_QUERY = 'label:transaction';
 // data per-user; the anon key has no login session, so this must be explicit).
 const IMPORT_USER_ID = 'd09a1edc-3042-4e9f-886d-d5136ff379cc';
 
+// Nama pemilik akun -- dipakai buat skip transfer ke rekening/dompet sendiri
+// (kalau nama penerima yang ke-extract cocok sama ini, berarti transfer ke diri
+// sendiri, bukan pengeluaran).
+const OWNER_NAME = /ryan\s*ilham(?:\s*septiyanto)?/i;
+
+// Satu-satunya bagian yang "hardcode per pengirim" -- info sumber dana/akun
+// emang cuma bisa didapat dari alamat pengirim, bukan dari isi email. Selain
+// ini, SEMUA email diparse pakai satu logic generic yang sama (parseTransactionEmail),
+// bukan parser custom per bank -- biar nggak gampang patah tiap kali salah satu
+// bank ubah sedikit template emailnya.
+const BANK_CONFIG = [
+  { match: 'kartukreditbca@klikbca.com', source: 'Credit Card - BCA', dana: 'Spend CC' },
+  { match: 'noreply.livin@bankmandiri.co.id', source: 'Mandiri', dana: 'Spend Bulanan' },
+  { match: 'superbank.id', source: 'Superbank', dana: 'Spend Bulanan' },
+  { match: 'wondr@bni.co.id', source: 'BNI', dana: 'Spend Bulanan' },
+  { match: 'receipts@blubybcadigital.id', source: 'Blu', dana: 'Spend Bulanan' },
+  { match: 'bca@bca.co.id', source: 'BCA', dana: 'Spend Bulanan' },
+  { match: 'no-reply@grab.com', source: 'Superbank', dana: 'Spend Bulanan', defaultTitle: 'Grab', isGrab: true },
+];
+
+// Grab bisa dibayar dari beberapa sumber berbeda -- ini satu-satunya bagian
+// selain BANK_CONFIG yang "spesifik", karena kalau di-generalisir jadi satu
+// source tetap, saldo akun yang salah bakal jadi keliru tiap kali bayar Grab
+// pake kartu/rekening yang berbeda.
 const GRAB_PAYMENT_SOURCES = {
-  '9628': { source: 'Superbank', dana_dipakai: 'Spend Bulanan' },
-  '4904': { source: 'Credit Card - BCA', dana_dipakai: 'Spend CC' },
+  '9628': { source: 'Superbank', dana: 'Spend Bulanan' },
+  '4904': { source: 'Credit Card - BCA', dana: 'Spend CC' },
 };
 
 // ===== DEDUP =====
@@ -17,11 +41,11 @@ function isProcessed(messageId) {
 }
 
 // Email yang GAGAL di-parse sengaja nggak di-markProcessed supaya bisa
-// di-retry setelah parser-nya diperbaiki. Tapi kalau formatnya emang nggak
-// pernah bisa ke-parse, dia bakal di-fetch ulang TIAP KALI trigger jalan --
-// selamanya -- dan itu yang bikin kuota Gmail harian jebol. MAX_PARSE_RETRIES
-// batasin percobaan itu; setelah gagal berkali-kali, email di-skip permanen
-// (dikasih label 'needs-review' biar bisa dicek manual) daripada terus nyedot kuota.
+// di-retry setelah parser diperbaiki. Tapi kalau formatnya emang nggak pernah
+// bisa ke-parse, dia bakal di-fetch ulang TIAP KALI trigger jalan -- selamanya
+// -- dan itu yang bikin kuota Gmail harian jebol. MAX_PARSE_RETRIES batasin
+// percobaan itu; setelah gagal berkali-kali, email di-skip permanen (dikasih
+// label 'needs-review' biar bisa dicek manual) daripada terus nyedot kuota.
 const MAX_PARSE_RETRIES = 5;
 
 function getFailCount(messageId) {
@@ -42,40 +66,54 @@ function markProcessed(messageId) {
   PropertiesService.getScriptProperties().setProperty('msg_' + messageId, '1');
 }
 
-// ===== UTILS (jalankan manual sekali, lalu hapus) =====
+// ===== UTILS (jalankan manual sekali kalau perlu) =====
 
 /**
- * Hapus semua msg yang berasal dari KartuKreditBCA agar bisa di-reprocess.
- * Gunakan ini untuk recover email yang terlanjur di-SKIP_MARK_READ oleh script lama.
- * Jalankan SEKALI via Apps Script editor → Run → clearKartuKreditBCAProcessed, lalu hapus fungsi ini.
+ * Reset status processed/fail-count SEMUA email yang match GMAIL_QUERY (bukan
+ * cuma yang udah kena label needs-review). Jalankan ini SEKALI abis ganti
+ * parser, biar email yang ke-skip diem-diem gara-gara nyangkut status lama
+ * ke-proses ulang. Abis ini jalankan processTransactionEmails.
  */
-function clearKartuKreditBCAProcessed() {
-  var props = PropertiesService.getScriptProperties().getProperties();
-  var count = 0;
-  Object.keys(props).forEach(function(key) {
-    if (key.startsWith('msg_')) {
-      var msgId = key.replace('msg_', '');
+function resetAllTransactionMessages() {
+  const list = Gmail.Users.Messages.list('me', { q: GMAIL_QUERY, maxResults: 100 });
+  const messages = list.messages || [];
+  const labels = Gmail.Users.Labels.list('me').labels || [];
+  const needsReviewLabel = labels.find(function (l) { return l.name === 'needs-review'; });
+
+  let count = 0;
+  messages.forEach(function (m) {
+    PropertiesService.getScriptProperties().deleteProperty('msg_' + m.id);
+    PropertiesService.getScriptProperties().deleteProperty('fail_' + m.id);
+    if (needsReviewLabel) {
       try {
-        var msg = GmailApp.getMessageById(msgId);
-        if (msg && msg.getFrom().toLowerCase().indexOf('kartukreditbca@klikbca.com') !== -1) {
-          PropertiesService.getScriptProperties().deleteProperty(key);
-          msg.markUnread(); // biar ketrigger lagi
-          count++;
-          Logger.log('Cleared: ' + msgId + ' | ' + msg.getSubject());
-        }
-      } catch(e) {
-        // message not found, skip
+        Gmail.Users.Messages.modify({ removeLabelIds: [needsReviewLabel.id] }, 'me', m.id);
+      } catch (e) {
+        // pesan mungkin nggak punya label ini, aman diabaikan
       }
     }
+    count++;
   });
-  Logger.log('Done. Cleared ' + count + ' KartuKreditBCA message(s).');
+  Logger.log('Reset ' + count + ' pesan (processed + fail count + label needs-review dicopot).');
+}
+
+/**
+ * Debug: cek status dedup (processed/fail count) dari 10 email transaksi
+ * terbaru, tanpa mroses apa-apa.
+ */
+function debugCheckStatus() {
+  const list = Gmail.Users.Messages.list('me', { q: GMAIL_QUERY, maxResults: 10 });
+  const messages = list.messages || [];
+  messages.forEach(function (m) {
+    const full = Gmail.Users.Messages.get('me', m.id, { format: 'metadata', metadataHeaders: ['Subject', 'From'] });
+    const subject = getHeader(full, 'Subject');
+    const from = getHeader(full, 'From');
+    Logger.log(subject + ' | ' + from + ' | processed=' + isProcessed(m.id) + ' | failCount=' + getFailCount(m.id));
+  });
 }
 
 /**
  * Reset pesan yang udah "menyerah" (label needs-review) supaya di-retry lagi
- * oleh processTransactionEmails setelah parser/getEmailBody diperbaiki.
- * Jalankan manual sekali tiap kali abis fix parser, lalu jalankan
- * processTransactionEmails lagi buat coba ulang.
+ * oleh processTransactionEmails setelah parser diperbaiki.
  */
 function resetNeedsReviewMessages() {
   const list = Gmail.Users.Messages.list('me', { q: 'label:needs-review', maxResults: 100 });
@@ -96,20 +134,26 @@ function resetNeedsReviewMessages() {
 }
 
 /**
- * Debug: log isi teks hasil decode (getEmailBody) dari 5 email transaksi
- * terbaru, tanpa peduli status processed/read. Pakai ini kalau parser gagal
- * dan mau lihat persis teks yang dicocokkan ke regex.
+ * Debug: log isi teks (getEmailBody) + hasil parse dari 5 email transaksi
+ * terbaru, tanpa peduli status processed/read.
  */
 function debugDumpBodies() {
   const list = Gmail.Users.Messages.list('me', { q: GMAIL_QUERY, maxResults: 5 });
   const messages = list.messages || [];
   messages.forEach(function (m) {
     const full = Gmail.Users.Messages.get('me', m.id, { format: 'full' });
+    const from = getHeader(full, 'From').toLowerCase();
     const subject = getHeader(full, 'Subject');
-    const from = getHeader(full, 'From');
     const body = getEmailBody(full);
+    const bank = BANK_CONFIG.find(function (b) { return from.indexOf(b.match) !== -1; });
+
     Logger.log('=== ' + subject + ' | ' + from + ' ===');
     Logger.log(body.substring(0, 1500));
+    if (bank) {
+      Logger.log('Parse result: ' + JSON.stringify(parseTransactionEmail(body, subject, bank)));
+    } else {
+      Logger.log('(bank tidak dikenali dari alamat pengirim)');
+    }
     Logger.log('--- END ---');
   });
 }
@@ -118,9 +162,8 @@ function debugDumpBodies() {
 // Pakai Advanced Gmail Service (Gmail.Users.*) alih-alih GmailApp bawaan.
 // GmailApp punya kuota harian sendiri yang ketat buat akun consumer ("Service
 // invoked too many times for one day: gmail"); Advanced Gmail Service manggil
-// Gmail API asli yang kuotanya jauh lebih besar, jadi nggak gampang jebol
-// meski backlog email-nya banyak. Ini butuh Gmail API diaktifkan sekali lewat
-// Apps Script editor: Services (ikon +) → Gmail API → Add.
+// Gmail API asli yang kuotanya jauh lebih besar. Ini butuh Gmail API
+// diaktifkan sekali lewat Apps Script editor: Services (ikon +) → Gmail API → Add.
 function processTransactionEmails() {
   const list = Gmail.Users.Messages.list('me', { q: GMAIL_QUERY, maxResults: 50 });
   const messages = list.messages || [];
@@ -156,30 +199,30 @@ function getOrCreateLabelId(name) {
   return created.id;
 }
 
+function handleParseFailure(message, subject, from) {
+  const failCount = incrementFailCount(message.id);
+  Logger.log('Gagal parse (percobaan ' + failCount + '/' + MAX_PARSE_RETRIES + ') for: ' + subject + ' | from: ' + from);
+  if (failCount >= MAX_PARSE_RETRIES) {
+    Logger.log('Menyerah setelah ' + failCount + 'x gagal, di-skip permanen: ' + subject);
+    markReadAPI(message.id);
+    markProcessed(message.id);
+    try {
+      const labelId = getOrCreateLabelId('needs-review');
+      Gmail.Users.Messages.modify({ addLabelIds: [labelId] }, 'me', message.id);
+    } catch (e) {
+      Logger.log('Gagal nempelin label needs-review: ' + e);
+    }
+  }
+}
+
 function handleMessage(message) {
   const from = getHeader(message, 'From').toLowerCase();
   const subject = getHeader(message, 'Subject');
+  const bank = BANK_CONFIG.find(function (b) { return from.indexOf(b.match) !== -1; });
+  if (!bank) return;
+
   const body = getEmailBody(message);
-
-  let tx = null;
-
-  if (from.indexOf('kartukreditbca@klikbca.com') !== -1) {
-    tx = parseKartuKreditBCA(subject, body);
-  } else if (from.indexOf('noreply.livin@bankmandiri.co.id') !== -1) {
-    tx = parseLivin(body);
-  } else if (from.indexOf('superbank.id') !== -1) {
-    tx = parseSuperbank(body);
-  } else if (from.indexOf('wondr@bni.co.id') !== -1) {
-    tx = parseWondr(body);
-  } else if (from.indexOf('receipts@blubybcadigital.id') !== -1) {
-    tx = parseBlu(body);
-  } else if (from.indexOf('bca@bca.co.id') !== -1) {
-    tx = parseBCA(body);
-  } else if (from.indexOf('no-reply@grab.com') !== -1) {
-    tx = parseGrab(body);
-  } else {
-    return;
-  }
+  const tx = parseTransactionEmail(body, subject, bank);
 
   if (tx === 'SKIP_MARK_READ') {
     markReadAPI(message.id);
@@ -187,22 +230,7 @@ function handleMessage(message) {
     return;
   }
   if (!tx) {
-    // null = parse gagal, JANGAN mark processed supaya bisa di-retry setelah fix
-    // (tapi dibatasi MAX_PARSE_RETRIES -- lihat catatan di getFailCount/dst).
-    const failCount = incrementFailCount(message.id);
-    Logger.log('Parser returned null (percobaan ' + failCount + '/' + MAX_PARSE_RETRIES + ') for: ' + subject + ' | from: ' + from);
-
-    if (failCount >= MAX_PARSE_RETRIES) {
-      Logger.log('Menyerah setelah ' + failCount + 'x gagal, di-skip permanen: ' + subject);
-      markReadAPI(message.id);
-      markProcessed(message.id);
-      try {
-        const labelId = getOrCreateLabelId('needs-review');
-        Gmail.Users.Messages.modify({ addLabelIds: [labelId] }, 'me', message.id);
-      } catch (e) {
-        Logger.log('Gagal nempelin label needs-review: ' + e);
-      }
-    }
+    handleParseFailure(message, subject, from);
     return;
   }
 
@@ -214,13 +242,11 @@ function handleMessage(message) {
   }
 }
 
-// ===== PARSERS =====
-
 // ===== EMAIL BODY HELPER =====
-// Beberapa bank (KartuKreditBCA, dll) kirim email HTML-only, jadi selalu coba
-// text/plain dulu lalu fallback ke text/html yang di-strip jadi teks biasa.
-// Body Gmail API dikirim base64url-encoded dan bisa nested di beberapa parts
-// (multipart/alternative, multipart/mixed, dst) makanya perlu collectParts.
+// Beberapa bank kirim email HTML-only, jadi selalu coba text/plain dulu lalu
+// fallback ke text/html yang di-strip jadi teks biasa. Body Gmail API
+// dikirim base64url-encoded dan bisa nested di beberapa parts (multipart/alternative,
+// multipart/mixed, dst) makanya perlu collectParts.
 function collectParts(payload) {
   if (!payload) return [];
   var result = [];
@@ -252,6 +278,9 @@ function decodeBase64Url(data) {
   return Utilities.newBlob(Utilities.base64Decode(normalized)).getDataAsString();
 }
 
+// Sengaja dibikin simpel (strip tag + rapiin baris baru) tanpa akal-akalan
+// nyisipin colon dsb di antara sel tabel -- parser generic di bawah udah
+// toleran ke jarak/baris-kosong sembarang, jadi nggak perlu presisi.
 function getEmailBody(message) {
   var parts = collectParts(message.payload);
   var plainPart = parts.find(function (p) { return p.mimeType === 'text/plain'; });
@@ -263,223 +292,64 @@ function getEmailBody(message) {
   var html = htmlPart ? decodeBase64Url(htmlPart.data) : '';
   if (!html) return plain || '';
 
-  // PENTING: strip <style>, <script>, <head> DULU sebelum proses lainnya
   html = html.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
   html = html.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
   html = html.replace(/<head[^>]*>[\s\S]*?<\/head>/gi, '');
-
-  // Ubah struktur tabel jadi teks yang bisa di-parse
-  html = html.replace(/<\/td>\s*<td[^>]*>/gi, ' : ');   // </td><td> → " : "
-  html = html.replace(/<td[^>]*>/gi, '');                  // buka <td>
-  html = html.replace(/<\/td>/gi, '\n');                  // tutup </td> → newline
-  html = html.replace(/<br\s*\/?>/gi, '\n');              // <br> → newline
-  html = html.replace(/<\/tr>/gi, '\n');                  // </tr> → newline
-  html = html.replace(/<\/p>/gi, '\n');                   // </p> → newline
-  html = html.replace(/<\/div>/gi, '\n');                 // </div> → newline
-  html = html.replace(/<[^>]+>/g, '');                     // strip semua tag sisanya
-  // Decode HTML entities
+  html = html.replace(/<\/(td|tr|p|div|li)>/gi, '\n');
+  html = html.replace(/<br\s*\/?>/gi, '\n');
+  html = html.replace(/<[^>]+>/g, ' ');
   html = html.replace(/&nbsp;/g, ' ');
   html = html.replace(/&amp;/g, '&');
   html = html.replace(/&lt;/g, '<');
   html = html.replace(/&gt;/g, '>');
   html = html.replace(/&#39;/g, "'");
   html = html.replace(/&quot;/g, '"');
-  // Bersihkan multiple spaces/newlines
   html = html.replace(/[ \t]{2,}/g, ' ');
   html = html.replace(/\n{3,}/g, '\n\n');
-  // Beberapa bank (blu format Recurring/Autopay, dll) taruh value di baris
-  // <tr> yang TERPISAH dari labelnya, jadi hasil strip jadi "Label\n\n: Value"
-  // bukan "Label Value". Parser (misalnya parseBlu) nungguin label & value
-  // nyambung langsung tanpa colon -- gabungkan jadi satu baris & buang
-  // colon-nya.
-  html = html.replace(/\n+[ \t]*:[ \t]*/g, ' ');
-  // Beberapa tabel HTML BCA (myBCA, dst) punya kolom kosong (spacer <td>)
-  // antara label & nilai. GmailApp.getBody() dulu otomatis menormalkannya,
-  // tapi Gmail API kasih HTML mentah asli, jadi hasil strip di atas bisa jadi
-  // " : : VALUE" bukan " : VALUE" -- collapse jadi satu colon biar regex
-  // parser (yang cuma nerima satu colon opsional) tetap match.
-  html = html.replace(/(?::[ \t]*){2,}/g, ': ');
   return html.trim();
 }
 
+// ===== GENERIC PARSER =====
+// Satu fungsi buat SEMUA bank -- gantiin 7 parser custom (KartuKreditBCA,
+// Livin, Superbank, wondr, blu, BCA, Grab) yang isinya puluhan regex spesifik
+// per format email. Alih-alih cocokin struktur label persis, ini cuma nyari
+// pola generic yang ada di hampir semua notifikasi transaksi: nominal (Rp/IDR),
+// tanggal, dan nama merchant/penerima dari label yang umum dipakai. Lebih
+// nggak presisi dibanding parser lama, tapi jauh lebih tahan banting kalau
+// bank ubah sedikit tata letak emailnya.
+function parseTransactionEmail(body, subject, bank) {
+  // Skip: dana MASUK (refund/transfer masuk) -- bukan pengeluaran.
+  if (/pengembalian dana|refund|dana masuk|transaksi masuk|transfer masuk/i.test(body)) {
+    return 'SKIP_MARK_READ';
+  }
+  // Skip: pembayaran tagihan kartu kredit dari rekening biasa -- transaksinya
+  // sendiri udah tercatat lewat email kartu kredit yang terpisah, jadi kalau
+  // dicatat lagi di sini bakal double-count.
+  if (bank.dana !== 'Spend CC' && /kartu kredit/i.test(body) && /tagihan/i.test(body) && /(?:bayar|pembayaran)/i.test(body)) {
+    return 'SKIP_MARK_READ';
+  }
 
-function parseKartuKreditBCA(subject, body) {
-  // FIX: HTML table punya kolom kosong antara label & nilai, jadi setelah strip
-  // hasilnya " : : : VALUE" bukan " : VALUE".
-  // Pakai (?::\s*)+ untuk skip semua colon.
-  const amountMatch = body.match(/Sejumlah\s*(?::\s*)+Rp\s?([\d.,]+)/i);
-  const merchantMatch = body.match(/Merchant\s*\/\s*ATM\s*(?::\s*)+([^:\n][^\n]*)/i);
-  const dateMatch = body.match(/Pada Tanggal\s*(?::\s*)+(\d{1,2})-(\d{1,2})-(\d{4})(?:\s+(\d{2}):(\d{2}))?/i);
+  const amount = extractAmount(body);
+  const dateTime = extractDateTime(body);
+  if (!amount || !dateTime.date) return null;
 
-  if (!amountMatch || !merchantMatch || !dateMatch) {
-    if (/tagihan|statement|e-statement|promo|penawaran|cicilan|partner|ekstra|dapatkan/i.test(subject)) {
-      return 'SKIP_MARK_READ';
+  const title = extractTitle(body, subject, bank);
+  if (OWNER_NAME.test(title)) return 'SKIP_MARK_READ'; // transfer ke diri sendiri
+
+  let source = bank.source;
+  let dana = bank.dana;
+  if (bank.isGrab) {
+    const payment = extractGrabPaymentSource(body);
+    if (payment) {
+      source = payment.source;
+      dana = payment.dana;
     }
-    Logger.log('KartuKreditBCA parse failed. subject=' + subject);
-    Logger.log('  amountMatch=' + !!amountMatch + ' merchantMatch=' + !!merchantMatch + ' dateMatch=' + !!dateMatch);
-    Logger.log('  body(0-600): ' + body.substring(0, 600).replace(/\n/g, ' | '));
-    return null;
   }
-
-  const title = remapKnownMerchant(merchantMatch[1].trim());
-  const date = dateMatch[3] + '-' + dateMatch[2].padStart(2, '0') + '-' + dateMatch[1].padStart(2, '0');
-  const time = dateMatch[4] ? dateMatch[4] + ':' + dateMatch[5] : '';
-  const amount = parseRupiah(amountMatch[1]);
-  return {
-    title: title,
-    date: date,
-    time: time,
-    amount: amount,
-    category: guessCategory(title),
-    source: 'Credit Card - BCA',
-    dana_dipakai: 'Spend CC',
-  };
-}
-
-
-function parseLivin(body) {
-  const recipientMatch = body.match(/Recipient\s*#*\s*([^\n#]+)/i);
-  if (!recipientMatch) {
-    Logger.log('Livin: Recipient not found. body: ' + body.substring(0, 200).replace(/\n/g, ' | '));
-    return null;
-  }
-
-  // FIX: Livin taruh Date dan Time di baris TERPISAH
-  // Format: "Date 29 Aug 2026 | Time 15:34:25 WIB"
-  let date, time;
-  const combinedDT = body.match(/Date\s*\|?\s*(\d{1,2}\s+\w+\s+\d{2,4})\s+(\d{1,2}):(\d{2})/i);
-  if (combinedDT) {
-    date = parseIndoDate(combinedDT[1]);
-    time = formatTime(combinedDT[2], combinedDT[3]);
-  } else {
-    const dateOnly = body.match(/Date\s+(\d{1,2}\s+\w+\s+\d{2,4})/i);
-    const timeOnly = body.match(/Time\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(?:WIB|WITA|WIT)?/i);
-    if (!dateOnly) {
-      Logger.log('Livin: no date field. recipient=' + recipientMatch[1]);
-      return null;
-    }
-    date = parseIndoDate(dateOnly[1]);
-    time = formatTime(timeOnly && timeOnly[1], timeOnly && timeOnly[2]);
-  }
-  if (!date) return null;
-
-  const tripFareMatch = body.match(/Trip Fare\s*\|?\s*Rp\s?([\d.,]+)/i);
-  const holdMatch = body.match(/Hold Amount\s*\|?\s*Rp\s?([\d.,]+)/i);
-  const refundMatch = body.match(/Refund Amount\s*\|?\s*Rp\s?([\d.,]+)/i);
-  const txAmountMatch = body.match(/Transaction Amount\s*\|?\s*Rp\s?([\d.,]+)/i);
-
-  // FIX: tambah pattern untuk pembayaran umum (ticket, merchant, dll)
-  const nominalMatch = body.match(/Nominal(?:\s+Transfer|\s+Transaksi)?\s*\|?:?\s*Rp\s?([\d.,]+)/i);
-  const totalMatch = body.match(/Total(?:\s+Bayar|\s+Pembayaran)?\s*\|?:?\s*Rp\s?([\d.,]+)/i);
-  const jumlahMatch = body.match(/(?:Jumlah|Amount)\s*\|?:?\s*Rp\s?([\d.,]+)/i);
-
-  let amount;
-  if (tripFareMatch) amount = parseRupiah(tripFareMatch[1]);
-  else if (holdMatch && refundMatch) amount = parseRupiah(holdMatch[1]) - parseRupiah(refundMatch[1]);
-  else if (holdMatch) amount = parseRupiah(holdMatch[1]);
-  else if (txAmountMatch) amount = parseRupiah(txAmountMatch[1]);
-  else if (nominalMatch) amount = parseRupiah(nominalMatch[1]);
-  else if (totalMatch) amount = parseRupiah(totalMatch[1]);
-  else if (jumlahMatch) amount = parseRupiah(jumlahMatch[1]);
-  else {
-    Logger.log('Livin: no amount field found. recipient=' + recipientMatch[1]);
-    return null;
-  }
-
-  if (!amount || amount <= 0) return null;
-
-  const title = remapKnownMerchant(recipientMatch[1].trim());
 
   return {
     title: title,
-    date: date,
-    time: time,
-    amount: amount,
-    category: guessCategory(title),
-    source: 'Mandiri',
-    dana_dipakai: 'Spend Bulanan',
-  };
-}
-
-function parseSuperbank(body) {
-  const amountMatch = body.match(/Nominal Bayar\s*\n?\s*Rp\s?([\d.,]+)/i);
-  const dateTimeMatch = body.match(/Tanggal\s*&\s*waktu\s*\n?\s*(\d{1,2}\s+\w+\s+\d{2,4})\s+(\d{1,2}):(\d{2})/i);
-  if (!amountMatch || !dateTimeMatch) return null;
-
-  const merchant = extractAfterLabel(body, 'Penerima');
-  if (!merchant) return null;
-  const title = remapKnownMerchant(merchant);
-
-  const date = parseIndoDate(dateTimeMatch[1]);
-  const time = formatTime(dateTimeMatch[2], dateTimeMatch[3]);
-  if (!date) return null;
-  const amount = parseRupiah(amountMatch[1]);
-
-  return {
-    title: title,
-    date: date,
-    time: time,
-    amount: amount,
-    category: guessCategory(title),
-    source: 'Superbank',
-    dana_dipakai: 'Spend Bulanan',
-  };
-}
-
-function parseWondr(body) {
-  const penerima = extractAfterLabel(body, 'Penerima');
-  if (!penerima) return null;
-
-  // FIX: handle "Nominal Transaksi", "Nominal:", dll
-  const amountMatch =
-    body.match(/Nominal(?:\s+Transaksi|\s+Transfer|\s+Pembayaran)?\s*\n?\s*:?\s*Rp\s?([\d.,]+)/i) ||
-    body.match(/Jumlah\s*\n?\s*:?\s*Rp\s?([\d.,]+)/i) ||
-    body.match(/Total\s*\n?\s*:?\s*Rp\s?([\d.,]+)/i);
-
-  // FIX: wondr taruh Tanggal dan Waktu/Jam di baris TERPISAH dengan label masing-masing
-  let date, time;
-  const combinedMatch =
-    body.match(/Tanggal\s*\|?\s*(\d{1,2}\s+\w+\s+\d{2,4})\s+(\d{1,2}):(\d{2})/i) ||
-    body.match(/Tanggal\s*\|?\s*(\d{1,2}\s+\w+\s+\d{2,4})\s*\n+\s*(\d{1,2}):(\d{2})/i);
-
-  if (combinedMatch) {
-    date = parseIndoDate(combinedMatch[1]);
-    time = formatTime(combinedMatch[2], combinedMatch[3]);
-  } else {
-    // Tanggal dan Waktu label terpisah
-    const dateOnlyMatch = body.match(/Tanggal(?:\s+Transaksi)?\s*[:|]?\s*\n?\s*(\d{1,2}\s+\w+\s+\d{2,4})/i);
-    const timeOnlyMatch = body.match(/(?:Waktu|Jam)\s*[:|]?\s*\n?\s*(\d{1,2}):(\d{2})/i);
-    if (!dateOnlyMatch) {
-      Logger.log('wondr parse failed. penerima=' + penerima);
-      Logger.log('  amountMatch=' + !!amountMatch + ' dateTimeMatch=false (no date label found)');
-      Logger.log('  body snippet: ' + body.substring(0, 500).replace(/\n/g, ' | '));
-      return null;
-    }
-    date = parseIndoDate(dateOnlyMatch[1]);
-    time = formatTime(timeOnlyMatch && timeOnlyMatch[1], timeOnlyMatch && timeOnlyMatch[2]);
-  }
-
-  if (!amountMatch) {
-    Logger.log('wondr: amount not found. penerima=' + penerima);
-    return null;
-  }
-
-  const sumberSection = (body.match(/Sumber dana[\s\S]{0,150}/i) || [''])[0];
-  let source = 'BNI';
-  let dana = 'Spend Bulanan';
-  if (/mastercard|kartu kredit/i.test(sumberSection)) {
-    source = 'Credit Card - BNI';
-    dana = 'Spend CC';
-  }
-
-  const title = remapKnownMerchant(penerima);
-  if (!date) return null;
-  const amount = parseRupiah(amountMatch[1]);
-
-  return {
-    title: title,
-    date: date,
-    time: time,
+    date: dateTime.date,
+    time: dateTime.time,
     amount: amount,
     category: guessCategory(title),
     source: source,
@@ -487,346 +357,54 @@ function parseWondr(body) {
   };
 }
 
-function parseBlu(body) {
-  const dateTimeMatch = body.match(/Tgl\s*&\s*Jam Transaksi\s*\n?\s*(\d{1,2}\s+\w+\s+\d{2,4})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?/i);
-  if (!dateTimeMatch) return null;
-
-  const date = parseIndoDate(dateTimeMatch[1]);
-  if (!date) return null;
-
-  const time = formatTime(dateTimeMatch[2], dateTimeMatch[3], dateTimeMatch[4]);
-
-  const tipeMatch = body.match(/Tipe Transaksi\s*\n?\s*([^\n]+)/i);
-  const tipe = tipeMatch ? tipeMatch[1].trim() : '';
-  const isTransfer = /BI-FAST|SKN|RTGS|Transfer/i.test(tipe);
-
-  const amountMatch =
-    body.match(/Total(?:\s+Bayar)?\s*\n?\s*Rp\s?([\d.,]+)/i) ||
-    body.match(/Nominal Tagihan\s*\n?\s*Rp\s?([\d.,]+)/i);
-  if (!amountMatch) return null;
-  const amount = parseRupiah(amountMatch[1]);
-
-  if (isTransfer) {
-    const nama = extractAfterLabel(body, 'bluAccount');
-    if (!nama) return null;
-    if (/ryan ilham/i.test(nama)) return null;
-
-    return {
-      title: remapKnownMerchant(nama),
-      date: date,
-      time: time,
-      amount: amount,
-      category: 'Account Transfer',
-      source: 'Blu',
-      dana_dipakai: 'Spend Bulanan',
-    };
+// Ambil semua kemunculan "Rp ..."/"IDR ..." di body, lalu pilih yang paling
+// deket sama kata kunci total-ish (total/nominal/jumlah/sejumlah) -- itu
+// biasanya nominal transaksi utama, bukan breakdown/komponen lain (VAT,
+// promo, dst). Kalau nggak ada kata kunci sama sekali, pakai angka pertama.
+function extractAmount(body) {
+  const candidates = [];
+  const re = /Rp\.?\s?([\d.,]{3,})|IDR\s?([\d,]+\.\d{2})/gi;
+  let m;
+  while ((m = re.exec(body)) !== null) {
+    const val = m[1] ? parseRupiah(m[1]) : parseIDR(m[2]);
+    if (val > 0) candidates.push({ val: val, index: m.index });
   }
+  if (!candidates.length) return null;
 
-  let title = extractAfterLabel(body, 'bluAccount');
-  if (!title) return null;
-  title = title.replace(/\s*blu(?:Debit)?\s*Card[\s\S]*$/i, '').trim();
-  if (!title) return null;
-  title = remapKnownMerchant(title);
-
-  return {
-    title: title,
-    date: date,
-    time: time,
-    amount: amount,
-    category: guessCategory(title),
-    source: 'Blu',
-    dana_dipakai: 'Spend Bulanan',
-  };
+  const totalIdx = body.search(/total|nominal|jumlah|sejumlah|amount paid|grand total/i);
+  if (totalIdx !== -1) {
+    const near = candidates
+      .filter(function (c) { return c.index >= totalIdx && c.index - totalIdx < 200; })
+      .sort(function (a, b) { return a.index - b.index; })[0];
+    if (near) return near.val;
+  }
+  return candidates[0].val;
 }
 
-function parseBCA(body) {
-  // Skip: transfer antar Poket (bukan pengeluaran nyata)
-  if (/Jenis Transaksi\s*:\s*Transaksi Poket/i.test(body)) return 'SKIP_MARK_READ';
-
-  // Skip: pembayaran tagihan Kartu Kredit BCA (sudah tercatat via email KartuKreditBCA)
-  if (/Jenis Transaksi\s*:.*Kartu Kredit.*Paylater/i.test(body)) return 'SKIP_MARK_READ';
-
-  // Skip: Pindahkan Poket
-  if (/Pindahkan Poket/i.test(body)) return 'SKIP_MARK_READ';
-
-  // --- Jalur 0: Top Up Flazz ---
-  if (/Jenis Transaksi\s*:\s*Top Up Flazz/i.test(body)) {
-    const dtMatch = body.match(/Tanggal Transaksi\s*:\s*(\d{1,2}\s+\w+\s+\d{4})\s+(\d{2}):(\d{2})/i);
-    const amtMatch = body.match(/Nominal Top Up\s*:\s*IDR\s?([\d,]+\.\d{2})/i);
-    if (!dtMatch || !amtMatch) return null;
-    return {
-      title: 'Top Up Flazz BCA',
-      date: parseIndoDate(dtMatch[1]),
-      time: dtMatch[2] + ':' + dtMatch[3],
-      amount: parseIDR(amtMatch[1]),
-      category: 'Transportation',
-      source: 'BCA',
-      dana_dipakai: 'Spend Bulanan',
-    };
-  }
-
-  // --- Jalur 1: myBCA PEMBELIAN (PLN, BPJS, token listrik, dll) ---
-  if (/fasilitas myBCA/i.test(body) && /Type Transaksi\s*:?\s*PEMBELIAN/i.test(body)) {
-    const dateTimeMatch = body.match(/Tgl\/Jam\s*:?\s*(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})(?::\d{2})?/i);
-    const produkMatch = body.match(/Produk\s*:?\s*([^\n]+)/i);
-    const amountMatch = body.match(/Total Bayar\s*:?\s*RP\s+([\d.,]+)/i);
-    if (!dateTimeMatch || !produkMatch || !amountMatch) return null;
-
-    const date = dateTimeMatch[3] + '-' + dateTimeMatch[2] + '-' + dateTimeMatch[1];
-    const time = dateTimeMatch[4] + ':' + dateTimeMatch[5];
-    const title = formatProdukTitle(produkMatch[1].trim());
-    const amount = parseRupiah(amountMatch[1]);
-
-    return {
-      title: title,
-      date: date,
-      time: time,
-      amount: amount,
-      category: guessCategory(title),
-      source: 'BCA',
-      dana_dipakai: 'Spend Bulanan',
-    };
-  }
-
-  // --- Jalur 2: myBCA TRANSFER/PEMBAYARAN (Internet Transaction Journal) ---
-  // FIX: tambah handler untuk tipe transfer via myBCA
-  if (/fasilitas myBCA/i.test(body) && /Type Transaksi\s*:?\s*(?:TRANSFER|PEMBAYARAN)/i.test(body)) {
-    const dateTimeMatch = body.match(/Tgl\/Jam\s*:?\s*(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{2}):(\d{2})(?::\d{2})?/i);
-    const penerimaMatcher = body.match(/(?:Nama Penerima|Tujuan|Nama Tujuan)\s*:?\s*([^\n]+)/i);
-    const amountMatch =
-      body.match(/(?:Nominal|Jumlah)\s*:?\s*Rp\s?([\d.,]+)/i) ||
-      body.match(/Total Bayar\s*:?\s*Rp\s?([\d.,]+)/i) ||
-      body.match(/Nominal\s*:?\s*IDR\s?([\d,]+\.\d{2})/i);
-
-    if (dateTimeMatch && penerimaMatcher && amountMatch) {
-      const penerima = penerimaMatcher[1].trim();
-      if (/ryan ilham/i.test(penerima)) return null;
-
-      const date = dateTimeMatch[3] + '-' + dateTimeMatch[2].padStart(2, '0') + '-' + dateTimeMatch[1].padStart(2, '0');
-      const time = dateTimeMatch[4] + ':' + dateTimeMatch[5];
-      const amount = parseAmountAuto(amountMatch[1]);
-
-      return {
-        title: remapKnownMerchant(penerima),
-        date: date,
-        time: time,
-        amount: amount,
-        category: 'Account Transfer',
-        source: 'BCA',
-        dana_dipakai: 'Spend Bulanan',
-      };
-    }
-  }
-
-  // --- Jalur 3: BCA Internet Banking — QRIS & Transfer biasa ---
-  const dateMatch = body.match(/Tanggal Transaksi\s*\|?\s*:?\s*\|?\s*(\d{1,2}\s+\w+\s+\d{2,4})(?:\s+(\d{1,2}):(\d{2}))?/i);
-  if (!dateMatch) return null;
-  const date = parseIndoDate(dateMatch[1]);
-  if (!date) return null;
-  // myBCA kadang nempelin jam langsung di "Tanggal Transaksi" (bukan field
-  // "Waktu" terpisah) -- pakai sebagai fallback kalau "Waktu" nggak ketemu.
-  const embeddedTime = formatTime(dateMatch[2], dateMatch[3]);
-
-  // QRIS
-  if (/Pembayaran QRIS/i.test(body)) {
-    const merchantMatch = body.match(/Pembayaran Ke\s*\|?\s*:?\s*\|?\s*([^\n|]+)/i);
-    const timeMatch = body.match(/Waktu\s*\|?\s*:?\s*\|?\s*(\d{1,2}):(\d{2})/i);
-    const amountMatch = body.match(/Total Bayar\s*\|?\s*:?\s*\|?\s*IDR\s?([\d,]+\.\d{2})/i);
-    if (!merchantMatch || !amountMatch) return null;
-
-    const title = remapKnownMerchant(merchantMatch[1].trim());
-    const time = timeMatch ? formatTime(timeMatch[1], timeMatch[2]) : embeddedTime;
-    const amount = parseIDR(amountMatch[1]);
-
-    return {
-      title: title,
-      date: date,
-      time: time,
-      amount: amount,
-      category: guessCategory(title),
-      source: 'BCA',
-      dana_dipakai: 'Spend Bulanan',
-    };
-  }
-
-  // Transfer ke rekening orang lain
-  const namaMatch = body.match(/Nama Penerima\s*\|?\s*:?\s*\|?\s*([^\n|]+)/i);
-  if (namaMatch) {
-    const nama = namaMatch[1].trim();
-    if (/ryan ilham/i.test(nama)) return null;
-
-    const timeMatch = body.match(/Waktu\s*\|?\s*:?\s*\|?\s*(\d{1,2}):(\d{2})/i);
-    const amountMatch = body.match(/Nominal(?:\s+Tujuan)?\s*\|?\s*:?\s*\|?\s*IDR\s?([\d,]+\.\d{2})/i);
-    if (!amountMatch) return null;
-    const amount = parseIDR(amountMatch[1]);
-    const time = timeMatch ? formatTime(timeMatch[1], timeMatch[2]) : embeddedTime;
-
-    return {
-      title: nama,
-      date: date,
-      time: time,
-      amount: amount,
-      category: 'Account Transfer',
-      source: 'BCA',
-      dana_dipakai: 'Spend Bulanan',
-    };
-  }
-
-  // FIX: BCA bill payment tanpa Nama Penerima (e.g. kartu kredit, asuransi)
-  const tujuanMatch = body.match(/(?:Nama Tagihan|Tujuan Pembayaran|Nama Produk)\s*\|?\s*:?\s*\|?\s*([^\n|]+)/i);
-  const billAmountMatch =
-    body.match(/(?:Nominal|Total Bayar|Jumlah)\s*\|?\s*:?\s*\|?\s*IDR\s?([\d,]+\.\d{2})/i) ||
-    body.match(/(?:Nominal|Total Bayar|Jumlah)\s*\|?\s*:?\s*\|?\s*Rp\s?([\d.,]+)/i);
-
-  if (tujuanMatch && billAmountMatch) {
-    const timeMatch = body.match(/Waktu\s*\|?\s*:?\s*\|?\s*(\d{1,2}):(\d{2})/i);
-    const title = remapKnownMerchant(tujuanMatch[1].trim());
-    const amount = parseAmountAuto(billAmountMatch[1]);
-    const time = timeMatch ? formatTime(timeMatch[1], timeMatch[2]) : embeddedTime;
-
-    return {
-      title: title,
-      date: date,
-      time: time,
-      amount: amount,
-      category: guessCategory(title),
-      source: 'BCA',
-      dana_dipakai: 'Spend Bulanan',
-    };
-  }
-
-  // DEBUG: print 800 chars pertama body supaya bisa lihat format emailnya
-  Logger.log('BCA: tidak ada field yang cocok. date=' + date);
-  Logger.log('BCA body snippet (0-400): ' + body.substring(0, 400).replace(/\n/g, ' | '));
-  Logger.log('BCA body snippet (400-800): ' + body.substring(400, 800).replace(/\n/g, ' | '));
-  return null;
+// Tanggal transaksi hampir selalu format "DD Bulan YYYY" (Indo atau Inggris),
+// jadi cukup ambil kemunculan pertama pola itu di body -- biasanya muncul
+// duluan di bagian atas email sebelum breakdown/rincian lain.
+function extractDateTime(body) {
+  const dm = body.match(/(\d{1,2})\s+([A-Za-z]{3,9})\s+(\d{2,4})/);
+  if (!dm) return { date: null, time: '' };
+  const date = parseIndoDate(dm[0]);
+  if (!date) return { date: null, time: '' };
+  const after = body.slice(dm.index, dm.index + 60);
+  const tm = after.match(/(\d{1,2}):(\d{2})/);
+  const time = tm ? String(tm[1]).padStart(2, '0') + ':' + tm[2] : '';
+  return { date: date, time: time };
 }
 
-function parseGrab(body) {
-  // FIX: "Your Grab E-Receipt" — format baru Grab (English receipt)
-  if (/E-Receipt/i.test(body) || /receipt/i.test(body)) {
-    // GrabFood E-Receipt
-    const foodNameMatch = body.match(/(?:Order from|Pesanan dari):?\s*([^\n]+)/i);
-    const grabFoodTotal =
-      body.match(/(?:Total|Grand Total|Amount paid)\s*:?\s*Rp\s?([\d.,]+)/i) ||
-      body.match(/(?:Total|Grand Total|Amount paid)\s*:?\s*IDR\s?([\d.,]+)/i);
-    const grabFoodDate =
-      body.match(/(?:Date|Order date|Trip date|Tanggal)\s*:?\s*(\d{1,2}\s+\w+\s+\d{2,4})(?:\s+(\d{1,2}):(\d{2}))?/i) ||
-      body.match(/(\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|Mei|Agu|Agt|Okt|Des)\w*\s+\d{4})(?:\s+(\d{1,2}):(\d{2}))?/i);
-
-    if (grabFoodDate) {
-      const date = parseIndoDate(grabFoodDate[1]);
-      if (date && grabFoodTotal) {
-        const payment = grabPaymentFromBody(body);
-        const amount = parseRupiah(grabFoodTotal[1]);
-        const title = foodNameMatch ? foodNameMatch[1].trim() : 'Grab';
-        const isFood = foodNameMatch || /GrabFood|food/i.test(body);
-        const time = formatTime(grabFoodDate[2], grabFoodDate[3]);
-        return {
-          title: remapKnownMerchant(title),
-          date: date,
-          time: time,
-          amount: amount,
-          category: isFood ? 'Food' : 'Transportation',
-          source: payment ? payment.source : 'BCA',
-          dana_dipakai: payment ? payment.dana_dipakai : 'Spend Bulanan',
-        };
-      }
-    }
-    // Kalau masih gagal, lanjut ke fallback di bawah
-    Logger.log('Grab E-Receipt: gagal parse. body: ' + body.substring(0, 400).replace(/\n/g, ' | '));
-  }
-
-  if (/Tip darimu sudah disalurkan/i.test(body)) {
-    const amountMatch = body.match(/Total\s*\|?\s*RP\s?([\d.,]+)/i);
-    const dateMatch = body.match(/Dijemput Pada:\s*(\d{1,2}\s+\w+\s+\d{2,4})(?:\s+(\d{1,2}):(\d{2}))?/i);
-    if (!amountMatch || !dateMatch) return null;
-    const date = parseIndoDate(dateMatch[1]);
-    if (!date) return null;
-    const payment = grabPaymentFromBody(body);
-    if (!payment) return null;
-    const time = formatTime(dateMatch[2], dateMatch[3]);
-    return {
-      title: 'Tip Driver Grab',
-      date: date,
-      time: time,
-      amount: parseRupiah(amountMatch[1]),
-      category: 'Food',
-      source: payment.source,
-      dana_dipakai: payment.dana_dipakai,
-    };
-  }
-
-  if (/Pesanan Dari:/i.test(body)) {
-    const restoName = extractAfterLabel(body, 'Pesanan Dari:');
-    const amountMatch = body.match(/TOTAL\s*Rp\s?([\d.,]+)/i);
-    // FIX: sebelumnya cuma nangkep tanggal, jam di label WAKTU nggak pernah di-capture
-    const dateMatch = body.match(/TANGGAL\s*\|?\s*WAKTU\s*(\d{1,2}\s+\w+\s+\d{2,4})\s+(\d{1,2}):(\d{2})/i)
-      || body.match(/TANGGAL\s*\|?\s*WAKTU\s*(\d{1,2}\s+\w+\s+\d{2,4})/i);
-    if (!restoName || !amountMatch || !dateMatch) return null;
-    const date = parseIndoDate(dateMatch[1]);
-    if (!date) return null;
-    const payment = grabPaymentFromBody(body);
-    if (!payment) return null;
-    const time = formatTime(dateMatch[2], dateMatch[3]);
-    return {
-      title: restoName,
-      date: date,
-      time: time,
-      amount: parseRupiah(amountMatch[1]),
-      category: 'Food',
-      source: payment.source,
-      dana_dipakai: payment.dana_dipakai,
-    };
-  }
-
-  const amountMatch = body.match(/Total Paid\s*\|?\s*Rp\s?([\d.,]+)/i);
-  const dateMatch = body.match(/Picked up on\s*(\d{1,2}\s+\w+\s+\d{2,4})(?:\s+(\d{1,2}):(\d{2}))?/i);
-  if (!amountMatch || !dateMatch) return null;
-  const date = parseIndoDate(dateMatch[1]);
-  if (!date) return null;
-  const payment = grabPaymentFromBody(body);
-  if (!payment) return null;
-  const time = formatTime(dateMatch[2], dateMatch[3]);
-
-  return {
-    title: 'Grab',
-    date: date,
-    time: time,
-    amount: parseRupiah(amountMatch[1]),
-    category: 'Transportation',
-    source: payment.source,
-    dana_dipakai: payment.dana_dipakai,
-  };
-}
-
-function grabPaymentFromBody(body) {
-  if (/superbank/i.test(body)) return GRAB_PAYMENT_SOURCES['9628'];
-
-  // FIX: handle Grab bayar Cash
-  if (/\[image:\s*Cash\]\s*Cash|Paid by\s+Cash|Dibayar dengan\s+Cash/i.test(body)) {
-    return { source: 'Cash', dana_dipakai: 'Spend Bulanan' };
-  }
-
-  const digitMatch = body.match(/\b(\d{4})\b\s*\|?\s*[\d.,]+\s*$/m) || body.match(/(?:Paid by|Dibayar dengan)[\s\S]{0,40}?(\d{4})\b/i);
-  if (!digitMatch) return null;
-  return GRAB_PAYMENT_SOURCES[digitMatch[1]] || null;
-}
-
-// ===== HELPERS =====
-
-function extractAfterLabel(body, label) {
-  const idx = body.search(new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'));
-  if (idx === -1) return null;
-  const rest = body.slice(idx + label.length);
-  const lines = rest.split('\n');
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (line && /[a-zA-Z0-9]/.test(line)) {
-      return line;
-    }
-  }
-  return null;
+// Nama merchant/penerima biasanya ada di baris/sel abis salah satu label
+// umum ini. Kalau nggak ketemu, pakai default per-bank (mis. "Grab" buat
+// notifikasi ride-hailing yang emang nggak punya field nama merchant), atau
+// terakhir fallback ke subject email.
+function extractTitle(body, subject, bank) {
+  const labelRe = /(?:Merchant|Pembayaran Ke|Kepada|Penerima|Nama Penerima|Nama Tujuan|Tujuan Pembayaran|Recipient|Order from|Pesanan dari|Nama Produk|bluAccount)\s*:?\s*\n?\s*([^\n]{2,60})/i;
+  const m = body.match(labelRe);
+  if (m) return remapKnownMerchant(m[1].trim());
+  if (bank.defaultTitle) return bank.defaultTitle;
+  return subject.trim();
 }
 
 function remapKnownMerchant(name) {
@@ -834,22 +412,15 @@ function remapKnownMerchant(name) {
   return name;
 }
 
-const KNOWN_ACRONYMS = { PLN: 'PLN', BPJS: 'BPJS', PDAM: 'PDAM' };
-function formatProdukTitle(produk) {
-  return produk
-    .split(/\s+/)
-    .map(function (word) {
-      const upper = word.toUpperCase();
-      if (KNOWN_ACRONYMS[upper]) return KNOWN_ACRONYMS[upper];
-      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
-    })
-    .join(' ');
-}
-
-function formatTime(h, m, s) {
-  if (h == null || m == null) return '';
-  var t = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
-  return s != null ? t + ':' + String(s).padStart(2, '0') : t;
+// Grab bisa dibayar dari beberapa sumber -- cari 4 digit terakhir kartu/rekening
+// di deket label "Paid by"/"Dibayar dengan", atau deteksi cash.
+function extractGrabPaymentSource(body) {
+  if (/(?:paid by|dibayar dengan)\s*:?\s*\n?\s*cash/i.test(body)) {
+    return { source: 'Cash', dana: 'Spend Bulanan' };
+  }
+  const m = body.match(/(?:paid by|dibayar dengan)[\s\S]{0,80}?(\d{4})\b/i);
+  if (m && GRAB_PAYMENT_SOURCES[m[1]]) return GRAB_PAYMENT_SOURCES[m[1]];
+  return null;
 }
 
 function parseRupiah(str) {
@@ -859,11 +430,6 @@ function parseRupiah(str) {
 
 function parseIDR(str) {
   return Math.round(parseFloat(str.replace(/,/g, '')));
-}
-
-// Rp uses "." as thousands separator (e.g. "81.679"); IDR uses "," (e.g. "81,679.00")
-function parseAmountAuto(str) {
-  return str.indexOf('.') !== -1 && str.indexOf(',') === -1 ? parseIDR(str) : parseRupiah(str);
 }
 
 const INDO_MONTHS = {
@@ -888,15 +454,14 @@ function guessCategory(name) {
   const n = name.toLowerCase();
   if (/\b(amal|donasi|masjid|panti|baznas|zakat|infaq|amil|baitul\s*mal)\b/.test(n)) return 'Miscellaneous';
   if (/\b(pln|listrik|pdam|token|pulsa|indihome|wifi|bpjs)\b/.test(n)) return 'Utilities';
-  if (/\b(bubur|ayam|kopi|coffee|makan|resto|warung|takoyaki|food|cafe|bakery|nasi|bowl|chicken)\b/.test(n)) return 'Food';
+  if (/\b(bubur|ayam|kopi|coffee|makan|resto|warung|takoyaki|food|cafe|bakery|nasi|bowl|chicken|donuts|pizza)\b/.test(n)) return 'Food';
   if (/\b(lrt|mrt|krl|trans|grab|gojek|parkir|toll|tol)\b/.test(n)) return 'Transportation';
   if (/\b(mart|indomaret|alfamart|superindo|supermarket)\b/.test(n)) return 'Groceries';
-  if (/\b(tiket|ticket|konser|concert|event|nonton|bioskop)\b/.test(n)) return 'Entertainment'; // FIX: added
+  if (/\b(tiket|ticket|konser|concert|event|nonton|bioskop)\b/.test(n)) return 'Entertainment';
   return 'Shopping';
 }
 
-// Satu helper buat semua request ke Supabase REST/RPC -- gantiin 3 blok
-// UrlFetchApp.fetch dengan headers apikey/Authorization/Prefer yang identik.
+// ===== SUPABASE =====
 function supabaseRequest(path, method, payload) {
   const options = {
     method: method,

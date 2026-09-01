@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Share,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { formatCurrency } from "../utils/formatters";
@@ -25,6 +26,30 @@ const formatThousands = (value) => {
 };
 
 const parseAmount = (value) => Number(String(value || "").replace(/[^\d]/g, "")) || 0;
+
+// Ringkasan teks buat native share sheet -- nggak ada link/hosting, cukup
+// dikirim langsung ke grup WA/dsb biar semua orang tau siapa bayar berapa.
+const buildShareText = (bill) => {
+  const lines = [`🧾 ${bill.title}`, `📅 ${formatDisplayDate(bill.date)}`, ""];
+
+  bill.participants.forEach((p) => {
+    lines.push(`${p.paid ? "✅" : "⬜"} ${p.name}: ${formatCurrency(p.amount)}`);
+  });
+
+  if (bill.items && bill.items.length > 0) {
+    lines.push("", "Rincian Item:");
+    bill.items.forEach((item) => {
+      const owner =
+        item.assignedTo != null && bill.participants[item.assignedTo]
+          ? ` (${bill.participants[item.assignedTo].name})`
+          : "";
+      lines.push(`- ${item.name}${owner}: ${formatCurrency(item.price)}`);
+    });
+  }
+
+  lines.push("", `Total: ${formatCurrency(bill.totalAmount)}`);
+  return lines.join("\n");
+};
 
 // Bagi `total` proporsional ke tiap `weights`, tapi jumlah akhirnya selalu
 // pas sama `total` (sisa pembulatan dibebanin ke yang sisa desimalnya paling
@@ -214,6 +239,10 @@ export default function SplitBillScreen({ bills, onAdd, onUpdate, onDelete, onBa
     }
   };
 
+  const handleShare = (bill) => {
+    Share.share({ message: buildShareText(bill) }).catch(() => {});
+  };
+
   const toggleParticipantPaid = async (bill, index) => {
     const nextParticipants = bill.participants.map((p, i) =>
       i === index ? { ...p, paid: !p.paid } : p
@@ -299,6 +328,10 @@ export default function SplitBillScreen({ bills, onAdd, onUpdate, onDelete, onBa
                         ))}
                       </View>
                     ) : null}
+
+                    <Pressable style={styles.shareBillButton} onPress={() => handleShare(bill)}>
+                      <Text style={styles.shareBillButtonText}>📤 Share Ringkasan</Text>
+                    </Pressable>
 
                     <Pressable style={styles.deleteBillButton} onPress={() => onDelete(bill.id)}>
                       <Text style={styles.deleteBillButtonText}>Hapus Split Bill</Text>
@@ -614,6 +647,14 @@ const styles = StyleSheet.create({
   paidBadgeActive: { backgroundColor: "#dcfce7", borderColor: "#bbf7d0" },
   paidBadgeText: { color: "#64748b", fontSize: 11, fontWeight: "800" },
   paidBadgeTextActive: { color: "#15803d" },
+  shareBillButton: {
+    alignItems: "center",
+    backgroundColor: "#f4f7fb",
+    borderRadius: 12,
+    paddingVertical: 10,
+    marginTop: 4,
+  },
+  shareBillButtonText: { color: "#0f172a", fontSize: 12, fontWeight: "800" },
   deleteBillButton: { alignItems: "center", paddingVertical: 10, marginTop: 4 },
   deleteBillButtonText: { color: "#be123c", fontSize: 12, fontWeight: "800" },
   backdrop: { flex: 1, backgroundColor: "rgba(15, 23, 42, 0.55)", justifyContent: "flex-end" },

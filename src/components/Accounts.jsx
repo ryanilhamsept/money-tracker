@@ -102,11 +102,11 @@ export default function Accounts({
 
     const creditCardTotals = useMemo(() => {
         const totalLimit = creditCardAccounts.reduce((sum, acc) => sum + (Number(acc.totalLimit) || 0), 0);
-        const used = creditCardAccounts.reduce((sum, acc) => {
-            const cardInstallments = installments.filter(i => i.accountId === acc.id);
-            const pendingInstallments = cardInstallments.reduce((accSum, inst) => accSum + (Number(inst.remainingBalance) || 0), 0);
-            return sum + (Number(acc.balance) || 0) + pendingInstallments;
-        }, 0);
+        // acc.balance sudah mencerminkan cicilan (transaksi "... ke N" nambah ke
+        // balance kartu lewat jalur normal) -- jangan tambah installments.remainingBalance
+        // lagi di sini, itu bikin double-count (lihat widget per-kartu di bawah yang
+        // cuma pakai acc.balance).
+        const used = creditCardAccounts.reduce((sum, acc) => sum + (Number(acc.balance) || 0), 0);
         const utilization = totalLimit > 0 ? (used / totalLimit) * 100 : 0;
         return { totalLimit, used, remaining: totalLimit - used, utilization };
     }, [creditCardAccounts, installments]);

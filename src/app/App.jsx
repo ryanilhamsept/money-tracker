@@ -21,6 +21,7 @@ import { useBudget } from "../hooks/useBudget";
 import { formatCurrency } from "../utils/currency";
 import { currentMonth, getTransactionMonth } from "../utils/date";
 import { supabase } from "../services/supabase";
+import { getInstallmentBaseTitle } from "../utils/installmentTitle";
 
 export default function App() {
     const [activePage, setActivePage] = useState("tracker");
@@ -64,6 +65,7 @@ export default function App() {
     const {
         installments,
         addInstallment,
+        updateInstallment,
         deleteInstallment,
     } = useInstallments(user?.id);
 
@@ -148,12 +150,22 @@ export default function App() {
         
         if (success && deletedTx) {
             // Find linked installment by explicit ID or by matching title and amount
-            const linkedInst = installments.find(inst => 
-                inst.transactionId === id || 
-                (inst.name === deletedTx.title && inst.monthlyInstallment === deletedTx.amount)
+            const linkedInst = installments.find(inst =>
+                inst.transactionId === id ||
+                (getInstallmentBaseTitle(inst.name) === getInstallmentBaseTitle(deletedTx.title) && inst.monthlyInstallment === deletedTx.amount)
             );
             if (linkedInst) {
-                await deleteInstallment(linkedInst.id);
+                // Nyentang lunas 1 baris cicilan = ngurangin sisa saldo cicilan
+                // sebesar cicilan itu, bukan langsung hapus seluruh record.
+                // Record cicilan baru bener-bener dihapus kalau ini transaksi
+                // primary-nya, atau sisa saldonya udah lunas (<= 0).
+                const isPrimary = linkedInst.transactionId === id;
+                const newRemaining = Number(linkedInst.remainingBalance) - Number(deletedTx.amount);
+                if (isPrimary || newRemaining <= 0) {
+                    await deleteInstallment(linkedInst.id);
+                } else {
+                    await updateInstallment(linkedInst.id, { remainingBalance: newRemaining });
+                }
             }
         }
         return success;
@@ -170,9 +182,9 @@ export default function App() {
             }
             
             // Delete any generated future transactions that match the name and amount
-            const relatedTxs = transactions.filter(t => 
-                t.title.trim() === inst.name.trim() && 
-                t.amount === inst.monthlyInstallment && 
+            const relatedTxs = transactions.filter(t =>
+                getInstallmentBaseTitle(t.title) === getInstallmentBaseTitle(inst.name) &&
+                t.amount === inst.monthlyInstallment &&
                 t.type === "expense" &&
                 t.id !== inst.transactionId // skip if already deleted
             );

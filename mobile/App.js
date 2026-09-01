@@ -41,6 +41,10 @@ import {
 import { formatCurrency, formatDate } from "./src/utils/formatters";
 import { getAccountBalanceDeltas } from "./src/utils/accountBalance";
 import {
+  formatInstallmentTitle,
+  getInstallmentBaseTitle,
+} from "./src/utils/installmentTitle";
+import {
   currentMonth,
   formatDisplayDate,
   getTransactionMonth,
@@ -376,37 +380,59 @@ export default function App() {
 
   const handleFormSubmit = async (form, wantsInstallment, installmentDetails) => {
     if (editingTransaction) {
-      const payload = { ...form, id: editingTransaction.id };
+      const isNewlyConverted = wantsInstallment && !editingTransaction.installmentTotalLoan;
+      const baseTitle = form.title.trim();
+      const payload = {
+        ...form,
+        id: editingTransaction.id,
+        title: isNewlyConverted ? formatInstallmentTitle(baseTitle, 1) : form.title,
+      };
       await updateTransaction(payload);
       await applyBalanceDeltas(editingTransaction, payload);
-      
-      const isNewlyConverted = wantsInstallment && !editingTransaction.installmentTotalLoan;
+
+      // Kategori itu sifatnya "milik pembelian", bukan milik satu baris
+      // cicilan doang -- kalau kategori satu cicilan diubah, samain juga ke
+      // cicilan lain yang berasal dari pembelian yang sama (dicocokkan lewat
+      // base title, tanpa suffix " ke N").
+      if (payload.category !== editingTransaction.category) {
+        const cascadeBaseTitle = getInstallmentBaseTitle(editingTransaction.title);
+        const siblings = cascadeBaseTitle
+          ? transactions.filter(
+              (t) => t.id !== editingTransaction.id && getInstallmentBaseTitle(t.title) === cascadeBaseTitle
+            )
+          : [];
+        for (const sibling of siblings) {
+          await updateTransaction({ ...sibling, category: payload.category });
+        }
+      }
+
       if (isNewlyConverted) {
           const term = Number(installmentDetails.remainingTerm) || 1;
           const [yearStr, monthStr, dayStr] = payload.date.split('-');
           const y = parseInt(yearStr, 10);
           const m = parseInt(monthStr, 10) - 1;
           const d = parseInt(dayStr, 10);
-          
+
           for (let i = 1; i < term; i++) {
               const nextDate = new Date(y, m + i, d);
               const outY = nextDate.getFullYear();
               const outM = String(nextDate.getMonth() + 1).padStart(2, '0');
               const outD = String(nextDate.getDate()).padStart(2, '0');
               const dateString = `${outY}-${outM}-${outD}`;
-              
+
               await addTransaction({
                   ...payload,
                   id: generateId(),
+                  title: formatInstallmentTitle(baseTitle, i + 1),
                   date: dateString,
                   installmentTotalLoan: null,
               });
           }
-          
+
           let normalizedSource = payload.source.trim();
           if (normalizedSource === "Credit Card - BCA") normalizedSource = "CC BCA";
           if (normalizedSource === "Credit Card - BNI") normalizedSource = "CC BNI";
-          
+
           const matchedCard = accounts.find(a => a.name === normalizedSource);
           if (matchedCard) {
               const totalLoan = Number(installmentDetails.totalLoan);
@@ -415,10 +441,10 @@ export default function App() {
                   id: generateId(),
                   accountId: matchedCard.id,
                   transactionId: payload.id,
-                  name: payload.title.trim(),
+                  name: baseTitle,
                   provider: installmentDetails.provider || "",
                   totalLoan,
-                  remainingBalance: totalLoan - amount,
+                  remainingBalance: totalLoan,
                   monthlyInstallment: amount,
                   remainingTerm: term,
                   dueDate: installmentDetails.dueDate ? Number(installmentDetails.dueDate) : (matchedCard.dueDate || null),
@@ -427,6 +453,7 @@ export default function App() {
       }
     } else {
       let firstTransactionId = null;
+      const newBaseTitle = form.title.trim();
       if (wantsInstallment) {
           const term = Number(installmentDetails.remainingTerm) || 1;
           const [yearStr, monthStr, dayStr] = form.date.split('-');
@@ -440,12 +467,13 @@ export default function App() {
               const outM = String(nextDate.getMonth() + 1).padStart(2, '0');
               const outD = String(nextDate.getDate()).padStart(2, '0');
               const dateString = `${outY}-${outM}-${outD}`;
-              
+
               const currentTxId = generateId();
               if (i === 0) firstTransactionId = currentTxId;
 
               await addTransaction({
                   ...form,
+                  title: formatInstallmentTitle(newBaseTitle, i + 1),
                   id: currentTxId,
                   date: dateString,
                   installmentTotalLoan: i === 0 ? Number(installmentDetails.totalLoan) : 0,
@@ -455,14 +483,14 @@ export default function App() {
           firstTransactionId = generateId();
           await addTransaction({ ...form, id: firstTransactionId });
       }
-      
-      const payload = { 
-          ...form, 
+
+      const payload = {
+          ...form,
           id: firstTransactionId,
           installmentTotalLoan: wantsInstallment ? Number(installmentDetails.totalLoan) : null,
       };
       await applyBalanceDeltas(null, payload);
-      
+
       if (wantsInstallment && firstTransactionId) {
           let normalizedSource = form.source.trim();
           if (normalizedSource === "Credit Card - BCA") normalizedSource = "CC BCA";
@@ -476,10 +504,10 @@ export default function App() {
                   id: generateId(),
                   accountId: matchedCard.id,
                   transactionId: firstTransactionId,
-                  name: form.title.trim(),
+                  name: newBaseTitle,
                   provider: installmentDetails.provider || "",
                   totalLoan,
-                  remainingBalance: totalLoan - amount,
+                  remainingBalance: totalLoan,
                   monthlyInstallment: amount,
                   remainingTerm: Number(installmentDetails.remainingTerm),
                   dueDate: installmentDetails.dueDate ? Number(installmentDetails.dueDate) : (matchedCard.dueDate || null),
@@ -495,18 +523,26 @@ export default function App() {
     if (!editingTransaction) return;
     
     // Cascading delete for installments
-    const linkedInst = installments.find(inst => 
-        inst.transactionId === editingTransaction.id || 
-        (inst.name.trim() === editingTransaction.title.trim() && inst.monthlyInstallment === editingTransaction.amount)
+    const linkedInst = installments.find(inst =>
+        inst.transactionId === editingTransaction.id ||
+        (getInstallmentBaseTitle(inst.name) === getInstallmentBaseTitle(editingTransaction.title) && inst.monthlyInstallment === editingTransaction.amount)
     );
     
     await deleteTransaction(editingTransaction.id);
     await applyBalanceDeltas(editingTransaction, null);
-    
+
     if (linkedInst) {
-        await deleteInstallment(linkedInst.id);
+        // Nyentang lunas 1 baris cicilan = ngurangin sisa saldo cicilan
+        // sebesar cicilan itu, bukan langsung hapus seluruh record.
+        const isPrimary = linkedInst.transactionId === editingTransaction.id;
+        const newRemaining = Number(linkedInst.remainingBalance) - Number(editingTransaction.amount);
+        if (isPrimary || newRemaining <= 0) {
+            await deleteInstallment(linkedInst.id);
+        } else {
+            await updateInstallment({ ...linkedInst, remainingBalance: newRemaining });
+        }
     }
-    
+
     closeForm();
     await loadDashboard();
   };
@@ -518,14 +554,20 @@ export default function App() {
     const linkedInst = installments.find(
       (inst) =>
         inst.transactionId === id ||
-        (inst.name.trim() === tx.title.trim() && inst.monthlyInstallment === tx.amount)
+        (getInstallmentBaseTitle(inst.name) === getInstallmentBaseTitle(tx.title) && inst.monthlyInstallment === tx.amount)
     );
 
     await deleteTransaction(id);
     await applyBalanceDeltas(tx, null);
 
     if (linkedInst) {
-      await deleteInstallment(linkedInst.id);
+      const isPrimary = linkedInst.transactionId === id;
+      const newRemaining = Number(linkedInst.remainingBalance) - Number(tx.amount);
+      if (isPrimary || newRemaining <= 0) {
+        await deleteInstallment(linkedInst.id);
+      } else {
+        await updateInstallment({ ...linkedInst, remainingBalance: newRemaining });
+      }
     }
 
     await loadDashboard();
@@ -541,9 +583,9 @@ export default function App() {
         await deleteTransaction(inst.transactionId);
     }
     
-    const relatedTxs = transactions.filter(t => 
-        t.title.trim() === inst.name.trim() && 
-        t.amount === inst.monthlyInstallment && 
+    const relatedTxs = transactions.filter(t =>
+        getInstallmentBaseTitle(t.title) === getInstallmentBaseTitle(inst.name) &&
+        t.amount === inst.monthlyInstallment &&
         t.type === "expense" &&
         t.id !== inst.transactionId
     );

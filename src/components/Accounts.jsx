@@ -18,6 +18,7 @@ import {
 import { formatCurrency } from "../utils/currency";
 import { findCreditCardForSource } from "../utils/accountBalance";
 import { getCurrentCycleStart, getStatementDay } from "../utils/billingCycle";
+import { getInstallmentBaseTitle } from "../utils/installmentTitle";
 
 const CARD_COLORS = ["#0f172a", "#1e293b", "#1d4ed8", "#78350f", "#1e3a8a"];
 
@@ -499,7 +500,9 @@ export default function Accounts({
                     const parents = cardTransactions.filter(
                         (t) => Number(t.installmentTotalLoan) > 0
                     );
-                    const parentTitles = new Set(parents.map((t) => t.title));
+                    const parentBaseTitles = new Set(
+                        parents.map((t) => getInstallmentBaseTitle(t.title))
+                    );
 
                     const cardInstallments = installments.filter(
                         (i) => i.accountId === account.id
@@ -507,22 +510,23 @@ export default function Accounts({
 
                     const groups = new Map();
                     parents.forEach((parent) => {
-                        groups.set(parent.title, {
+                        const baseTitle = getInstallmentBaseTitle(parent.title);
+                        groups.set(baseTitle, {
                             parent,
                             // Parent ikut dihitung: dia juga salah satu pembayaran,
                             // cuma kebetulan yang nyimpen total pinjamannya.
                             // Diurut menaik biar kebaca cicilan ke-1, ke-2, dst.
                             children: cardTransactions
-                                .filter((t) => t.title === parent.title)
+                                .filter((t) => getInstallmentBaseTitle(t.title) === baseTitle)
                                 .sort((a, b) => String(a.date).localeCompare(String(b.date))),
                             installment: cardInstallments.find(
-                                (i) => i.name === parent.title
+                                (i) => getInstallmentBaseTitle(i.name) === baseTitle
                             ),
                         });
                     });
 
                     const ungrouped = cardTransactions.filter(
-                        (t) => !parentTitles.has(t.title)
+                        (t) => !parentBaseTitles.has(getInstallmentBaseTitle(t.title))
                     );
                     const toggleGroup = (groupKey) => {
                         setExpandedGroups((prev) => ({
@@ -592,10 +596,15 @@ export default function Accounts({
                                                         key={t.id}
                                                         className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-white px-3 py-2"
                                                     >
-                                                        <p className="text-[11px] font-semibold text-slate-600">
-                                                            {t.date}
-                                                            {t.time ? ` • ${t.time}` : ""}
-                                                        </p>
+                                                        <div>
+                                                            <p className="text-xs font-bold text-slate-700">
+                                                                {t.title}
+                                                            </p>
+                                                            <p className="text-[11px] font-semibold text-slate-500">
+                                                                {t.date}
+                                                                {t.time ? ` • ${t.time}` : ""}
+                                                            </p>
+                                                        </div>
                                                         <div className="flex shrink-0 items-center gap-2">
                                                             <p className="text-xs font-bold text-slate-700">
                                                                 {formatCurrency(t.amount)}

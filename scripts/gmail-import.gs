@@ -16,6 +16,28 @@ function isProcessed(messageId) {
   return PropertiesService.getScriptProperties().getProperty('msg_' + messageId) !== null;
 }
 
+// Email yang GAGAL di-parse sengaja nggak di-markProcessed supaya bisa
+// di-retry setelah parser-nya diperbaiki. Tapi kalau formatnya emang nggak
+// pernah bisa ke-parse, dia bakal di-fetch ulang TIAP KALI trigger jalan --
+// selamanya -- dan itu yang bikin kuota Gmail harian jebol. MAX_PARSE_RETRIES
+// batasin percobaan itu; setelah gagal berkali-kali, email di-skip permanen
+// (dikasih label 'needs-review' biar bisa dicek manual) daripada terus nyedot kuota.
+const MAX_PARSE_RETRIES = 5;
+
+function getFailCount(messageId) {
+  return Number(PropertiesService.getScriptProperties().getProperty('fail_' + messageId)) || 0;
+}
+
+function incrementFailCount(messageId) {
+  const count = getFailCount(messageId) + 1;
+  PropertiesService.getScriptProperties().setProperty('fail_' + messageId, String(count));
+  return count;
+}
+
+function clearFailCount(messageId) {
+  PropertiesService.getScriptProperties().deleteProperty('fail_' + messageId);
+}
+
 function markProcessed(messageId) {
   PropertiesService.getScriptProperties().setProperty('msg_' + messageId, '1');
 }
@@ -49,24 +71,94 @@ function clearKartuKreditBCAProcessed() {
   Logger.log('Done. Cleared ' + count + ' KartuKreditBCA message(s).');
 }
 
-// ===== MAIN ENTRY POINT =====
-function processTransactionEmails() {
-  const threads = GmailApp.search(GMAIL_QUERY, 0, 50);
-  threads.forEach(function (thread) {
-    thread.getMessages().forEach(function (message) {
-      if (isProcessed(message.getId())) return;
-      try {
-        handleMessage(message);
-      } catch (e) {
-        Logger.log('Error processing message ' + message.getId() + ': ' + e);
-      }
-    });
+/**
+ * Reset pesan yang udah "menyerah" (label needs-review) supaya di-retry lagi
+ * oleh processTransactionEmails setelah parser/getEmailBody diperbaiki.
+ * Jalankan manual sekali tiap kali abis fix parser, lalu jalankan
+ * processTransactionEmails lagi buat coba ulang.
+ */
+function resetNeedsReviewMessages() {
+  const list = Gmail.Users.Messages.list('me', { q: 'label:needs-review', maxResults: 100 });
+  const messages = list.messages || [];
+  const labels = Gmail.Users.Labels.list('me').labels || [];
+  const label = labels.find(function (l) { return l.name === 'needs-review'; });
+
+  let count = 0;
+  messages.forEach(function (m) {
+    PropertiesService.getScriptProperties().deleteProperty('msg_' + m.id);
+    PropertiesService.getScriptProperties().deleteProperty('fail_' + m.id);
+    if (label) {
+      Gmail.Users.Messages.modify({ removeLabelIds: [label.id] }, 'me', m.id);
+    }
+    count++;
+  });
+  Logger.log('Reset ' + count + ' pesan needs-review, label dicopot.');
+}
+
+/**
+ * Debug: log isi teks hasil decode (getEmailBody) dari 5 email transaksi
+ * terbaru, tanpa peduli status processed/read. Pakai ini kalau parser gagal
+ * dan mau lihat persis teks yang dicocokkan ke regex.
+ */
+function debugDumpBodies() {
+  const list = Gmail.Users.Messages.list('me', { q: GMAIL_QUERY, maxResults: 5 });
+  const messages = list.messages || [];
+  messages.forEach(function (m) {
+    const full = Gmail.Users.Messages.get('me', m.id, { format: 'full' });
+    const subject = getHeader(full, 'Subject');
+    const from = getHeader(full, 'From');
+    const body = getEmailBody(full);
+    Logger.log('=== ' + subject + ' | ' + from + ' ===');
+    Logger.log(body.substring(0, 1500));
+    Logger.log('--- END ---');
   });
 }
 
+// ===== MAIN ENTRY POINT =====
+// Pakai Advanced Gmail Service (Gmail.Users.*) alih-alih GmailApp bawaan.
+// GmailApp punya kuota harian sendiri yang ketat buat akun consumer ("Service
+// invoked too many times for one day: gmail"); Advanced Gmail Service manggil
+// Gmail API asli yang kuotanya jauh lebih besar, jadi nggak gampang jebol
+// meski backlog email-nya banyak. Ini butuh Gmail API diaktifkan sekali lewat
+// Apps Script editor: Services (ikon +) → Gmail API → Add.
+function processTransactionEmails() {
+  const list = Gmail.Users.Messages.list('me', { q: GMAIL_QUERY, maxResults: 50 });
+  const messages = list.messages || [];
+  messages.forEach(function (m) {
+    if (isProcessed(m.id)) return;
+    try {
+      const full = Gmail.Users.Messages.get('me', m.id, { format: 'full' });
+      handleMessage(full);
+    } catch (e) {
+      Logger.log('Error processing message ' + m.id + ': ' + e);
+    }
+  });
+}
+
+function getHeader(message, name) {
+  const headers = (message.payload && message.payload.headers) || [];
+  const found = headers.find(function (h) { return h.name.toLowerCase() === name.toLowerCase(); });
+  return found ? found.value : '';
+}
+
+function markReadAPI(messageId) {
+  Gmail.Users.Messages.modify({ removeLabelIds: ['UNREAD'] }, 'me', messageId);
+}
+
+function getOrCreateLabelId(name) {
+  const labels = (Gmail.Users.Labels.list('me').labels) || [];
+  const existing = labels.find(function (l) { return l.name === name; });
+  if (existing) return existing.id;
+  const created = Gmail.Users.Labels.create(
+    { name: name, labelListVisibility: 'labelShow', messageListVisibility: 'show' },
+    'me'
+  );
+  return created.id;
+}
+
 function handleMessage(message) {
-  const from = message.getFrom().toLowerCase();
-  const subject = message.getSubject();
+  const from = getHeader(message, 'From').toLowerCase();
+  const subject = getHeader(message, 'Subject');
   const body = getEmailBody(message);
 
   let tx = null;
@@ -90,33 +182,85 @@ function handleMessage(message) {
   }
 
   if (tx === 'SKIP_MARK_READ') {
-    message.markRead();
-    markProcessed(message.getId());
+    markReadAPI(message.id);
+    markProcessed(message.id);
     return;
   }
   if (!tx) {
     // null = parse gagal, JANGAN mark processed supaya bisa di-retry setelah fix
-    Logger.log('Parser returned null for: ' + subject + ' | from: ' + from);
+    // (tapi dibatasi MAX_PARSE_RETRIES -- lihat catatan di getFailCount/dst).
+    const failCount = incrementFailCount(message.id);
+    Logger.log('Parser returned null (percobaan ' + failCount + '/' + MAX_PARSE_RETRIES + ') for: ' + subject + ' | from: ' + from);
+
+    if (failCount >= MAX_PARSE_RETRIES) {
+      Logger.log('Menyerah setelah ' + failCount + 'x gagal, di-skip permanen: ' + subject);
+      markReadAPI(message.id);
+      markProcessed(message.id);
+      try {
+        const labelId = getOrCreateLabelId('needs-review');
+        Gmail.Users.Messages.modify({ addLabelIds: [labelId] }, 'me', message.id);
+      } catch (e) {
+        Logger.log('Gagal nempelin label needs-review: ' + e);
+      }
+    }
     return;
   }
 
   const success = insertTransaction(tx);
   if (success) {
-    message.markRead();
-    markProcessed(message.getId());
+    markReadAPI(message.id);
+    markProcessed(message.id);
+    clearFailCount(message.id);
   }
 }
 
 // ===== PARSERS =====
 
 // ===== EMAIL BODY HELPER =====
-// Beberapa bank (KartuKreditBCA, dll) kirim email HTML-only.
-// getPlainBody() return kosong/"-". Fallback ke stripped HTML.
+// Beberapa bank (KartuKreditBCA, dll) kirim email HTML-only, jadi selalu coba
+// text/plain dulu lalu fallback ke text/html yang di-strip jadi teks biasa.
+// Body Gmail API dikirim base64url-encoded dan bisa nested di beberapa parts
+// (multipart/alternative, multipart/mixed, dst) makanya perlu collectParts.
+function collectParts(payload) {
+  if (!payload) return [];
+  var result = [];
+  if (payload.body && payload.body.data && payload.mimeType) {
+    result.push({ mimeType: payload.mimeType, data: payload.body.data });
+  }
+  if (payload.parts) {
+    payload.parts.forEach(function (p) {
+      result = result.concat(collectParts(p));
+    });
+  }
+  return result;
+}
+
+function decodeBase64Url(data) {
+  if (!data) return '';
+  // Advanced Gmail Service quirk: "bytes"-typed fields like body.data are
+  // sometimes handed back already decoded into a raw byte array instead of
+  // the base64url string the REST API docs describe -- so only base64-decode
+  // when we actually got a string.
+  if (typeof data !== 'string') {
+    return Utilities.newBlob(data).getDataAsString();
+  }
+  // Gmail API base64url data comes without "=" padding, which
+  // base64DecodeWebSafe() sometimes chokes on ("Could not decode string").
+  // Convert to standard base64 + pad, then use the regular decoder.
+  var normalized = data.replace(/-/g, '+').replace(/_/g, '/');
+  while (normalized.length % 4) normalized += '=';
+  return Utilities.newBlob(Utilities.base64Decode(normalized)).getDataAsString();
+}
+
 function getEmailBody(message) {
-  var plain = message.getPlainBody();
+  var parts = collectParts(message.payload);
+  var plainPart = parts.find(function (p) { return p.mimeType === 'text/plain'; });
+  var htmlPart = parts.find(function (p) { return p.mimeType === 'text/html'; });
+
+  var plain = plainPart ? decodeBase64Url(plainPart.data) : '';
   if (plain && plain.replace(/[-\s]/g, '').length > 30) return plain;
 
-  var html = message.getBody();
+  var html = htmlPart ? decodeBase64Url(htmlPart.data) : '';
   if (!html) return plain || '';
 
   // PENTING: strip <style>, <script>, <head> DULU sebelum proses lainnya
@@ -143,6 +287,18 @@ function getEmailBody(message) {
   // Bersihkan multiple spaces/newlines
   html = html.replace(/[ \t]{2,}/g, ' ');
   html = html.replace(/\n{3,}/g, '\n\n');
+  // Beberapa bank (blu format Recurring/Autopay, dll) taruh value di baris
+  // <tr> yang TERPISAH dari labelnya, jadi hasil strip jadi "Label\n\n: Value"
+  // bukan "Label Value". Parser (misalnya parseBlu) nungguin label & value
+  // nyambung langsung tanpa colon -- gabungkan jadi satu baris & buang
+  // colon-nya.
+  html = html.replace(/\n+[ \t]*:[ \t]*/g, ' ');
+  // Beberapa tabel HTML BCA (myBCA, dst) punya kolom kosong (spacer <td>)
+  // antara label & nilai. GmailApp.getBody() dulu otomatis menormalkannya,
+  // tapi Gmail API kasih HTML mentah asli, jadi hasil strip di atas bisa jadi
+  // " : : VALUE" bukan " : VALUE" -- collapse jadi satu colon biar regex
+  // parser (yang cuma nerima satu colon opsional) tetap match.
+  html = html.replace(/(?::[ \t]*){2,}/g, ': ');
   return html.trim();
 }
 
@@ -463,10 +619,13 @@ function parseBCA(body) {
   }
 
   // --- Jalur 3: BCA Internet Banking — QRIS & Transfer biasa ---
-  const dateMatch = body.match(/Tanggal Transaksi\s*\|?\s*:?\s*\|?\s*(\d{1,2}\s+\w+\s+\d{2,4})/i);
+  const dateMatch = body.match(/Tanggal Transaksi\s*\|?\s*:?\s*\|?\s*(\d{1,2}\s+\w+\s+\d{2,4})(?:\s+(\d{1,2}):(\d{2}))?/i);
   if (!dateMatch) return null;
   const date = parseIndoDate(dateMatch[1]);
   if (!date) return null;
+  // myBCA kadang nempelin jam langsung di "Tanggal Transaksi" (bukan field
+  // "Waktu" terpisah) -- pakai sebagai fallback kalau "Waktu" nggak ketemu.
+  const embeddedTime = formatTime(dateMatch[2], dateMatch[3]);
 
   // QRIS
   if (/Pembayaran QRIS/i.test(body)) {
@@ -476,7 +635,7 @@ function parseBCA(body) {
     if (!merchantMatch || !amountMatch) return null;
 
     const title = remapKnownMerchant(merchantMatch[1].trim());
-    const time = formatTime(timeMatch && timeMatch[1], timeMatch && timeMatch[2]);
+    const time = timeMatch ? formatTime(timeMatch[1], timeMatch[2]) : embeddedTime;
     const amount = parseIDR(amountMatch[1]);
 
     return {
@@ -500,7 +659,7 @@ function parseBCA(body) {
     const amountMatch = body.match(/Nominal(?:\s+Tujuan)?\s*\|?\s*:?\s*\|?\s*IDR\s?([\d,]+\.\d{2})/i);
     if (!amountMatch) return null;
     const amount = parseIDR(amountMatch[1]);
-    const time = formatTime(timeMatch && timeMatch[1], timeMatch && timeMatch[2]);
+    const time = timeMatch ? formatTime(timeMatch[1], timeMatch[2]) : embeddedTime;
 
     return {
       title: nama,
@@ -523,7 +682,7 @@ function parseBCA(body) {
     const timeMatch = body.match(/Waktu\s*\|?\s*:?\s*\|?\s*(\d{1,2}):(\d{2})/i);
     const title = remapKnownMerchant(tujuanMatch[1].trim());
     const amount = parseAmountAuto(billAmountMatch[1]);
-    const time = formatTime(timeMatch && timeMatch[1], timeMatch && timeMatch[2]);
+    const time = timeMatch ? formatTime(timeMatch[1], timeMatch[2]) : embeddedTime;
 
     return {
       title: title,
@@ -736,6 +895,23 @@ function guessCategory(name) {
   return 'Shopping';
 }
 
+// Satu helper buat semua request ke Supabase REST/RPC -- gantiin 3 blok
+// UrlFetchApp.fetch dengan headers apikey/Authorization/Prefer yang identik.
+function supabaseRequest(path, method, payload) {
+  const options = {
+    method: method,
+    contentType: 'application/json',
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: 'Bearer ' + SUPABASE_ANON_KEY,
+      Prefer: 'return=minimal',
+    },
+    muteHttpExceptions: true,
+  };
+  if (payload !== undefined) options.payload = JSON.stringify(payload);
+  return UrlFetchApp.fetch(SUPABASE_URL + path, options);
+}
+
 function insertTransaction(tx) {
   const payload = {
     id: Utilities.getUuid(),
@@ -749,17 +925,7 @@ function insertTransaction(tx) {
     user_id: IMPORT_USER_ID,
   };
 
-  const response = UrlFetchApp.fetch(SUPABASE_URL + '/rest/v1/transactions', {
-    method: 'post',
-    contentType: 'application/json',
-    headers: {
-      apikey: SUPABASE_ANON_KEY,
-      Authorization: 'Bearer ' + SUPABASE_ANON_KEY,
-      Prefer: 'return=minimal',
-    },
-    payload: JSON.stringify([payload]),
-    muteHttpExceptions: true,
-  });
+  const response = supabaseRequest('/rest/v1/transactions', 'post', [payload]);
 
   const code = response.getResponseCode();
   if (code >= 200 && code < 300) {
@@ -773,14 +939,7 @@ function insertTransaction(tx) {
 }
 
 function applyAccountBalanceDelta(source, delta) {
-  const listResp = UrlFetchApp.fetch(SUPABASE_URL + '/rest/v1/accounts?select=id,name', {
-    method: 'get',
-    headers: {
-      apikey: SUPABASE_ANON_KEY,
-      Authorization: 'Bearer ' + SUPABASE_ANON_KEY,
-    },
-    muteHttpExceptions: true,
-  });
+  const listResp = supabaseRequest('/rest/v1/accounts?select=id,name', 'get');
   if (listResp.getResponseCode() < 200 || listResp.getResponseCode() >= 300) {
     Logger.log('Failed to fetch accounts: ' + listResp.getContentText());
     return;
@@ -805,16 +964,9 @@ function applyAccountBalanceDelta(source, delta) {
   // read-then-write -- the old GET-then-PATCH here raced with the web/mobile
   // app's own read-then-write and could clobber each other's updates, which is
   // how CC balances used to drift (even go negative) over time.
-  const updateResp = UrlFetchApp.fetch(SUPABASE_URL + '/rest/v1/rpc/increment_account_balance', {
-    method: 'post',
-    contentType: 'application/json',
-    headers: {
-      apikey: SUPABASE_ANON_KEY,
-      Authorization: 'Bearer ' + SUPABASE_ANON_KEY,
-      Prefer: 'return=minimal',
-    },
-    payload: JSON.stringify({ p_account_id: account.id, p_delta: delta }),
-    muteHttpExceptions: true,
+  const updateResp = supabaseRequest('/rest/v1/rpc/increment_account_balance', 'post', {
+    p_account_id: account.id,
+    p_delta: delta,
   });
   if (updateResp.getResponseCode() >= 200 && updateResp.getResponseCode() < 300) {
     Logger.log('Balance updated (atomic): ' + account.name + ' delta=' + delta);

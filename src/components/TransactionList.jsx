@@ -13,6 +13,10 @@ import { Button } from "./ui/button";
 import { formatCurrency } from "../utils/currency";
 import { formatDisplayDate, normalizeDate } from "../utils/date";
 import { findCreditCardForSource } from "../utils/accountBalance";
+import {
+    formatInstallmentTitle,
+    getInstallmentBaseTitle,
+} from "../utils/installmentTitle";
 
 import {
     categories,
@@ -81,11 +85,15 @@ export default function TransactionList({
     const [isInstallment, setIsInstallment] = useState(false);
     const [installmentDetails, setInstallmentDetails] = useState(emptyInstallmentDetails);
 
-    // Simple grouping: if title appears multiple times = installment group
+    // Simple grouping: if base title (tanpa suffix " ke N") muncul lebih dari
+    // sekali = installment group. Tiap baris cicilan dikasih judul beda
+    // ("Chakolab ke 1", "ke 2", dst) biar gampang dibedain di list, jadi
+    // pencocokan grup harus lewat base title, bukan title persis.
     const groupedTransactions = useMemo(() => {
         const titleCounts = {};
         transactions.forEach(tx => {
-            titleCounts[tx.title] = (titleCounts[tx.title] || 0) + 1;
+            const baseTitle = getInstallmentBaseTitle(tx.title);
+            titleCounts[baseTitle] = (titleCounts[baseTitle] || 0) + 1;
         });
 
         const groups = {};
@@ -93,22 +101,24 @@ export default function TransactionList({
 
         // Find primary transactions (ones with installmentTotalLoan)
         transactions.filter(tx => tx.installmentTotalLoan).forEach(primary => {
-            const groupKey = primary.title;
-            if (titleCounts[primary.title] > 1 && !groups[groupKey]) {
-                groups[groupKey] = {
-                    key: groupKey,
-                    title: primary.title,
-                    totalLoan: primary.installmentTotalLoan,
-                    transactions: [],
-                    primary: primary,
-                };
+            const groupKey = getInstallmentBaseTitle(primary.title);
+            if (titleCounts[groupKey] > 1) {
+                if (!groups[groupKey]) {
+                    groups[groupKey] = {
+                        key: groupKey,
+                        title: groupKey,
+                        totalLoan: primary.installmentTotalLoan,
+                        transactions: [],
+                        primary: primary,
+                    };
+                }
+                processedIds.add(primary.id);
             }
-            processedIds.add(primary.id);
         });
 
-        // Add all transactions with matching titles to groups
+        // Add all transactions with matching base titles to groups
         transactions.forEach(tx => {
-            const groupKey = tx.title;
+            const groupKey = getInstallmentBaseTitle(tx.title);
             if (groups[groupKey]) {
                 groups[groupKey].transactions.push(tx);
                 processedIds.add(tx.id);
@@ -194,11 +204,11 @@ export default function TransactionList({
 
         if (wantsInstallment && !totalLoan) return;
 
-        const existingTransaction = transactions.find((t) => t.id === id);
-        const isNewlyConverted = wantsInstallment && !existingTransaction?.installmentTotalLoan;
+        const baseTitle = editForm.title.trim();
 
         const wasSaved = await updateTransaction(id, {
             ...editForm,
+            title: wantsInstallment ? formatInstallmentTitle(baseTitle, 1) : editForm.title,
             installmentTotalLoan: wantsInstallment ? totalLoan : null,
         });
 
@@ -210,10 +220,10 @@ export default function TransactionList({
                     await addInstallment({
                         accountId: matchedCard.id,
                         transactionId: id,
-                        name: editForm.title.trim(),
+                        name: baseTitle,
                         provider: installmentDetails.provider.trim(),
                         totalLoan,
-                        remainingBalance: totalLoan - monthlyAmount,
+                        remainingBalance: totalLoan,
                         monthlyInstallment: monthlyAmount,
                         remainingTerm: installmentDetails.remainingTerm
                             ? Number(installmentDetails.remainingTerm)
@@ -241,6 +251,7 @@ export default function TransactionList({
 
                     addTransaction({
                         ...editForm,
+                        title: formatInstallmentTitle(baseTitle, i + 1),
                         date: dateString,
                         installmentTotalLoan: null,
                         type: editForm.type || "expense",

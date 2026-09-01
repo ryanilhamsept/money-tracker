@@ -14,6 +14,7 @@ import {
 import { formatCurrency } from "../utils/formatters";
 import { findCreditCardForSource } from "../utils/accountBalance";
 import { getCurrentCycleStart, getStatementDay } from "../utils/billingCycle";
+import { getInstallmentBaseTitle } from "../utils/installmentTitle";
 import Dropdown from "./Dropdown";
 
 const ACCOUNT_TYPES = ["Bank", "Tabungan", "E-Wallet", "Kartu Kredit", "Tunai"];
@@ -232,21 +233,24 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
       : [];
 
     const parents = cardTransactions.filter((t) => Number(t.installmentTotalLoan) > 0);
-    const parentTitles = new Set(parents.map((t) => t.title));
+    const parentBaseTitles = new Set(parents.map((t) => getInstallmentBaseTitle(t.title)));
     const cardInstallments = installments.filter((i) => i.accountId === account.id);
 
     const historyGroups = new Map();
     parents.forEach((parent) => {
-      historyGroups.set(parent.title, {
+      const baseTitle = getInstallmentBaseTitle(parent.title);
+      historyGroups.set(baseTitle, {
         parent,
         children: cardTransactions
-          .filter((t) => t.title === parent.title)
+          .filter((t) => getInstallmentBaseTitle(t.title) === baseTitle)
           .sort((a, b) => String(a.date).localeCompare(String(b.date))),
-        installment: cardInstallments.find((i) => i.name === parent.title),
+        installment: cardInstallments.find((i) => getInstallmentBaseTitle(i.name) === baseTitle),
       });
     });
 
-    const historyUngrouped = cardTransactions.filter((t) => !parentTitles.has(t.title));
+    const historyUngrouped = cardTransactions.filter(
+      (t) => !parentBaseTitles.has(getInstallmentBaseTitle(t.title))
+    );
 
     return (
       <View key={account.id} style={styles.accountCard}>
@@ -433,10 +437,15 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
                                 <View style={styles.historyGroupChildren}>
                                     {children.map((t) => (
                                         <View key={t.id} style={styles.historyChildItem}>
-                                            <Text style={styles.historyChildMeta}>
-                                                {t.date}
-                                                {t.time ? ` • ${t.time}` : ""}
-                                            </Text>
+                                            <View>
+                                                <Text style={styles.installmentName}>
+                                                    {t.title}
+                                                </Text>
+                                                <Text style={styles.historyChildMeta}>
+                                                    {t.date}
+                                                    {t.time ? ` • ${t.time}` : ""}
+                                                </Text>
+                                            </View>
                                             <View style={styles.historyAmountRow}>
                                                 <Text style={styles.installmentName}>
                                                     {formatCurrency(t.amount)}

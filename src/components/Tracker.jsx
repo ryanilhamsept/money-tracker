@@ -40,6 +40,10 @@ import {
     getFirstInstallmentMonthOffset,
     getStatementDay,
 } from "../utils/billingCycle";
+import {
+    formatInstallmentTitle,
+    getInstallmentBaseTitle,
+} from "../utils/installmentTitle";
 
 export default function Tracker({
     transactions,
@@ -90,6 +94,32 @@ export default function Tracker({
         remainingTerm: "",
         dueDate: "",
     });
+
+    // Kategori itu sifatnya "milik pembelian", bukan milik satu baris cicilan
+    // doang -- jadi kalau kategori satu cicilan (mis. "Chakolab ke 2") diubah,
+    // samain juga ke cicilan lain yang berasal dari pembelian yang sama
+    // (dicocokkan lewat base title, tanpa suffix " ke N"), biar nggak perlu
+    // edit satu-satu.
+    const handleUpdateTransaction = async (id, updatedForm) => {
+        const existing = transactions.find((t) => t.id === id);
+        const wasSaved = await updateTransaction(id, updatedForm);
+
+        if (wasSaved && existing && updatedForm.category !== existing.category) {
+            const baseTitle = getInstallmentBaseTitle(existing.title);
+            const siblings = baseTitle
+                ? transactions.filter(
+                      (t) => t.id !== id && getInstallmentBaseTitle(t.title) === baseTitle
+                  )
+                : [];
+            await Promise.all(
+                siblings.map((sibling) =>
+                    updateTransaction(sibling.id, { ...sibling, category: updatedForm.category })
+                )
+            );
+        }
+
+        return wasSaved;
+    };
 
     const isSpendCC = form.danaDipakai === "Spend CC";
 
@@ -271,7 +301,7 @@ export default function Tracker({
 
                     await addTransaction({
                         ...form,
-                        title: form.title.trim(),
+                        title: formatInstallmentTitle(form.title, i + 1),
                         amount: amount,
                         date: dateString,
                         id: currentTxId,
@@ -299,7 +329,7 @@ export default function Tracker({
                         name: form.title.trim(),
                         provider: installmentDetails.provider.trim(),
                         totalLoan,
-                        remainingBalance: totalLoan - amount,
+                        remainingBalance: totalLoan,
                         monthlyInstallment: amount,
                         remainingTerm: installmentDetails.remainingTerm
                             ? Number(installmentDetails.remainingTerm)
@@ -787,7 +817,7 @@ export default function Tracker({
                         <TransactionList
                             dateGroups={groupedPageTransactions}
                             deleteTransaction={deleteTransaction}
-                            updateTransaction={updateTransaction}
+                            updateTransaction={handleUpdateTransaction}
                             accounts={accounts}
                             addInstallment={addInstallment}
                             addTransaction={addTransaction}

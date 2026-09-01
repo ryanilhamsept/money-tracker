@@ -222,7 +222,16 @@ export const useAccounts = (userId) => {
                 nextTransaction
             );
 
-            if (deltas.length === 0) return true;
+            console.log("[DEBUG] syncAccountBalancesForTransaction", {
+                previousTransaction,
+                nextTransaction,
+                deltas: deltas.map((d) => ({ account: d.account.name, amount: d.amount })),
+            });
+
+            if (deltas.length === 0) {
+                console.log("[DEBUG] No matching account found for this transaction's source -- balance NOT adjusted.");
+                return true;
+            }
 
             try {
                 // Send just the delta and let the database add it atomically --
@@ -248,6 +257,7 @@ export const useAccounts = (userId) => {
                     })
                 );
 
+                console.log("[DEBUG] Balance adjusted successfully:", results.map((r) => r?.data));
                 setError(null);
                 return true;
             } catch (err) {

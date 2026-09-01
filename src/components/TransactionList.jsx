@@ -242,7 +242,7 @@ export default function TransactionList({
                 const m = parseInt(monthStr, 10) - 1;
                 const d = parseInt(dayStr, 10);
 
-                for (let i = 1; i <= term; i++) {
+                for (let i = 1; i < term; i++) {
                     const nextDate = new Date(y, m + i, d);
                     const outY = nextDate.getFullYear();
                     const outM = String(nextDate.getMonth() + 1).padStart(2, '0');

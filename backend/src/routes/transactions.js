@@ -27,9 +27,26 @@ module.exports = function transactionRoutes(pool) {
     router.post("/", async (req, res) => {
         try {
             const t = req.body;
+            // ON CONFLICT DO UPDATE makes this safe to retry with the same id --
+            // the client's offline queue (useTransactions.js retryPendingSync)
+            // resends the exact same create request if a LATER step (balance
+            // sync) fails, and a plain INSERT would throw a duplicate-key error
+            // on that retry, permanently stranding the transaction: the row
+            // already exists but its balance effect never gets applied because
+            // the retry never gets past this insert to reach the balance step.
             const { rows } = await pool.query(
                 `INSERT INTO transactions (id, date, time, title, category, amount, source, dana_dipakai, type, installment_total_loan, user_id)
                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                 ON CONFLICT (id) DO UPDATE SET
+                     date = EXCLUDED.date,
+                     time = EXCLUDED.time,
+                     title = EXCLUDED.title,
+                     category = EXCLUDED.category,
+                     amount = EXCLUDED.amount,
+                     source = EXCLUDED.source,
+                     dana_dipakai = EXCLUDED.dana_dipakai,
+                     type = EXCLUDED.type,
+                     installment_total_loan = EXCLUDED.installment_total_loan
                  RETURNING *`,
                 [t.id, t.date, t.time || null, t.title, t.category, Number(t.amount), t.source, t.danaDipakai || null, t.type, t.installmentTotalLoan ?? null, req.userId]
             );

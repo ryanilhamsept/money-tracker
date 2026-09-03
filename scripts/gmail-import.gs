@@ -5,6 +5,11 @@ const GMAIL_QUERY = 'label:transaction';
 // Auto-imported transactions get attributed to this account (RLS now scopes
 // data per-user; the anon key has no login session, so this must be explicit).
 const IMPORT_USER_ID = 'd09a1edc-3042-4e9f-886d-d5136ff379cc';
+// Kalau ada email yang gagal diekstrak lengkap atau dari pengirim yang belum
+// dikenal, transaksinya TETEP di-insert (ditandai "Perlu Dicek") dan email
+// pemberitahuan dikirim ke sini -- biar end-user nggak pernah perlu buka
+// Gmail/Apps Script, developer yang benerin parser/BANK_CONFIG-nya.
+const ADMIN_EMAIL = 'ryanilhamsept@gmail.com';
 
 // Nama pemilik akun -- dipakai buat skip transfer ke rekening/dompet sendiri
 // (kalau nama penerima yang ke-extract cocok sama ini, berarti transfer ke diri
@@ -35,31 +40,49 @@ const GRAB_PAYMENT_SOURCES = {
   '4904': { source: 'Credit Card - BCA', dana: 'Spend CC' },
 };
 
+// Dipakai kalau alamat pengirim belum ada di BANK_CONFIG -- transaksinya
+// tetep di-insert (ditandai "Perlu Dicek"), bukan hilang diam-diam.
+const UNKNOWN_BANK = { source: 'Perlu Dicek', dana: 'Spend Bulanan' };
+
+// ===== SETUP (jalankan SEKALI aja) =====
+
+/**
+ * Pasang trigger otomatis biar processTransactionEmails jalan sendiri tiap 15
+ * menit, tanpa perlu buka Apps Script & klik Run manual tiap ada transaksi
+ * baru. Jalankan fungsi ini SEKALI (Run → setupAutoTrigger), nanti browser
+ * minta izin akses Gmail/trigger -- setujui aja. Abis itu bisa dilupain,
+ * jalan sendiri terus di background Google.
+ */
+function setupAutoTrigger() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'processTransactionEmails') {
+      ScriptApp.deleteTrigger(t);
+    }
+  });
+  ScriptApp.newTrigger('processTransactionEmails')
+    .timeBased()
+    .everyMinutes(15)
+    .create();
+  Logger.log('Trigger terpasang: processTransactionEmails jalan otomatis tiap 15 menit.');
+}
+
+/**
+ * Copot trigger otomatis di atas, kalau suatu saat mau balik ke manual lagi.
+ */
+function removeAutoTrigger() {
+  let removed = 0;
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'processTransactionEmails') {
+      ScriptApp.deleteTrigger(t);
+      removed++;
+    }
+  });
+  Logger.log('Trigger dicopot: ' + removed);
+}
+
 // ===== DEDUP =====
 function isProcessed(messageId) {
   return PropertiesService.getScriptProperties().getProperty('msg_' + messageId) !== null;
-}
-
-// Email yang GAGAL di-parse sengaja nggak di-markProcessed supaya bisa
-// di-retry setelah parser diperbaiki. Tapi kalau formatnya emang nggak pernah
-// bisa ke-parse, dia bakal di-fetch ulang TIAP KALI trigger jalan -- selamanya
-// -- dan itu yang bikin kuota Gmail harian jebol. MAX_PARSE_RETRIES batasin
-// percobaan itu; setelah gagal berkali-kali, email di-skip permanen (dikasih
-// label 'needs-review' biar bisa dicek manual) daripada terus nyedot kuota.
-const MAX_PARSE_RETRIES = 5;
-
-function getFailCount(messageId) {
-  return Number(PropertiesService.getScriptProperties().getProperty('fail_' + messageId)) || 0;
-}
-
-function incrementFailCount(messageId) {
-  const count = getFailCount(messageId) + 1;
-  PropertiesService.getScriptProperties().setProperty('fail_' + messageId, String(count));
-  return count;
-}
-
-function clearFailCount(messageId) {
-  PropertiesService.getScriptProperties().deleteProperty('fail_' + messageId);
 }
 
 function markProcessed(messageId) {
@@ -69,36 +92,25 @@ function markProcessed(messageId) {
 // ===== UTILS (jalankan manual sekali kalau perlu) =====
 
 /**
- * Reset status processed/fail-count SEMUA email yang match GMAIL_QUERY (bukan
- * cuma yang udah kena label needs-review). Jalankan ini SEKALI abis ganti
- * parser, biar email yang ke-skip diem-diem gara-gara nyangkut status lama
- * ke-proses ulang. Abis ini jalankan processTransactionEmails.
+ * Reset status processed SEMUA email yang match GMAIL_QUERY. Jalankan ini
+ * SEKALI abis ganti parser, biar email yang ke-skip diem-diem gara-gara
+ * nyangkut status lama ke-proses ulang. Abis ini jalankan processTransactionEmails.
  */
 function resetAllTransactionMessages() {
   const list = Gmail.Users.Messages.list('me', { q: GMAIL_QUERY, maxResults: 100 });
   const messages = list.messages || [];
-  const labels = Gmail.Users.Labels.list('me').labels || [];
-  const needsReviewLabel = labels.find(function (l) { return l.name === 'needs-review'; });
 
   let count = 0;
   messages.forEach(function (m) {
     PropertiesService.getScriptProperties().deleteProperty('msg_' + m.id);
-    PropertiesService.getScriptProperties().deleteProperty('fail_' + m.id);
-    if (needsReviewLabel) {
-      try {
-        Gmail.Users.Messages.modify({ removeLabelIds: [needsReviewLabel.id] }, 'me', m.id);
-      } catch (e) {
-        // pesan mungkin nggak punya label ini, aman diabaikan
-      }
-    }
     count++;
   });
-  Logger.log('Reset ' + count + ' pesan (processed + fail count + label needs-review dicopot).');
+  Logger.log('Reset ' + count + ' pesan (status processed dicopot).');
 }
 
 /**
- * Debug: cek status dedup (processed/fail count) dari 10 email transaksi
- * terbaru, tanpa mroses apa-apa.
+ * Debug: cek status dedup (processed) dari 10 email transaksi terbaru, tanpa
+ * mroses apa-apa.
  */
 function debugCheckStatus() {
   const list = Gmail.Users.Messages.list('me', { q: GMAIL_QUERY, maxResults: 10 });
@@ -107,30 +119,8 @@ function debugCheckStatus() {
     const full = Gmail.Users.Messages.get('me', m.id, { format: 'metadata', metadataHeaders: ['Subject', 'From'] });
     const subject = getHeader(full, 'Subject');
     const from = getHeader(full, 'From');
-    Logger.log(subject + ' | ' + from + ' | processed=' + isProcessed(m.id) + ' | failCount=' + getFailCount(m.id));
+    Logger.log(subject + ' | ' + from + ' | processed=' + isProcessed(m.id));
   });
-}
-
-/**
- * Reset pesan yang udah "menyerah" (label needs-review) supaya di-retry lagi
- * oleh processTransactionEmails setelah parser diperbaiki.
- */
-function resetNeedsReviewMessages() {
-  const list = Gmail.Users.Messages.list('me', { q: 'label:needs-review', maxResults: 100 });
-  const messages = list.messages || [];
-  const labels = Gmail.Users.Labels.list('me').labels || [];
-  const label = labels.find(function (l) { return l.name === 'needs-review'; });
-
-  let count = 0;
-  messages.forEach(function (m) {
-    PropertiesService.getScriptProperties().deleteProperty('msg_' + m.id);
-    PropertiesService.getScriptProperties().deleteProperty('fail_' + m.id);
-    if (label) {
-      Gmail.Users.Messages.modify({ removeLabelIds: [label.id] }, 'me', m.id);
-    }
-    count++;
-  });
-  Logger.log('Reset ' + count + ' pesan needs-review, label dicopot.');
 }
 
 /**
@@ -145,15 +135,12 @@ function debugDumpBodies() {
     const from = getHeader(full, 'From').toLowerCase();
     const subject = getHeader(full, 'Subject');
     const body = getEmailBody(full);
-    const bank = BANK_CONFIG.find(function (b) { return from.indexOf(b.match) !== -1; });
+    const dateHeader = getHeader(full, 'Date');
+    const bank = BANK_CONFIG.find(function (b) { return from.indexOf(b.match) !== -1; }) || UNKNOWN_BANK;
 
     Logger.log('=== ' + subject + ' | ' + from + ' ===');
     Logger.log(body.substring(0, 1500));
-    if (bank) {
-      Logger.log('Parse result: ' + JSON.stringify(parseTransactionEmail(body, subject, bank)));
-    } else {
-      Logger.log('(bank tidak dikenali dari alamat pengirim)');
-    }
+    Logger.log('Parse result: ' + JSON.stringify(parseTransactionEmail(body, subject, bank, dateHeader)));
     Logger.log('--- END ---');
   });
 }
@@ -188,49 +175,41 @@ function markReadAPI(messageId) {
   Gmail.Users.Messages.modify({ removeLabelIds: ['UNREAD'] }, 'me', messageId);
 }
 
-function getOrCreateLabelId(name) {
-  const labels = (Gmail.Users.Labels.list('me').labels) || [];
-  const existing = labels.find(function (l) { return l.name === name; });
-  if (existing) return existing.id;
-  const created = Gmail.Users.Labels.create(
-    { name: name, labelListVisibility: 'labelShow', messageListVisibility: 'show' },
-    'me'
-  );
-  return created.id;
-}
-
-function handleParseFailure(message, subject, from) {
-  const failCount = incrementFailCount(message.id);
-  Logger.log('Gagal parse (percobaan ' + failCount + '/' + MAX_PARSE_RETRIES + ') for: ' + subject + ' | from: ' + from);
-  if (failCount >= MAX_PARSE_RETRIES) {
-    Logger.log('Menyerah setelah ' + failCount + 'x gagal, di-skip permanen: ' + subject);
-    markReadAPI(message.id);
-    markProcessed(message.id);
-    try {
-      const labelId = getOrCreateLabelId('needs-review');
-      Gmail.Users.Messages.modify({ addLabelIds: [labelId] }, 'me', message.id);
-    } catch (e) {
-      Logger.log('Gagal nempelin label needs-review: ' + e);
-    }
+// Kalau extraction gagal total (nominal/tanggal nggak ketemu, atau pengirimnya
+// nggak dikenal), email pemilik app biar TAHU ada yang perlu dibenerin di kode
+// -- daripada nyuruh end-user bolak-balik ke Gmail/Apps Script buat ngecek
+// sendiri. Transaksinya sendiri TETEP di-insert (lihat parseTransactionEmail)
+// jadi datanya nggak ilang, cuma butuh dirapiin manual di app.
+function notifyAdminOfReviewNeeded(subject, from, reason) {
+  if (!ADMIN_EMAIL) return;
+  try {
+    MailApp.sendEmail({
+      to: ADMIN_EMAIL,
+      subject: '[Money Tracker] Email transaksi perlu dicek: ' + subject,
+      body:
+        'Ada email transaksi yang ' + reason + ', jadi di-insert sebagai "Perlu Dicek" apa adanya.\n\n' +
+        'Subject: ' + subject + '\n' +
+        'From: ' + from + '\n\n' +
+        'Kemungkinan perlu update BANK_CONFIG atau parser di gmail-import.gs.',
+    });
+  } catch (e) {
+    Logger.log('Gagal kirim notifikasi admin: ' + e);
   }
 }
 
 function handleMessage(message) {
   const from = getHeader(message, 'From').toLowerCase();
   const subject = getHeader(message, 'Subject');
-  const bank = BANK_CONFIG.find(function (b) { return from.indexOf(b.match) !== -1; });
-  if (!bank) return;
+  const bank = BANK_CONFIG.find(function (b) { return from.indexOf(b.match) !== -1; }) || UNKNOWN_BANK;
+  const isUnknownSender = bank === UNKNOWN_BANK;
 
   const body = getEmailBody(message);
-  const tx = parseTransactionEmail(body, subject, bank);
+  const dateHeader = getHeader(message, 'Date');
+  const tx = parseTransactionEmail(body, subject, bank, dateHeader);
 
   if (tx === 'SKIP_MARK_READ') {
     markReadAPI(message.id);
     markProcessed(message.id);
-    return;
-  }
-  if (!tx) {
-    handleParseFailure(message, subject, from);
     return;
   }
 
@@ -238,7 +217,12 @@ function handleMessage(message) {
   if (success) {
     markReadAPI(message.id);
     markProcessed(message.id);
-    clearFailCount(message.id);
+
+    if (isUnknownSender) {
+      notifyAdminOfReviewNeeded(subject, from, 'pengirimnya belum dikenal (belum ada di BANK_CONFIG)');
+    } else if (tx.category === 'Perlu Dicek') {
+      notifyAdminOfReviewNeeded(subject, from, 'gagal diekstrak lengkap (nominal/tanggal nggak ketemu)');
+    }
   }
 }
 
@@ -317,7 +301,7 @@ function getEmailBody(message) {
 // tanggal, dan nama merchant/penerima dari label yang umum dipakai. Lebih
 // nggak presisi dibanding parser lama, tapi jauh lebih tahan banting kalau
 // bank ubah sedikit tata letak emailnya.
-function parseTransactionEmail(body, subject, bank) {
+function parseTransactionEmail(body, subject, bank, dateHeader) {
   // Skip: dana MASUK (refund/transfer masuk) -- bukan pengeluaran.
   if (/pengembalian dana|refund|dana masuk|transaksi masuk|transfer masuk/i.test(body)) {
     return 'SKIP_MARK_READ';
@@ -330,8 +314,7 @@ function parseTransactionEmail(body, subject, bank) {
   }
 
   const amount = extractAmount(body);
-  const dateTime = extractDateTime(body);
-  if (!amount || !dateTime.date) return null;
+  const dateTime = extractDateTime(body, dateHeader);
 
   const title = extractTitle(body, subject, bank);
   if (OWNER_NAME.test(title)) return 'SKIP_MARK_READ'; // transfer ke diri sendiri
@@ -346,15 +329,34 @@ function parseTransactionEmail(body, subject, bank) {
     }
   }
 
+  // Kalau nominal/tanggal nggak ketemu, JANGAN skip -- tetep insert apa
+  // adanya biar datanya nggak ilang, tapi ditandai "Perlu Dicek" biar user
+  // liat & lengkapin sendiri di app (lihat notifyAdminOfReviewNeeded di
+  // handleMessage buat pemberitahuan ke developer).
+  const needsReview = !amount || !dateTime.date;
+
   return {
     title: title,
-    date: dateTime.date,
+    date: dateTime.date || headerDateFallback(dateHeader),
     time: dateTime.time,
-    amount: amount,
-    category: guessCategory(title),
+    amount: amount || 0,
+    category: needsReview ? 'Perlu Dicek' : guessCategory(title),
     source: source,
     dana_dipakai: dana,
   };
+}
+
+// Kalau body-nya sama sekali nggak punya tanggal yang bisa di-parse, pakai
+// tanggal email diterima (header Date) sebagai pendekatan -- lebih baik ada
+// tanggal yang mendekati daripada gagal insert gara-gara field kosong.
+function headerDateFallback(dateHeader) {
+  try {
+    const d = dateHeader ? new Date(dateHeader) : new Date();
+    if (!isNaN(d.getTime())) return Utilities.formatDate(d, 'Asia/Jakarta', 'yyyy-MM-dd');
+  } catch (e) {
+    // lanjut ke fallback di bawah
+  }
+  return Utilities.formatDate(new Date(), 'Asia/Jakarta', 'yyyy-MM-dd');
 }
 
 // Ambil semua kemunculan "Rp ..."/"IDR ..." di body, lalu pilih yang paling
@@ -384,14 +386,55 @@ function extractAmount(body) {
 // Tanggal transaksi hampir selalu format "DD Bulan YYYY" (Indo atau Inggris),
 // jadi cukup ambil kemunculan pertama pola itu di body -- biasanya muncul
 // duluan di bagian atas email sebelum breakdown/rincian lain.
-function extractDateTime(body) {
-  const dm = body.match(/(\d{1,2})\s+([A-Za-z]{3,9})\s+(\d{2,4})/);
-  if (!dm) return { date: null, time: '' };
-  const date = parseIndoDate(dm[0]);
+// Kalau body-nya nggak nyebut jam eksplisit (banyak e-receipt Grab cuma
+// nulis tanggal doang), pakai jam email diterima (header Date) sebagai
+// pendekatan -- biasanya cuma beda semenit-dua dari jam transaksi asli.
+function extractDateTime(body, dateHeader) {
+  // Cari SEMUA kemunculan pola "DD Bulan YYYY", bukan cuma yang pertama --
+  // teks acak (mis. potongan nomor terminal diikuti label 3 huruf lalu angka
+  // lain, semacam "...79 RRN 6246...") bisa keebetulan cocok duluan tapi
+  // gagal di-parse sebagai bulan asli. Ambil kandidat PERTAMA yang beneran
+  // valid, jangan langsung nyerah di kandidat pertama yang ditemukan regex.
+  const dateRe = /(\d{1,2})\s+([A-Za-z]{3,9})\s+(\d{2,4})/g;
+  let dm;
+  let date = null;
+  let matchIndex = -1;
+  while ((dm = dateRe.exec(body)) !== null) {
+    const parsed = parseIndoDate(dm[0]);
+    if (parsed) {
+      date = parsed;
+      matchIndex = dm.index;
+      break;
+    }
+  }
+
+  // Fallback: sebagian bank (mis. Kartu Kredit BCA) nulis tanggal numerik
+  // "DD-MM-YYYY" / "DD/MM/YYYY", nggak pake nama bulan sama sekali.
+  if (!date) {
+    const numDm = body.match(/(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})/);
+    if (numDm) {
+      date = numDm[3] + '-' + numDm[2].padStart(2, '0') + '-' + numDm[1].padStart(2, '0');
+      matchIndex = numDm.index;
+    }
+  }
+
   if (!date) return { date: null, time: '' };
-  const after = body.slice(dm.index, dm.index + 60);
+
+  const after = body.slice(matchIndex, matchIndex + 60);
   const tm = after.match(/(\d{1,2}):(\d{2})/);
-  const time = tm ? String(tm[1]).padStart(2, '0') + ':' + tm[2] : '';
+  let time = tm ? String(tm[1]).padStart(2, '0') + ':' + tm[2] : '';
+
+  if (!time && dateHeader) {
+    try {
+      const received = new Date(dateHeader);
+      if (!isNaN(received.getTime())) {
+        time = Utilities.formatDate(received, 'Asia/Jakarta', 'HH:mm');
+      }
+    } catch (e) {
+      // biarin kosong kalau header Date-nya gagal di-parse
+    }
+  }
+
   return { date: date, time: time };
 }
 
@@ -400,7 +443,7 @@ function extractDateTime(body) {
 // notifikasi ride-hailing yang emang nggak punya field nama merchant), atau
 // terakhir fallback ke subject email.
 function extractTitle(body, subject, bank) {
-  const labelRe = /(?:Merchant|Pembayaran Ke|Kepada|Penerima|Nama Penerima|Nama Tujuan|Tujuan Pembayaran|Recipient|Order from|Pesanan dari|Nama Produk|bluAccount)\s*:?\s*\n?\s*([^\n]{2,60})/i;
+  const labelRe = /(?:Merchant\s*\/\s*ATM|Merchant|Pembayaran Ke|Kepada|Penerima|Nama Penerima|Nama Tujuan|Tujuan Pembayaran|Recipient|Order from|Pesanan dari|Nama Produk|bluAccount)\s*:?\s*\n?\s*([^\n]{2,60})/i;
   const m = body.match(labelRe);
   if (m) return remapKnownMerchant(m[1].trim());
   if (bank.defaultTitle) return bank.defaultTitle;
@@ -477,7 +520,36 @@ function supabaseRequest(path, method, payload) {
   return UrlFetchApp.fetch(SUPABASE_URL + path, options);
 }
 
+// Cek transaksi identik (judul+nominal+tanggal+jam persis sama) udah ada apa
+// belum. Ini jaring pengaman kalau isProcessed ke-reset (mis. abis jalanin
+// resetAllTransactionMessages buat retry satu email yang macet) -- tanpa ini,
+// SEMUA email lain yang udah bener ke-insert bakal ke-insert ULANG dobel tiap
+// kali status-nya di-reset, bukan cuma email yang bermasalah.
+function transactionAlreadyExists(tx) {
+  const params = [
+    'user_id=eq.' + encodeURIComponent(IMPORT_USER_ID),
+    'title=eq.' + encodeURIComponent(tx.title),
+    'amount=eq.' + encodeURIComponent(tx.amount),
+    'date=eq.' + encodeURIComponent(tx.date),
+    tx.time ? 'time=eq.' + encodeURIComponent(tx.time) : 'time=is.null',
+    'select=id',
+    'limit=1',
+  ].join('&');
+  const response = supabaseRequest('/rest/v1/transactions?' + params, 'get');
+  if (response.getResponseCode() < 200 || response.getResponseCode() >= 300) {
+    Logger.log('Gagal cek duplikat, lanjut insert seperti biasa: ' + response.getContentText());
+    return false;
+  }
+  const rows = JSON.parse(response.getContentText());
+  return Array.isArray(rows) && rows.length > 0;
+}
+
 function insertTransaction(tx) {
+  if (transactionAlreadyExists(tx)) {
+    Logger.log('Skip (udah ada, sama persis judul/nominal/tanggal/jam): ' + tx.title + ' Rp' + tx.amount);
+    return true;
+  }
+
   const payload = {
     id: Utilities.getUuid(),
     date: tx.date,

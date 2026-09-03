@@ -6,9 +6,16 @@
     <link rel="icon" type="image/png" href="/pwa-icon.png" />
     <link rel="apple-touch-icon" href="/pwa-icon.png" />
 
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 
     <meta name="theme-color" content="#ffffff" />
+
+    <!-- Bikin "Add to Home Screen" di iOS jalan standalone (tanpa Safari chrome)
+         dengan status bar putih -- tanpa ini WKWebView nampilin background
+         hitam bawaannya sendiri di area safe-area yang belum di-handle CSS. -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Money Tracker" />
 
     <title>Money Tracker</title>
   </head>

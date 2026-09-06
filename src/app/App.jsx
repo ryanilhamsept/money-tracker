@@ -140,7 +140,7 @@ export default function App() {
 
     const totalAllTimeSpending = useMemo(() => {
         return transactions
-            .filter((item) => item.type !== "income" && String(item.date) >= "2025-01-01")
+            .filter((item) => item.type !== "income" && String(item.date) >= "2026-01-01")
             .reduce((sum, item) => sum + Number(item.amount), 0);
     }, [transactions]);
 
@@ -262,13 +262,13 @@ export default function App() {
                     className="overflow-hidden rounded-[2rem] border border-white/70 bg-white/80 p-5 shadow-xl backdrop-blur md:p-8"
                 >
                     <div className="flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-2">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-pink-400 to-indigo-500 text-white shadow-lg">
+                        <div className="flex min-w-0 items-center gap-2">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-pink-400 to-indigo-500 text-white shadow-lg">
                                 <Wallet className="h-5 w-5" />
                             </div>
 
-                            <div>
-                                <p className="text-base sm:text-lg font-black tracking-tight text-slate-900">
+                            <div className="min-w-0">
+                                <p className="truncate text-base sm:text-lg font-black tracking-tight text-slate-900">
                                     {user?.email?.split('@')[0] || "User"}'s Money Tracker
                                 </p>
                             </div>
@@ -276,7 +276,7 @@ export default function App() {
 
                         <button
                             onClick={() => supabase.auth.signOut()}
-                            className="rounded-2xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-bold text-slate-600 shadow-sm transition hover:bg-slate-50 hover:text-rose-600 hover:border-rose-100"
+                            className="shrink-0 whitespace-nowrap rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 shadow-sm transition hover:bg-slate-50 hover:text-rose-600 hover:border-rose-100 sm:px-5 sm:py-2.5"
                         >
                             Log Out
                         </button>
@@ -303,7 +303,7 @@ export default function App() {
                             </p>
 
                             <p className="mt-1 text-xs font-medium text-white/70">
-                                Januari 2025 - Sekarang
+                                Januari 2026 - Sekarang
                             </p>
 
                             <p className="mt-5 text-3xl font-black tracking-tight md:text-4xl xl:text-5xl">

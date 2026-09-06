@@ -15,7 +15,7 @@ import {
     Banknote,
 } from "lucide-react";
 
-import { formatCurrency } from "../utils/currency";
+import { formatCurrency, formatThousands } from "../utils/currency";
 import { findCreditCardForSource } from "../utils/accountBalance";
 import { getCurrentCycleStart, getStatementDay } from "../utils/billingCycle";
 import { getInstallmentBaseTitle } from "../utils/installmentTitle";
@@ -261,14 +261,7 @@ export default function Accounts({
 
     // Format number formatting on typing starting balance
     const handleBalanceChange = (val, setter) => {
-        const isNegative = String(val).startsWith('-');
-        const cleanNumber = String(val).replace(/[^\d]/g, "");
-        if (cleanNumber === "") {
-            setter(isNegative ? "-" : "");
-            return;
-        }
-        const formatted = new Intl.NumberFormat("id-ID").format(Number(cleanNumber));
-        setter(isNegative ? "-" + formatted : formatted);
+        setter(formatThousands(val, { allowNegative: true }));
     };
 
     const renderAccountItem = (account) => {

@@ -11,7 +11,7 @@ import {
 
 import { Button } from "./ui/button";
 import { formatCurrency } from "../utils/currency";
-import { formatDisplayDate, normalizeDate } from "../utils/date";
+import { formatDisplayDate, normalizeDate, addMonthsToDate } from "../utils/date";
 import { findCreditCardForSource } from "../utils/accountBalance";
 import {
     formatInstallmentTitle,
@@ -237,17 +237,9 @@ export default function TransactionList({
 
             if (wantsInstallment && addTransaction) {
                 const term = Number(installmentDetails.remainingTerm) || 1;
-                const [yearStr, monthStr, dayStr] = editForm.date.split('-');
-                const y = parseInt(yearStr, 10);
-                const m = parseInt(monthStr, 10) - 1;
-                const d = parseInt(dayStr, 10);
 
                 for (let i = 1; i < term; i++) {
-                    const nextDate = new Date(y, m + i, d);
-                    const outY = nextDate.getFullYear();
-                    const outM = String(nextDate.getMonth() + 1).padStart(2, '0');
-                    const outD = String(nextDate.getDate()).padStart(2, '0');
-                    const dateString = `${outY}-${outM}-${outD}`;
+                    const dateString = addMonthsToDate(editForm.date, i);
 
                     addTransaction({
                         ...editForm,

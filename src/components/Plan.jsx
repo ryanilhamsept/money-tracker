@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { Plus, Pencil, Trash2, X } from "lucide-react";
 
 import { Card, CardContent } from "./ui/card";
-import { formatCurrency } from "../utils/currency";
+import { formatCurrency, formatThousands } from "../utils/currency";
 import { formatDisplayDate } from "../utils/date";
 import {
     getGoals as getGoalsFromSupabase,
@@ -30,10 +30,6 @@ const FILTER_OPTIONS = [
 
 const emptyForm = { title: "", icon: GOAL_ICONS[0], targetAmount: "", savedAmount: "", deadline: "", note: "" };
 
-const formatThousands = (value) => {
-    const raw = String(value || "").replace(/[^\d]/g, "");
-    return raw ? new Intl.NumberFormat("id-ID").format(Number(raw)) : "";
-};
 const parseAmount = (value) => Number(String(value || "").replace(/[^\d]/g, "")) || 0;
 
 export default function Plan({ userId }) {

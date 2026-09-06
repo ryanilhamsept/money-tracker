@@ -1,97 +1,68 @@
 const { Router } = require("express");
+const { asyncHandler } = require("../middleware/asyncHandler");
+const { buildSetClause } = require("../utils/db");
 
 module.exports = function installmentRoutes(pool) {
     const router = Router();
 
     // GET /api/installments
-    router.get("/", async (req, res) => {
-        try {
-            const { rows } = await pool.query(
-                `SELECT id, account_id, transaction_id, name, provider,
-                        total_loan, remaining_balance, monthly_installment,
-                        remaining_term, due_date, created_at
-                 FROM installments WHERE user_id = $1 ORDER BY created_at DESC`,
-                [req.userId]
-            );
-            res.json(rows.map(mapFromDB));
-        } catch (err) {
-            console.error("GET /installments error:", err);
-            res.status(500).json({ error: err.message });
-        }
-    });
+    router.get("/", asyncHandler("GET /installments", async (req, res) => {
+        const { rows } = await pool.query(
+            `SELECT id, account_id, transaction_id, name, provider,
+                    total_loan, remaining_balance, monthly_installment,
+                    remaining_term, due_date, created_at
+             FROM installments WHERE user_id = $1 ORDER BY created_at DESC`,
+            [req.userId]
+        );
+        res.json(rows.map(mapFromDB));
+    }));
 
     // POST /api/installments
-    router.post("/", async (req, res) => {
-        try {
-            const i = req.body;
-            await pool.query(
-                `INSERT INTO installments (id, account_id, transaction_id, name, provider,
-                        total_loan, remaining_balance, monthly_installment, remaining_term, due_date, user_id)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-                [i.id, i.accountId, i.transactionId || null, i.name, i.provider || null,
-                 Number(i.totalLoan) || 0, Number(i.remainingBalance) || 0, Number(i.monthlyInstallment) || 0,
-                 i.remainingTerm ?? null, i.dueDate ?? null, req.userId]
-            );
+    router.post("/", asyncHandler("POST /installments", async (req, res) => {
+        const i = req.body;
+        await pool.query(
+            `INSERT INTO installments (id, account_id, transaction_id, name, provider,
+                    total_loan, remaining_balance, monthly_installment, remaining_term, due_date, user_id)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+            [i.id, i.accountId, i.transactionId || null, i.name, i.provider || null,
+             Number(i.totalLoan) || 0, Number(i.remainingBalance) || 0, Number(i.monthlyInstallment) || 0,
+             i.remainingTerm ?? null, i.dueDate ?? null, req.userId]
+        );
 
-            res.status(201).json({ success: true });
-        } catch (err) {
-            console.error("POST /installments error:", err);
-            res.status(500).json({ error: err.message });
-        }
-    });
+        res.status(201).json({ success: true });
+    }));
 
     // PUT /api/installments/:id
-    router.put("/:id", async (req, res) => {
-        try {
-            const id = req.params.id;
-            const fields = req.body;
+    router.put("/:id", asyncHandler("PUT /installments", async (req, res) => {
+        const id = req.params.id;
+        const fields = req.body;
 
-            const fieldMap = {
-                remainingBalance: "remaining_balance",
-                remainingTerm: "remaining_term",
-                dueDate: "due_date",
-            };
+        const fieldMap = {
+            remainingBalance: "remaining_balance",
+            remainingTerm: "remaining_term",
+            dueDate: "due_date",
+        };
 
-            const setClauses = [];
-            const values = [id];
-            let paramIndex = 2;
+        const { setClauses, values: fieldValues, nextParamIndex } = buildSetClause(fieldMap, fields);
 
-            for (const [apiKey, val] of Object.entries(fields)) {
-                const dbKey = fieldMap[apiKey];
-                if (dbKey) {
-                    setClauses.push(`${dbKey} = $${paramIndex}`);
-                    values.push(val);
-                    paramIndex++;
-                }
-            }
-
-            if (setClauses.length === 0) {
-                return res.status(400).json({ error: "No valid fields to update" });
-            }
-
-            values.push(req.userId);
-            await pool.query(
-                `UPDATE installments SET ${setClauses.join(", ")} WHERE id = $1 AND user_id = $${paramIndex}`,
-                values
-            );
-
-            res.json({ success: true });
-        } catch (err) {
-            console.error("PUT /installments error:", err);
-            res.status(500).json({ error: err.message });
+        if (setClauses.length === 0) {
+            return res.status(400).json({ error: "No valid fields to update" });
         }
-    });
+
+        const values = [id, ...fieldValues, req.userId];
+        await pool.query(
+            `UPDATE installments SET ${setClauses.join(", ")} WHERE id = $1 AND user_id = $${nextParamIndex}`,
+            values
+        );
+
+        res.json({ success: true });
+    }));
 
     // DELETE /api/installments/:id
-    router.delete("/:id", async (req, res) => {
-        try {
-            await pool.query("DELETE FROM installments WHERE id = $1 AND user_id = $2", [req.params.id, req.userId]);
-            res.json({ success: true });
-        } catch (err) {
-            console.error("DELETE /installments error:", err);
-            res.status(500).json({ error: err.message });
-        }
-    });
+    router.delete("/:id", asyncHandler("DELETE /installments", async (req, res) => {
+        await pool.query("DELETE FROM installments WHERE id = $1 AND user_id = $2", [req.params.id, req.userId]);
+        res.json({ success: true });
+    }));
 
     return router;
 };

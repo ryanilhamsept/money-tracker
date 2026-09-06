@@ -32,6 +32,7 @@ import {
     getTransactionMonth,
     normalizeDate,
     today,
+    addMonthsToDate,
 } from "../utils/date";
 
 import { formatCurrency } from "../utils/currency";
@@ -277,10 +278,7 @@ export default function Tracker({
 
             if (wantsInstallment) {
                 const term = Number(installmentDetails.remainingTerm) || 1;
-                const [yearStr, monthStr, dayStr] = form.date.split('-');
-                const y = parseInt(yearStr, 10);
-                const m = parseInt(monthStr, 10) - 1;
-                const d = parseInt(dayStr, 10);
+                const d = parseInt(form.date.split('-')[2], 10);
 
                 // Cicilan pertama nempel di tagihan pertama setelah belanja.
                 // Kartu tutup buku tiap tanggal `statementDay`, jadi belanja
@@ -290,11 +288,7 @@ export default function Tracker({
                 const monthOffset = getFirstInstallmentMonthOffset(d, statementDay);
 
                 for (let i = 0; i < term; i++) {
-                    const nextDate = new Date(y, m + i + monthOffset, d);
-                    const outY = nextDate.getFullYear();
-                    const outM = String(nextDate.getMonth() + 1).padStart(2, '0');
-                    const outD = String(nextDate.getDate()).padStart(2, '0');
-                    const dateString = `${outY}-${outM}-${outD}`;
+                    const dateString = addMonthsToDate(form.date, i + monthOffset);
 
                     const currentTxId = crypto.randomUUID();
                     if (i === 0) firstTransactionId = currentTxId;

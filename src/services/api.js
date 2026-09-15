@@ -34,14 +34,20 @@ const apiFetch = async (path, options = {}) => {
     });
 
     if (!res.ok) {
-        let errorMsg;
+        let errBody = null;
         try {
-            const errBody = await res.json();
-            errorMsg = errBody.error || `Request failed (${res.status})`;
+            errBody = await res.json();
         } catch {
-            errorMsg = `Request failed (${res.status})`;
+            // non-JSON error body; fall through to the generic message
         }
-        throw new Error(errorMsg);
+
+        // Carry the status and body along so callers can tell a 409
+        // duplicate (with its duplicateOf payload) apart from a real failure.
+        const error = new Error(errBody?.error || `Request failed (${res.status})`);
+        error.status = res.status;
+        error.code = errBody?.code;
+        error.duplicateOf = errBody?.duplicateOf;
+        throw error;
     }
 
     return res.json();

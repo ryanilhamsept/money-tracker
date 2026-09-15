@@ -37,6 +37,7 @@ import {
 
 import { formatCurrency } from "../utils/currency";
 import { findCreditCardForSource } from "../utils/accountBalance";
+import { findDuplicateTransaction } from "../utils/transactions";
 import {
     getFirstInstallmentMonthOffset,
     getStatementDay,
@@ -248,9 +249,16 @@ export default function Tracker({
         (group) => group.items
     );
 
-    const handleSubmit = async (event) => {
-        event.preventDefault();
+    // Set when addTransaction refuses a save because an equivalent row exists;
+    // holds the existing row so the user can compare before deciding.
+    const [duplicateWarning, setDuplicateWarning] = useState(null);
 
+    const handleSubmit = (event) => {
+        event.preventDefault();
+        void submitTransaction({ allowDuplicate: false });
+    };
+
+    const submitTransaction = async ({ allowDuplicate }) => {
         if (isSubmittingRef.current) return;
 
         const amount = Number(String(form.amount || "").replace(/[^\d]/g, ""));
@@ -258,6 +266,7 @@ export default function Tracker({
 
         isSubmittingRef.current = true;
         setIsSubmitting(true);
+        setDuplicateWarning(null);
 
         const activeSource = activeFundSources.includes(form.source)
             ? form.source
@@ -287,32 +296,47 @@ export default function Tracker({
                 const statementDay = getStatementDay(matchedCard);
                 const monthOffset = getFirstInstallmentMonthOffset(d, statementDay);
 
-                for (let i = 0; i < term; i++) {
-                    const dateString = addMonthsToDate(form.date, i + monthOffset);
+                const candidates = Array.from({ length: term }, (_, i) => ({
+                    ...form,
+                    title: formatInstallmentTitle(form.title, i + 1),
+                    amount: amount,
+                    date: addMonthsToDate(form.date, i + monthOffset),
+                    id: crypto.randomUUID(),
+                    source: activeSource,
+                    installmentTotalLoan: i === 0 ? totalLoan : 0,
+                }));
 
-                    const currentTxId = crypto.randomUUID();
-                    if (i === 0) firstTransactionId = currentTxId;
+                // Check every payment before adding any, so a duplicate found
+                // on the 2nd month never leaves the 1st month half-saved.
+                if (!allowDuplicate) {
+                    const duplicateOf = candidates
+                        .map((c) => findDuplicateTransaction(transactions, c))
+                        .find(Boolean);
+                    if (duplicateOf) {
+                        setDuplicateWarning(duplicateOf);
+                        return;
+                    }
+                }
 
-                    await addTransaction({
-                        ...form,
-                        title: formatInstallmentTitle(form.title, i + 1),
-                        amount: amount,
-                        date: dateString,
-                        id: currentTxId,
-                        source: activeSource,
-                        installmentTotalLoan: i === 0 ? totalLoan : 0,
-                    });
+                firstTransactionId = candidates[0].id;
+                for (const candidate of candidates) {
+                    addTransaction(candidate, { allowDuplicate });
                 }
             } else {
                 firstTransactionId = crypto.randomUUID();
-                await addTransaction({
+                const result = addTransaction({
                     ...form,
                     title: form.title.trim(),
                     amount: amount,
                     id: firstTransactionId,
                     source: activeSource,
                     installmentTotalLoan: null,
-                });
+                }, { allowDuplicate });
+
+                if (result.reason === "duplicate") {
+                    setDuplicateWarning(result.duplicateOf);
+                    return;
+                }
             }
 
             if (wantsInstallment && firstTransactionId) {
@@ -737,6 +761,43 @@ export default function Tracker({
                                     />
                                 </label>
                             </div>
+
+                            {duplicateWarning && (
+                                <div className="space-y-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                                    <p className="text-sm font-bold text-amber-900">
+                                        Transaksi serupa sudah ada
+                                    </p>
+                                    <p className="text-sm text-amber-800">
+                                        <span className="font-semibold">{duplicateWarning.title}</span>
+                                        {" • "}
+                                        {formatCurrency(duplicateWarning.amount)}
+                                        {" • "}
+                                        {duplicateWarning.date}
+                                        {duplicateWarning.time ? ` ${duplicateWarning.time}` : ""}
+                                        {" • "}
+                                        {duplicateWarning.source}
+                                    </p>
+                                    <p className="text-xs text-amber-700">
+                                        Kalau ini memang pembelian yang berbeda, tetap simpan.
+                                    </p>
+                                    <div className="flex gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => void submitTransaction({ allowDuplicate: true })}
+                                            className="flex-1 rounded-xl bg-amber-600 px-3 py-2 text-sm font-bold text-white hover:bg-amber-700 transition"
+                                        >
+                                            Tetap simpan
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setDuplicateWarning(null)}
+                                            className="flex-1 rounded-xl border border-amber-300 bg-white px-3 py-2 text-sm font-bold text-amber-900 hover:bg-amber-100 transition"
+                                        >
+                                            Batal
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
 
                             <Button
                                 type="submit"

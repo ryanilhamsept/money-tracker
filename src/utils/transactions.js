@@ -21,6 +21,32 @@ export const deduplicateTransactionsById = (rows) => {
     return { rows: uniqueRows, duplicateCount };
 };
 
+const normalizeTitle = (value) => String(value || "").trim().toLowerCase();
+
+// Two transactions count as the same purchase when date, title and amount
+// line up. Funding source is deliberately NOT compared: one purchase can
+// land twice under different source labels (a Blu payment showing up as
+// both "Blu" and "BCA" from two bank notifications), and that is exactly
+// the double entry this exists to catch. Time is left out too: manual
+// entries often have none. This is a warning, not a hard rule -- two
+// identical Grab rides on one day are legitimate, so callers must let the
+// user confirm and save anyway. Mirrors the SQL check in the backend's
+// POST /api/transactions.
+export const findDuplicateTransaction = (transactions, candidate) => {
+    const title = normalizeTitle(candidate.title);
+    const amount = Number(candidate.amount) || 0;
+
+    return (
+        transactions.find(
+            (t) =>
+                t.id !== candidate.id &&
+                t.date === candidate.date &&
+                normalizeTitle(t.title) === title &&
+                (Number(t.amount) || 0) === amount
+        ) || null
+    );
+};
+
 const CATEGORY_ALIASES = {
     utility: "Utilities",
     utilities: "Utilities",

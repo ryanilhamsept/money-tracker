@@ -22,6 +22,41 @@ module.exports = function transactionRoutes(pool) {
     // POST /api/transactions
     router.post("/", asyncHandler("POST /transactions", async (req, res) => {
         const t = req.body;
+
+        // Content-level duplicate check, distinct from the id-level upsert
+        // below: a second row with a different id but the same date, title
+        // and amount is almost always the same purchase entered twice (or
+        // the same bank email imported twice). Source is deliberately not
+        // compared -- one purchase can arrive under two source labels (Blu
+        // vs BCA) and that is the double entry to catch. Refuse with 409 and
+        // hand back the existing row so the client can show it. Identical
+        // purchases do happen (two Grab rides in a day), so the client may
+        // resend with allowDuplicate: true to save regardless. Same rule as
+        // findDuplicateTransaction in src/utils/transactions.js.
+        if (t.allowDuplicate !== true) {
+            const { rows: existing } = await pool.query(
+                `SELECT id, date, time, title, category, amount, source, dana_dipakai,
+                        type, installment_total_loan, created_at
+                 FROM transactions
+                 WHERE user_id = $1
+                   AND id <> $2
+                   AND date = $3
+                   AND lower(btrim(title)) = lower(btrim($4))
+                   AND amount = $5
+                 LIMIT 1`,
+                [req.userId, t.id, t.date, t.title, Number(t.amount)]
+            );
+
+            if (existing.length > 0) {
+                return res.status(409).json({
+                    success: false,
+                    code: "DUPLICATE_TRANSACTION",
+                    error: "Transaksi dengan tanggal, judul, dan nominal yang sama sudah ada.",
+                    duplicateOf: mapFromDB(existing[0]),
+                });
+            }
+        }
+
         // ON CONFLICT DO UPDATE makes this safe to retry with the same id --
         // the client's offline queue (useTransactions.js retryPendingSync)
         // resends the exact same create request if a LATER step (balance
@@ -90,11 +125,27 @@ module.exports = function transactionRoutes(pool) {
 
     // DELETE /api/transactions/:id
     router.delete("/:id", asyncHandler("DELETE /transactions", async (req, res) => {
-        await pool.query("DELETE FROM transactions WHERE id = $1 AND user_id = $2", [req.params.id, req.userId]);
+        // Hard delete. rowCount must be checked: a DELETE whose WHERE matches
+        // nothing is not an error to Postgres, so without this the route
+        // reported success while the row was still there (wrong user, or a
+        // row the offline queue had not sent yet). 404 lets the client tell
+        // "already gone" apart from "the delete failed".
+        const { rowCount } = await pool.query(
+            "DELETE FROM transactions WHERE id = $1 AND user_id = $2",
+            [req.params.id, req.userId]
+        );
+
+        if (rowCount === 0) {
+            return res.status(404).json({
+                success: false,
+                code: "NOT_FOUND",
+                error: "Transaksi tidak ditemukan di database.",
+            });
+        }
 
         mirrorToGoogleSheet({ action: "delete", id: req.params.id });
 
-        res.json({ success: true });
+        res.json({ success: true, deleted: rowCount });
     }));
 
     return router;

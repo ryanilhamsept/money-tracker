@@ -3,6 +3,7 @@ import { normalizeDate } from "../utils/date";
 import { parseAmountInput } from "../utils/parser";
 import {
     deduplicateTransactionsById,
+    findDuplicateTransaction,
     normalizeTransaction,
 } from "../utils/transactions";
 import {
@@ -124,9 +125,12 @@ export const useTransactions = ({
         return deduped;
     };
 
-    const loadTransactions = async () => {
+    // `silent` refetches without flipping isLoading, which App.jsx uses to
+    // swap the whole screen for a loader -- fine on first load, jarring for a
+    // background correction mid-session.
+    const loadTransactions = async ({ silent = false } = {}) => {
         try {
-            setIsLoading(true);
+            if (!silent) setIsLoading(true);
 
             const rows = await getTransactionsFromSupabase();
 
@@ -152,7 +156,7 @@ export const useTransactions = ({
             setSyncStatus("Failed to load data from database.");
             return false;
         } finally {
-            setIsLoading(false);
+            if (!silent) setIsLoading(false);
         }
     };
 
@@ -177,9 +181,17 @@ export const useTransactions = ({
         }
 
         let failedCount = 0;
+        let rejectedAsDuplicate = 0;
 
         try {
             for (const transaction of pendingAdds) {
+                // `pendingAdds` is a snapshot from before the loop. If the user
+                // deleted this one while an earlier item was still in flight,
+                // it is gone from the live queue -- do not resurrect it.
+                if (!pendingAddsRef.current.some((t) => t.id === transaction.id)) {
+                    continue;
+                }
+
                 try {
                     const result = await syncTransactionToSupabase(
                         transaction
@@ -196,6 +208,21 @@ export const useTransactions = ({
                         )
                     );
                 } catch (error) {
+                    // The server already holds an equivalent row (added from
+                    // another device between our load and this sync). Retrying
+                    // can never succeed, so drop the local copy, undo its
+                    // optimistic balance effect and reload so the server's
+                    // row shows up instead of ours.
+                    if (error.status === 409) {
+                        rejectedAsDuplicate += 1;
+                        removePendingAdd(transaction.id);
+                        setTransactions((current) =>
+                            current.filter((item) => item.id !== transaction.id)
+                        );
+                        applyTransactionBalanceChange?.(transaction, null);
+                        continue;
+                    }
+
                     failedCount += 1;
                     console.error("PENDING TRANSACTION SYNC ERROR:", error);
 
@@ -207,6 +234,15 @@ export const useTransactions = ({
                         )
                     );
                 }
+            }
+
+            if (rejectedAsDuplicate > 0) {
+                void loadTransactions({ silent: true });
+                setSyncStatus(
+                    `${rejectedAsDuplicate} transaksi tidak disimpan karena sudah ada di database.`
+                );
+                setTimeout(() => setSyncStatus(""), 5000);
+                if (failedCount === 0) return true;
             }
 
             if (failedCount > 0) {
@@ -282,10 +318,14 @@ export const useTransactions = ({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [pendingSyncCount]);
 
-    const addTransaction = (form) => {
+    // Returns { ok: true } once queued, { ok: false, reason: "invalid" } for
+    // empty input, or { ok: false, reason: "duplicate", duplicateOf } when an
+    // equivalent transaction already exists -- nothing is added in that case,
+    // so the caller can ask the user and retry with allowDuplicate: true.
+    const addTransaction = (form, { allowDuplicate = false } = {}) => {
         const amount = parseAmountInput(form.amount);
 
-        if (!form.title.trim() || !amount) return false;
+        if (!form.title.trim() || !amount) return { ok: false, reason: "invalid" };
 
         const maxRowNumber = transactions.length > 0
             ? Math.max(...transactions.map((t) => t.rowNumber || 0))
@@ -303,14 +343,23 @@ export const useTransactions = ({
             syncState: "pending",
         };
 
+        // Check locally first so a duplicate never enters the optimistic list
+        // or the offline queue; the backend repeats the same check on insert.
+        if (!allowDuplicate) {
+            const duplicateOf = findDuplicateTransaction(transactions, newTransaction);
+            if (duplicateOf) return { ok: false, reason: "duplicate", duplicateOf };
+        }
+
         setTransactions((current) => [newTransaction, ...current]);
         applyTransactionBalanceChange?.(null, newTransaction);
-        queuePendingAdd(newTransaction);
+        // The flag rides along on the queued copy only, so the backend honours
+        // the user's decision even when the request is replayed later.
+        queuePendingAdd(allowDuplicate ? { ...newTransaction, allowDuplicate: true } : newTransaction);
         setSyncStatus("Saved locally. Auto-sync is running.");
 
         void retryPendingSync({ showStatus: false });
 
-        return true;
+        return { ok: true };
     };
 
     const updateTransaction = async (id, updatedForm) => {
@@ -385,6 +434,12 @@ export const useTransactions = ({
             (item) => item.id === id
         );
 
+        // Drop it from the offline queue FIRST. A row still waiting there was
+        // never sent to the server, so the DELETE below finds nothing -- and
+        // without this the next auto-retry would POST it again, resurrecting
+        // a transaction the user just deleted.
+        removePendingAdd(id);
+
         setTransactions((current) =>
             current.filter((item) => item.id !== id)
         );
@@ -406,6 +461,19 @@ export const useTransactions = ({
             setTimeout(() => setSyncStatus(""), 3000);
             return true;
         } catch (error) {
+            // 404: the server holds no such row for this user -- it never got
+            // there (was still queued) or is already gone. The local removal
+            // stands; there is nothing to revert and no server balance to fix.
+            if (error.status === 404) {
+                setSyncStatus(
+                    deletedTransaction
+                        ? `Deleted "${deletedTransaction.title}" (it had not reached the database).`
+                        : "Deleted."
+                );
+                setTimeout(() => setSyncStatus(""), 3000);
+                return true;
+            }
+
             console.error("DELETE TRANSACTION ERROR:", error);
 
             // Revert optimistic removal

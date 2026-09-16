@@ -45,6 +45,17 @@ export default function Accounts({
     const [paymentForm, setPaymentForm] = useState({ amount: "", date: new Date().toISOString().split("T")[0] });
     const [paymentLoading, setPaymentLoading] = useState(false);
     const [expandedGroups, setExpandedGroups] = useState({});
+    const [selectedPaidIds, setSelectedPaidIds] = useState(new Set());
+    const [confirmingPaidIds, setConfirmingPaidIds] = useState(null);
+
+    const toggleSelectedPaid = (id) => {
+        setSelectedPaidIds((prev) => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+    };
 
     // Modal form state
     const emptyNewAccount = {
@@ -528,11 +539,54 @@ export default function Accounts({
                         }));
                     };
 
+                    const selectedInThisCard = cardTransactions.filter((t) =>
+                        selectedPaidIds.has(t.id)
+                    );
+                    const selectedTotal = selectedInThisCard.reduce(
+                        (sum, t) => sum + Number(t.amount || 0),
+                        0
+                    );
+
                     return (
                         <div className="mt-3 space-y-2">
                             <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
                                 Riwayat Transaksi ({cardTransactions.length})
                             </p>
+
+                            {selectedInThisCard.length > 0 && (
+                                <div className="flex items-center justify-between gap-3 rounded-xl border border-pink-200 bg-pink-50 px-3 py-2">
+                                    <div className="min-w-0">
+                                        <p className="text-xs font-bold text-pink-900">
+                                            {selectedInThisCard.length} transaksi dipilih
+                                        </p>
+                                        <p className="text-[11px] font-semibold text-pink-700">
+                                            Total {formatCurrency(selectedTotal)}
+                                        </p>
+                                    </div>
+                                    <div className="flex shrink-0 items-center gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setSelectedPaidIds((prev) => {
+                                                    const next = new Set(prev);
+                                                    selectedInThisCard.forEach((t) => next.delete(t.id));
+                                                    return next;
+                                                })
+                                            }
+                                            className="rounded-xl border border-pink-200 bg-white px-3 py-1.5 text-xs font-bold text-pink-700 hover:bg-pink-100 transition"
+                                        >
+                                            Batal
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setConfirmingPaidIds(selectedInThisCard)}
+                                            className="rounded-xl bg-gradient-to-r from-pink-500 to-indigo-500 px-3 py-1.5 text-xs font-bold text-white shadow hover:opacity-95 transition"
+                                        >
+                                            Tandai Lunas
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Grouped installments */}
                             {Array.from(groups.entries()).map(([title, { parent, children, installment }]) => {
@@ -605,7 +659,8 @@ export default function Accounts({
                                                             <input
                                                                 type="checkbox"
                                                                 title="Tandai lunas & hapus dari tagihan"
-                                                                onChange={() => deleteTransaction?.(t.id)}
+                                                                checked={selectedPaidIds.has(t.id)}
+                                                                onChange={() => toggleSelectedPaid(t.id)}
                                                                 className="h-4 w-4 rounded border-slate-300 text-pink-600"
                                                             />
                                                         </div>
@@ -639,7 +694,8 @@ export default function Accounts({
                                         <input
                                             type="checkbox"
                                             title="Tandai lunas & hapus dari tagihan"
-                                            onChange={() => deleteTransaction?.(t.id)}
+                                            checked={selectedPaidIds.has(t.id)}
+                                            onChange={() => toggleSelectedPaid(t.id)}
                                             className="h-4 w-4 rounded border-slate-300 text-pink-600"
                                         />
                                     </div>
@@ -1060,6 +1116,88 @@ export default function Accounts({
                                     </button>
                                 </div>
                             </form>
+                        </motion.div>
+                    </div>
+                )}
+
+                {/* Confirm mark-as-paid Modal */}
+                {confirmingPaidIds && confirmingPaidIds.length > 0 && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            className="w-full max-w-md rounded-[2rem] border border-slate-100 bg-white p-6 shadow-2xl"
+                        >
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-xl font-black text-slate-950">
+                                    Tandai Lunas?
+                                </h3>
+                                <button
+                                    onClick={() => setConfirmingPaidIds(null)}
+                                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-100 bg-white text-slate-400 hover:bg-slate-50 transition"
+                                >
+                                    <X className="h-5 w-5" />
+                                </button>
+                            </div>
+
+                            <div className="max-h-48 overflow-y-auto space-y-2 mb-4">
+                                {confirmingPaidIds.map((t) => (
+                                    <div key={t.id} className="flex items-center justify-between gap-3">
+                                        <div className="min-w-0">
+                                            <p className="truncate text-sm text-slate-700">{t.title}</p>
+                                            <p className="text-xs text-slate-400">
+                                                {t.date}
+                                                {t.time ? ` • ${t.time}` : ""}
+                                            </p>
+                                        </div>
+                                        <p className="shrink-0 text-sm font-bold text-slate-700">
+                                            {formatCurrency(t.amount)}
+                                        </p>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 mb-6">
+                                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                                    Total yang harus dibayar ({confirmingPaidIds.length} transaksi)
+                                </p>
+                                <p className="text-2xl font-black text-slate-950">
+                                    {formatCurrency(
+                                        confirmingPaidIds.reduce((sum, t) => sum + Number(t.amount || 0), 0)
+                                    )}
+                                </p>
+                            </div>
+
+                            <p className="text-xs text-slate-400 mb-6">
+                                Transaksi ini akan dihapus dari tagihan dan tidak bisa dikembalikan.
+                            </p>
+
+                            <div className="flex gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setConfirmingPaidIds(null)}
+                                    className="flex-1 rounded-2xl border border-slate-200 py-3.5 text-sm font-bold text-slate-500 hover:bg-slate-50 transition"
+                                >
+                                    Batal
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        const ids = confirmingPaidIds.map((t) => t.id);
+                                        ids.forEach((id) => deleteTransaction?.(id));
+                                        setSelectedPaidIds((prev) => {
+                                            const next = new Set(prev);
+                                            ids.forEach((id) => next.delete(id));
+                                            return next;
+                                        });
+                                        setConfirmingPaidIds(null);
+                                    }}
+                                    className="flex-1 rounded-2xl bg-gradient-to-r from-pink-500 to-indigo-500 py-3.5 text-sm font-bold text-white shadow-lg hover:opacity-95 transition"
+                                >
+                                    Tandai Lunas
+                                </button>
+                            </div>
                         </motion.div>
                     </div>
                 )}

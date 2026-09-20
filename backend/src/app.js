@@ -20,7 +20,12 @@ const aiRoutes = require("./routes/ai");
 const app = express();
 
 // --- Database ---
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    max: process.env.VERCEL ? 1 : 10,
+    idleTimeoutMillis: 10_000,
+    connectionTimeoutMillis: 5_000,
+});
 
 pool.query("SELECT 1")
     .then(() => console.log("✅ Connected to database"))

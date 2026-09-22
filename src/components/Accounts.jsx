@@ -47,6 +47,7 @@ export default function Accounts({
     const [expandedGroups, setExpandedGroups] = useState({});
     const [selectedPaidIds, setSelectedPaidIds] = useState(new Set());
     const [confirmingPaidIds, setConfirmingPaidIds] = useState(null);
+    const [markingPaidLoading, setMarkingPaidLoading] = useState(false);
 
     const toggleSelectedPaid = (id) => {
         setSelectedPaidIds((prev) => {
@@ -1135,7 +1136,8 @@ export default function Accounts({
                                 </h3>
                                 <button
                                     onClick={() => setConfirmingPaidIds(null)}
-                                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-100 bg-white text-slate-400 hover:bg-slate-50 transition"
+                                    disabled={markingPaidLoading}
+                                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-100 bg-white text-slate-400 hover:bg-slate-50 transition disabled:opacity-50"
                                 >
                                     <X className="h-5 w-5" />
                                 </button>
@@ -1177,25 +1179,35 @@ export default function Accounts({
                                 <button
                                     type="button"
                                     onClick={() => setConfirmingPaidIds(null)}
-                                    className="flex-1 rounded-2xl border border-slate-200 py-3.5 text-sm font-bold text-slate-500 hover:bg-slate-50 transition"
+                                    disabled={markingPaidLoading}
+                                    className="flex-1 rounded-2xl border border-slate-200 py-3.5 text-sm font-bold text-slate-500 hover:bg-slate-50 transition disabled:opacity-50"
                                 >
                                     Batal
                                 </button>
                                 <button
                                     type="button"
-                                    onClick={() => {
+                                    disabled={markingPaidLoading}
+                                    onClick={async () => {
+                                        if (markingPaidLoading) return;
+                                        setMarkingPaidLoading(true);
                                         const ids = confirmingPaidIds.map((t) => t.id);
-                                        ids.forEach((id) => deleteTransaction?.(id));
+                                        // Sequential + awaited so a duplicate click can't
+                                        // re-fire the same delete before the first one
+                                        // lands -- that double-counted the balance delta.
+                                        for (const id of ids) {
+                                            await deleteTransaction?.(id);
+                                        }
                                         setSelectedPaidIds((prev) => {
                                             const next = new Set(prev);
                                             ids.forEach((id) => next.delete(id));
                                             return next;
                                         });
+                                        setMarkingPaidLoading(false);
                                         setConfirmingPaidIds(null);
                                     }}
-                                    className="flex-1 rounded-2xl bg-gradient-to-r from-pink-500 to-indigo-500 py-3.5 text-sm font-bold text-white shadow-lg hover:opacity-95 transition"
+                                    className="flex-1 rounded-2xl bg-gradient-to-r from-pink-500 to-indigo-500 py-3.5 text-sm font-bold text-white shadow-lg hover:opacity-95 transition disabled:opacity-50"
                                 >
-                                    Tandai Lunas
+                                    {markingPaidLoading ? "Memproses..." : "Tandai Lunas"}
                                 </button>
                             </div>
                         </motion.div>

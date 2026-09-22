@@ -203,10 +203,24 @@ export const useAccounts = (userId) => {
 
                     if (!delta) return account;
 
+                    let nextBalance =
+                        (Number(account.startingBalance) || 0) + delta.amount;
+
+                    // Kartu Kredit "used" tracks against a hard limit: it can
+                    // never go negative (over-refunded) or past totalLimit
+                    // (should be physically impossible, so a stray double
+                    // apply/revert should be clamped rather than displayed).
+                    if (account.type === "Kartu Kredit") {
+                        const totalLimit = Number(account.totalLimit) || 0;
+                        nextBalance = Math.max(0, nextBalance);
+                        if (totalLimit > 0) {
+                            nextBalance = Math.min(totalLimit, nextBalance);
+                        }
+                    }
+
                     return {
                         ...account,
-                        startingBalance:
-                            (Number(account.startingBalance) || 0) + delta.amount,
+                        startingBalance: nextBalance,
                     };
                 })
             );

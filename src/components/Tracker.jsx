@@ -168,8 +168,13 @@ export default function Tracker({
             .reduce((sum, item) => sum + Number(item.amount), 0);
     }, [transactions, form.date]);
 
-    const previewAmount =
-        Number(String(form.amount || "").replace(/[^\d]/g, "")) || 0;
+    // Cuma pengeluaran yang dihitung ke limit harian. Nominal yang lagi diketik
+    // ikut diperhitungkan supaya peringatannya muncul sebelum disimpan, tapi
+    // pemasukan tidak -- uang yang masuk bukan belanja, dan menghitungnya bikin
+    // peringatan "melewati limit" nongol waktu mencatat gaji.
+    const previewAmount = isIncome
+        ? 0
+        : Number(String(form.amount || "").replace(/[^\d]/g, "")) || 0;
 
     const selectedDateTotalAfterInput = selectedDateSpending + previewAmount;
 

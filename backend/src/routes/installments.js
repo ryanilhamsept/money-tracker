@@ -20,10 +20,31 @@ module.exports = function installmentRoutes(pool) {
     // POST /api/installments
     router.post("/", asyncHandler("POST /installments", async (req, res) => {
         const i = req.body;
+
+        // One purchase gets one installment plan. Nothing stopped a second
+        // POST for the same purchase, so a double submit wrote two identical
+        // rows a second apart -- the card then showed whichever came first
+        // while the other sat there as invisible clutter. transaction_id is
+        // the natural key here, so a repeat is answered with the row that
+        // already exists instead of creating another.
+        if (i.transactionId) {
+            const { rows: existing } = await pool.query(
+                `SELECT id FROM installments WHERE user_id = $1 AND transaction_id = $2 LIMIT 1`,
+                [req.userId, i.transactionId]
+            );
+
+            if (existing.length > 0) {
+                return res.status(200).json({ success: true, id: existing[0].id, alreadyExists: true });
+            }
+        }
+
+        // Retrying with the same generated id must not fail either: the client
+        // resends on network errors, and a plain INSERT would 500 on that.
         await pool.query(
             `INSERT INTO installments (id, account_id, transaction_id, name, provider,
                     total_loan, remaining_balance, monthly_installment, remaining_term, due_date, user_id)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+             ON CONFLICT (id) DO NOTHING`,
             [i.id, i.accountId, i.transactionId || null, i.name, i.provider || null,
              Number(i.totalLoan) || 0, Number(i.remainingBalance) || 0, Number(i.monthlyInstallment) || 0,
              i.remainingTerm ?? null, i.dueDate ?? null, req.userId]

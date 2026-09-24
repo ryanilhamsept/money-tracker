@@ -28,3 +28,19 @@ export const getCurrentCycleStart = (statementDay, today = new Date()) => {
 // tutup buku ditagih di bulan yang sama, belanja pada/sesudahnya geser sebulan.
 export const getFirstInstallmentMonthOffset = (purchaseDay, statementDay) =>
     purchaseDay >= statementDay ? 1 : 0;
+
+// Siklus yang sedang berjalan bukan tagihan yang harus dibayar: begitu tanggal
+// tutup buku lewat, siklus baru dimulai nyaris kosong sementara tagihan yang
+// baru saja ditutup justru yang jatuh tempo. Riwayat kartu karena itu dimulai
+// satu siklus ke belakang -- mencakup tagihan berjalan plus belanja sesudahnya.
+export const getOutstandingWindowStart = (statementDay, today = new Date()) => {
+    const start = new Date(today.getFullYear(), today.getMonth(), statementDay);
+
+    if (today.getDate() < statementDay) {
+        start.setMonth(start.getMonth() - 1);
+    }
+
+    start.setMonth(start.getMonth() - 1);
+
+    return toDateString(start);
+};

@@ -17,7 +17,7 @@ import {
 
 import { formatCurrency, formatThousands } from "../utils/currency";
 import { findCreditCardForSource } from "../utils/accountBalance";
-import { getCurrentCycleStart, getStatementDay } from "../utils/billingCycle";
+import { getOutstandingWindowStart, getStatementDay } from "../utils/billingCycle";
 import { getInstallmentBaseTitle } from "../utils/installmentTitle";
 
 const CARD_COLORS = ["#0f172a", "#1e293b", "#1d4ed8", "#78350f", "#1e3a8a"];
@@ -489,13 +489,18 @@ export default function Accounts({
                 )}
 
                 {isCard && !isEditing && (() => {
-                    // Cuma tampilkan transaksi sejak tutup buku terakhir -- yang
-                    // sebelum itu sudah masuk tagihan yang lalu.
-                    const cycleStart = getCurrentCycleStart(getStatementDay(account));
+                    // Mulai satu siklus ke belakang, bukan dari tutup buku terakhir.
+                    // Dibatasi siklus berjalan, belanja bulan ini lenyap dari daftar
+                    // tepat saat tagihannya terbit -- justru ketika paling perlu
+                    // dilihat. Jendela ini memuat tagihan yang jatuh tempo sekaligus
+                    // belanja sesudahnya.
+                    const windowStart = getOutstandingWindowStart(
+                        getStatementDay(account)
+                    );
                     const cardTransactions = transactions.filter(
                         (t) =>
                             t.danaDipakai === "Spend CC" &&
-                            t.date >= cycleStart &&
+                            t.date >= windowStart &&
                             findCreditCardForSource(accounts, t.source)?.id === account.id
                     );
                     if (cardTransactions.length === 0) return null;
@@ -510,14 +515,8 @@ export default function Accounts({
                     // sementara sisanya baru ditagih bulan-bulan berikutnya -- kalau
                     // grouping bergantung pada baris itu ikut tampil, cicilan yang
                     // mulainya sebelum tutup buku ini bakal berserakan satu per satu.
-                    const allCardTransactions = transactions.filter(
-                        (t) =>
-                            t.danaDipakai === "Spend CC" &&
-                            findCreditCardForSource(accounts, t.source)?.id === account.id
-                    );
-
                     const parentByBaseTitle = new Map();
-                    allCardTransactions.forEach((t) => {
+                    cardTransactions.forEach((t) => {
                         if (Number(t.installmentTotalLoan) > 0) {
                             parentByBaseTitle.set(getInstallmentBaseTitle(t.title), t);
                         }
@@ -543,7 +542,7 @@ export default function Accounts({
                                 // komitmen lintas bulan, dan memotongnya bikin kartu
                                 // yang mulainya sebelum tutup buku ini kelihatan
                                 // kurang angsuran dibanding yang mulainya sesudah.
-                                children: allCardTransactions
+                                children: cardTransactions
                                     .filter(
                                         (x) => getInstallmentBaseTitle(x.title) === baseTitle
                                     )

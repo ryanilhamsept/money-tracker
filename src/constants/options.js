@@ -14,6 +14,21 @@ export const categories = import.meta.env.VITE_CATEGORIES
         "Miscellaneous",
     ];
 
+// Pemasukan punya daftar kategori sendiri -- kategori belanja seperti "Food"
+// atau "Groceries" nggak masuk akal buat uang yang datang. Cerminan dari
+// mobile/src/constants/options.js supaya dua aplikasi menawarkan pilihan sama.
+export const incomeCategories = import.meta.env.VITE_INCOME_CATEGORIES
+    ? import.meta.env.VITE_INCOME_CATEGORIES.split(",").map((s) => s.trim())
+    : [
+        "Gaji",
+        "Bonus",
+        "Freelance",
+        "Hasil Jual",
+        "Transfer Masuk",
+        "Refund",
+        "Lainnya",
+    ];
+
 export const fundSources = import.meta.env.VITE_FUND_SOURCES
     ? import.meta.env.VITE_FUND_SOURCES.split(",").map((s) => s.trim())
     : [

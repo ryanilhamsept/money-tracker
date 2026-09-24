@@ -25,6 +25,7 @@ import {
     categories,
     danaDipakaiOptions,
     fundSources,
+    incomeCategories,
 } from "../constants/options";
 
 import {
@@ -82,6 +83,7 @@ export default function Tracker({
     const [form, setForm] = useState({
         title: "",
         amount: "",
+        type: "expense",
         category: "Food",
         source: activeFundSources[0] || "Mandiri",
         danaDipakai: "Spend Bulanan",
@@ -89,7 +91,23 @@ export default function Tracker({
         time: "",
     });
 
+    const isIncome = form.type === "income";
+    const activeCategories = isIncome ? incomeCategories : categories;
+
     const [isInstallment, setIsInstallment] = useState(false);
+
+    // Ganti jenis transaksi sekalian ganti kategorinya: daftar kategori
+    // pemasukan dan pengeluaran nggak beririsan, jadi kategori lama pasti
+    // jadi pilihan yang nggak ada di daftar baru.
+    const setTransactionType = (type) => {
+        setForm((prev) => ({
+            ...prev,
+            type,
+            category: type === "income" ? incomeCategories[0] : categories[0],
+        }));
+        if (type === "income") setIsInstallment(false);
+    };
+
     const [installmentDetails, setInstallmentDetails] = useState({
         provider: "",
         totalLoan: "",
@@ -123,7 +141,8 @@ export default function Tracker({
         return wasSaved;
     };
 
-    const isSpendCC = form.danaDipakai === "Spend CC";
+    // Cicilan cuma ada di belanja kartu kredit -- uang masuk nggak pernah dicicil.
+    const isSpendCC = !isIncome && form.danaDipakai === "Spend CC";
 
     // Amount = cicilan bulanan; begitu Total Harga Barang & Sisa Tenor keisi,
     // hitung otomatis (dibulatkan ke atas) biar konsisten.
@@ -330,6 +349,9 @@ export default function Tracker({
                     amount: amount,
                     id: firstTransactionId,
                     source: activeSource,
+                    // Pemasukan nggak "memakai" dana dari mana pun -- sama
+                    // seperti di aplikasi mobile, field ini dikosongkan.
+                    danaDipakai: isIncome ? "" : form.danaDipakai,
                     installmentTotalLoan: null,
                 }, { allowDuplicate });
 
@@ -362,6 +384,7 @@ export default function Tracker({
             setForm({
                 title: "",
                 amount: "",
+                type: "expense",
                 category: "Food",
                 source: activeFundSources[0] || "Mandiri",
                 danaDipakai: "Spend Bulanan",
@@ -530,6 +553,31 @@ export default function Tracker({
                         </h2>
 
                         <form onSubmit={handleSubmit} className="space-y-4">
+                            <div className="grid grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1">
+                                <button
+                                    type="button"
+                                    onClick={() => setTransactionType("expense")}
+                                    className={`rounded-xl px-4 py-2.5 text-sm font-bold transition ${
+                                        isIncome
+                                            ? "text-slate-500 hover:text-slate-700"
+                                            : "bg-pink-500 text-white shadow"
+                                    }`}
+                                >
+                                    Pengeluaran
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setTransactionType("income")}
+                                    className={`rounded-xl px-4 py-2.5 text-sm font-bold transition ${
+                                        isIncome
+                                            ? "bg-emerald-500 text-white shadow"
+                                            : "text-slate-500 hover:text-slate-700"
+                                    }`}
+                                >
+                                    Pemasukan
+                                </button>
+                            </div>
+
                             <label className="block min-w-0 space-y-2">
                                 <span className="flex items-center gap-2 text-sm font-semibold text-slate-600">
                                     <Pencil className="h-4 w-4 text-pink-500" />
@@ -579,7 +627,7 @@ export default function Tracker({
                                     <SelectField
                                         label=""
                                         value={form.category}
-                                        options={categories}
+                                        options={activeCategories}
                                         onChange={(value) =>
                                             setForm((prev) => ({
                                                 ...prev,
@@ -592,7 +640,7 @@ export default function Tracker({
                                 <div className="space-y-2">
                                     <span className="flex items-center gap-2 text-sm font-semibold text-slate-600">
                                         <CreditCard className="h-4 w-4 text-blue-500" />
-                                        Sumber Dana
+                                        {isIncome ? "Masuk Ke" : "Sumber Dana"}
                                     </span>
 
                                     <SelectField
@@ -608,7 +656,7 @@ export default function Tracker({
                                     />
                                 </div>
 
-                                <div className="space-y-2">
+                                <div className={`space-y-2 ${isIncome ? "hidden" : ""}`}>
                                     <span className="flex items-center gap-2 text-sm font-semibold text-slate-600">
                                         <Wallet className="h-4 w-4 text-pink-500" />
                                         Dana Dipakai

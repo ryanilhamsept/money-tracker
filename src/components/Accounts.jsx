@@ -500,39 +500,59 @@ export default function Accounts({
                     );
                     if (cardTransactions.length === 0) return null;
 
-                    // Cicilan parent (installmentTotalLoan > 0) jadi header kartu,
-                    // transaksi lain dengan judul sama = pembayaran cicilannya.
-                    const parents = cardTransactions.filter(
-                        (t) => Number(t.installmentTotalLoan) > 0
-                    );
-                    const parentBaseTitles = new Set(
-                        parents.map((t) => getInstallmentBaseTitle(t.title))
-                    );
-
                     const cardInstallments = installments.filter(
                         (i) => i.accountId === account.id
                     );
 
-                    const groups = new Map();
-                    parents.forEach((parent) => {
-                        const baseTitle = getInstallmentBaseTitle(parent.title);
-                        groups.set(baseTitle, {
-                            parent,
-                            // Parent ikut dihitung: dia juga salah satu pembayaran,
-                            // cuma kebetulan yang nyimpen total pinjamannya.
-                            // Diurut menaik biar kebaca cicilan ke-1, ke-2, dst.
-                            children: cardTransactions
-                                .filter((t) => getInstallmentBaseTitle(t.title) === baseTitle)
-                                .sort((a, b) => String(a.date).localeCompare(String(b.date))),
-                            installment: cardInstallments.find(
-                                (i) => getInstallmentBaseTitle(i.name) === baseTitle
-                            ),
-                        });
+                    // Cari baris "ke 1" (yang nyimpen total pinjaman) di SELURUH
+                    // transaksi kartu, bukan cuma yang lolos filter siklus. Angsuran
+                    // pertama biasanya jatuh di siklus tagihan yang sudah lewat
+                    // sementara sisanya baru ditagih bulan-bulan berikutnya -- kalau
+                    // grouping bergantung pada baris itu ikut tampil, cicilan yang
+                    // mulainya sebelum tutup buku ini bakal berserakan satu per satu.
+                    const parentByBaseTitle = new Map();
+                    transactions.forEach((t) => {
+                        if (
+                            t.danaDipakai !== "Spend CC" ||
+                            !(Number(t.installmentTotalLoan) > 0) ||
+                            findCreditCardForSource(accounts, t.source)?.id !== account.id
+                        ) {
+                            return;
+                        }
+                        parentByBaseTitle.set(getInstallmentBaseTitle(t.title), t);
                     });
 
-                    const ungrouped = cardTransactions.filter(
-                        (t) => !parentBaseTitles.has(getInstallmentBaseTitle(t.title))
-                    );
+                    const groups = new Map();
+                    const ungrouped = [];
+
+                    cardTransactions.forEach((t) => {
+                        const baseTitle = getInstallmentBaseTitle(t.title);
+                        const parent = parentByBaseTitle.get(baseTitle);
+
+                        if (!parent) {
+                            ungrouped.push(t);
+                            return;
+                        }
+
+                        if (!groups.has(baseTitle)) {
+                            groups.set(baseTitle, {
+                                parent,
+                                children: [],
+                                installment: cardInstallments.find(
+                                    (i) => getInstallmentBaseTitle(i.name) === baseTitle
+                                ),
+                            });
+                        }
+
+                        groups.get(baseTitle).children.push(t);
+                    });
+
+                    // Diurut menaik biar kebaca cicilan ke-1, ke-2, dst.
+                    groups.forEach((group) => {
+                        group.children.sort((a, b) =>
+                            String(a.date).localeCompare(String(b.date))
+                        );
+                    });
                     const toggleGroup = (groupKey) => {
                         setExpandedGroups((prev) => ({
                             ...prev,

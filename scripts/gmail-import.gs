@@ -312,6 +312,15 @@ function parseTransactionEmail(body, subject, bank, dateHeader) {
   if (bank.dana !== 'Spend CC' && /kartu kredit/i.test(body) && /tagihan/i.test(body) && /(?:bayar|pembayaran)/i.test(body)) {
     return 'SKIP_MARK_READ';
   }
+  // Skip: BCA Poket -- mindahin duit antar kantong tabungan sendiri ("Tambah
+  // Dana Poket", "Pindahkan Poket"). Uangnya nggak ke mana-mana, jadi bukan
+  // pengeluaran. Email ini nggak punya label penerima sama sekali, jadi
+  // OWNER_NAME di bawah nggak akan pernah kena: judulnya jatuh ke subjek
+  // ("Internet Transaction Journal") dan transaksinya lolos masuk.
+  if (/Jenis Transaksi\s*\|?\s*:?\s*\|?\s*Transaksi Poket/i.test(body) ||
+      /Status\s*\|?\s*:?\s*\|?\s*[^\n|]*Poket[^\n|]*Berhasil/i.test(body)) {
+    return 'SKIP_MARK_READ';
+  }
 
   const amount = extractAmount(body);
   const dateTime = extractDateTime(body, dateHeader);

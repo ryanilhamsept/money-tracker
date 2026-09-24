@@ -510,16 +510,17 @@ export default function Accounts({
                     // sementara sisanya baru ditagih bulan-bulan berikutnya -- kalau
                     // grouping bergantung pada baris itu ikut tampil, cicilan yang
                     // mulainya sebelum tutup buku ini bakal berserakan satu per satu.
+                    const allCardTransactions = transactions.filter(
+                        (t) =>
+                            t.danaDipakai === "Spend CC" &&
+                            findCreditCardForSource(accounts, t.source)?.id === account.id
+                    );
+
                     const parentByBaseTitle = new Map();
-                    transactions.forEach((t) => {
-                        if (
-                            t.danaDipakai !== "Spend CC" ||
-                            !(Number(t.installmentTotalLoan) > 0) ||
-                            findCreditCardForSource(accounts, t.source)?.id !== account.id
-                        ) {
-                            return;
+                    allCardTransactions.forEach((t) => {
+                        if (Number(t.installmentTotalLoan) > 0) {
+                            parentByBaseTitle.set(getInstallmentBaseTitle(t.title), t);
                         }
-                        parentByBaseTitle.set(getInstallmentBaseTitle(t.title), t);
                     });
 
                     const groups = new Map();
@@ -537,22 +538,35 @@ export default function Accounts({
                         if (!groups.has(baseTitle)) {
                             groups.set(baseTitle, {
                                 parent,
-                                children: [],
+                                // Cicilan ditampilkan sebagai jadwal utuh, bukan
+                                // dipotong siklus tagihan: satu cicilan adalah satu
+                                // komitmen lintas bulan, dan memotongnya bikin kartu
+                                // yang mulainya sebelum tutup buku ini kelihatan
+                                // kurang angsuran dibanding yang mulainya sesudah.
+                                children: allCardTransactions
+                                    .filter(
+                                        (x) => getInstallmentBaseTitle(x.title) === baseTitle
+                                    )
+                                    // Diurut menaik biar kebaca cicilan ke-1, ke-2, dst.
+                                    .sort((a, b) =>
+                                        String(a.date).localeCompare(String(b.date))
+                                    ),
                                 installment: cardInstallments.find(
                                     (i) => getInstallmentBaseTitle(i.name) === baseTitle
                                 ),
                             });
                         }
-
-                        groups.get(baseTitle).children.push(t);
                     });
 
-                    // Diurut menaik biar kebaca cicilan ke-1, ke-2, dst.
-                    groups.forEach((group) => {
-                        group.children.sort((a, b) =>
-                            String(a.date).localeCompare(String(b.date))
-                        );
-                    });
+                    // Yang benar-benar dirender: baris lepas + seluruh angsuran tiap
+                    // kartu cicilan. Jadi acuan buat angka "Riwayat Transaksi (N)"
+                    // dan buat pilihan checkbox -- kalau dua-duanya masih pakai
+                    // daftar yang tersaring siklus, angsuran di luar siklus bisa
+                    // dicentang tapi nggak ikut kehitung.
+                    const shownTransactions = [
+                        ...ungrouped,
+                        ...[...groups.values()].flatMap((group) => group.children),
+                    ];
                     const toggleGroup = (groupKey) => {
                         setExpandedGroups((prev) => ({
                             ...prev,
@@ -560,7 +574,7 @@ export default function Accounts({
                         }));
                     };
 
-                    const selectedInThisCard = cardTransactions.filter((t) =>
+                    const selectedInThisCard = shownTransactions.filter((t) =>
                         selectedPaidIds.has(t.id)
                     );
                     const selectedTotal = selectedInThisCard.reduce(
@@ -571,7 +585,7 @@ export default function Accounts({
                     return (
                         <div className="mt-3 space-y-2">
                             <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                                Riwayat Transaksi ({cardTransactions.length})
+                                Riwayat Transaksi ({shownTransactions.length})
                             </p>
 
                             {selectedInThisCard.length > 0 && (

@@ -23,6 +23,11 @@ module.exports = function transactionRoutes(pool) {
     router.post("/", asyncHandler("POST /transactions", async (req, res) => {
         const t = req.body;
 
+        // dana_dipakai is NOT NULL, and income has no funding source to name,
+        // so the form sends "". Coercing that to null rejected every income
+        // transaction at the database; the empty string is the honest value
+        // and the column accepts it.
+
         // Content-level duplicate check, distinct from the id-level upsert
         // below: a second row with a different id but the same date, title
         // and amount is almost always the same purchase entered twice (or
@@ -78,7 +83,7 @@ module.exports = function transactionRoutes(pool) {
                  type = EXCLUDED.type,
                  installment_total_loan = EXCLUDED.installment_total_loan
              RETURNING *`,
-            [t.id, t.date, t.time || null, t.title, t.category, Number(t.amount), t.source, t.danaDipakai || null, t.type, t.installmentTotalLoan ?? null, req.userId]
+            [t.id, t.date, t.time || null, t.title, t.category, Number(t.amount), t.source, t.danaDipakai || "", t.type, t.installmentTotalLoan ?? null, req.userId]
         );
 
         mirrorToGoogleSheet({
@@ -105,7 +110,7 @@ module.exports = function transactionRoutes(pool) {
                  source = $7, dana_dipakai = $8, type = $9, installment_total_loan = $10
              WHERE id = $1 AND user_id = $11
              RETURNING *`,
-            [t.id, t.date, t.time || null, t.title, t.category, Number(t.amount), t.source, t.danaDipakai || null, t.type, t.installmentTotalLoan ?? null, req.userId]
+            [t.id, t.date, t.time || null, t.title, t.category, Number(t.amount), t.source, t.danaDipakai || "", t.type, t.installmentTotalLoan ?? null, req.userId]
         );
         console.log("✅ UPDATE success:", rows[0]?.id);
 

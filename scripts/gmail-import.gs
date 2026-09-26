@@ -306,9 +306,35 @@ function parseTransactionEmail(body, subject, bank, dateHeader) {
   if (/pengembalian dana|refund|dana masuk|transaksi masuk|transfer masuk/i.test(body)) {
     return 'SKIP_MARK_READ';
   }
-  // Skip: pembayaran tagihan kartu kredit dari rekening biasa -- transaksinya
-  // sendiri udah tercatat lewat email kartu kredit yang terpisah, jadi kalau
-  // dicatat lagi di sini bakal double-count.
+  // Pembayaran tagihan kartu kredit lewat myBCA. Belanjanya sendiri memang
+  // sudah tercatat dari email kartu kredit, jadi ini BUKAN belanja baru --
+  // tapi uangnya benar-benar keluar dari rekening dan utang kartunya
+  // berkurang. Dulu email ini dilewati begitu saja, sehingga dua pergerakan
+  // itu tidak pernah tercatat dan saldo di app terus melenceng dari bank.
+  // Dicatat sebagai "Bayar CC <kartu>": judul itu sudah dikenali
+  // src/utils/accountBalance.js, yang mendebet rekening pembayar sekaligus
+  // mengurangi saldo terpakai kartunya.
+  const ccBill = body.match(
+    /Jenis Transaksi\s*\|?\s*:?\s*\|?\s*Kartu Kredit\s*&\s*Paylater\s*-\s*([A-Za-z]+)/i
+  );
+  if (ccBill) {
+    const cardName = ccBill[1].toUpperCase();
+    const paid = extractLabelledAmount(body, 'Total Bayar') || extractAmount(body);
+    const when = extractDateTime(body, dateHeader);
+
+    return {
+      title: 'Bayar CC ' + cardName,
+      date: when.date || headerDateFallback(dateHeader),
+      time: when.time,
+      amount: paid || 0,
+      category: paid ? 'Account Transfer' : 'Perlu Dicek',
+      source: bank.source,
+      dana_dipakai: 'Gajian',
+    };
+  }
+
+  // Sisanya: format pembayaran tagihan yang belum dikenali. Tetap dilewati
+  // supaya tidak tercatat sebagai belanja baru dan jadi double-count.
   if (bank.dana !== 'Spend CC' && /kartu kredit/i.test(body) && /tagihan/i.test(body) && /(?:bayar|pembayaran)/i.test(body)) {
     return 'SKIP_MARK_READ';
   }
@@ -372,6 +398,21 @@ function headerDateFallback(dateHeader) {
 // deket sama kata kunci total-ish (total/nominal/jumlah/sejumlah) -- itu
 // biasanya nominal transaksi utama, bukan breakdown/komponen lain (VAT,
 // promo, dst). Kalau nggak ada kata kunci sama sekali, pakai angka pertama.
+// Ambil nominal dari label tertentu. extractAmount() menebak lewat kata kunci
+// terdekat -- di email tagihan kartu kredit ada tiga angka berdampingan
+// (Jumlah Tagihan, Total Bayar, Sisa Tagihan) dan yang dimaksud cuma satu.
+function extractLabelledAmount(body, label) {
+  const re = new RegExp(
+    label + '\\s*\\|?\\s*:?\\s*\\|?\\s*(?:IDR|Rp\\.?)\\s*([\\d.,]+)',
+    'i'
+  );
+  const m = body.match(re);
+  if (!m) return null;
+  const raw = m[1];
+  // "2,491,587.00" (IDR) vs "2.491.587" (Rp)
+  return /\.\d{2}$/.test(raw) ? parseIDR(raw) : parseRupiah(raw);
+}
+
 function extractAmount(body) {
   const candidates = [];
   const re = /Rp\.?\s?([\d.,]{3,})|IDR\s?([\d,]+\.\d{2})/gi;
@@ -578,6 +619,14 @@ function insertTransaction(tx) {
     Logger.log('Inserted: ' + tx.title + ' Rp' + tx.amount);
     const delta = tx.dana_dipakai === 'Spend CC' ? tx.amount : -tx.amount;
     applyAccountBalanceDelta(tx.source, delta);
+
+    // Bayar tagihan menyentuh DUA akun: rekening pembayar berkurang (di atas)
+    // dan saldo terpakai kartunya ikut berkurang. Nama kartunya diambil dari
+    // judul, karena sumber dana cuma menyebut rekening pembayarnya.
+    if (/^bayar cc/i.test(tx.title)) {
+      applyAccountBalanceDelta(tx.title.replace(/^bayar\s+/i, '').trim(), delta);
+    }
+
     return true;
   }
   Logger.log('Insert failed (' + code + '): ' + response.getContentText());

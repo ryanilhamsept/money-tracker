@@ -701,27 +701,20 @@ export default function Accounts({
                                                             </p>
                                                         </div>
                                                         <div className="flex shrink-0 items-center gap-2">
-                                                            <p className={`text-xs font-bold ${t.paidAt ? "text-slate-400 line-through" : "text-slate-700"}`}>
+                                                            <p className="text-xs font-bold text-slate-700">
                                                                 {formatCurrency(t.amount)}
                                                             </p>
-                                                            {t.paidAt ? (
-                                                                <button
-                                                                    type="button"
-                                                                    title="Batalkan status lunas"
-                                                                    onClick={() => markTransactionPaid?.(t.id, false)}
-                                                                    className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700 hover:bg-emerald-200 transition"
-                                                                >
-                                                                    Lunas
-                                                                </button>
-                                                            ) : (
-                                                                <input
-                                                                    type="checkbox"
-                                                                    title="Tandai lunas"
-                                                                    checked={selectedPaidIds.has(t.id)}
-                                                                    onChange={() => toggleSelectedPaid(t.id)}
-                                                                    className="h-4 w-4 rounded border-slate-300 text-pink-600"
-                                                                />
-                                                            )}
+                                                            <input
+                                                                type="checkbox"
+                                                                title={t.paidAt ? "Sudah dibayar -- hapus centang untuk membatalkan" : "Tandai sudah dibayar"}
+                                                                checked={t.paidAt ? true : selectedPaidIds.has(t.id)}
+                                                                onChange={() =>
+                                                                    t.paidAt
+                                                                        ? markTransactionPaid?.(t.id, false)
+                                                                        : toggleSelectedPaid(t.id)
+                                                                }
+                                                                className="h-4 w-4 rounded border-slate-300 text-pink-600"
+                                                            />
                                                         </div>
                                                     </div>
                                                 ))}
@@ -747,27 +740,20 @@ export default function Accounts({
                                         </p>
                                     </div>
                                     <div className="flex shrink-0 items-center gap-2">
-                                        <p className={`text-xs font-bold ${t.paidAt ? "text-slate-400 line-through" : "text-slate-700"}`}>
+                                        <p className="text-xs font-bold text-slate-700">
                                             {formatCurrency(t.amount)}
                                         </p>
-                                        {t.paidAt ? (
-                                            <button
-                                                type="button"
-                                                title="Batalkan status lunas"
-                                                onClick={() => markTransactionPaid?.(t.id, false)}
-                                                className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700 hover:bg-emerald-200 transition"
-                                            >
-                                                Lunas
-                                            </button>
-                                        ) : (
-                                            <input
-                                                type="checkbox"
-                                                title="Tandai lunas"
-                                                checked={selectedPaidIds.has(t.id)}
-                                                onChange={() => toggleSelectedPaid(t.id)}
-                                                className="h-4 w-4 rounded border-slate-300 text-pink-600"
-                                            />
-                                        )}
+                                        <input
+                                            type="checkbox"
+                                            title={t.paidAt ? "Sudah dibayar -- hapus centang untuk membatalkan" : "Tandai sudah dibayar"}
+                                            checked={t.paidAt ? true : selectedPaidIds.has(t.id)}
+                                            onChange={() =>
+                                                t.paidAt
+                                                    ? markTransactionPaid?.(t.id, false)
+                                                    : toggleSelectedPaid(t.id)
+                                            }
+                                            className="h-4 w-4 rounded border-slate-300 text-pink-600"
+                                        />
                                     </div>
                                 </div>
                             ))}

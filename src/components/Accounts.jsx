@@ -522,14 +522,25 @@ export default function Accounts({
                         }
                     });
 
+                    // Rencana cicilan juga menandai sebuah grup, bukan cuma baris
+                    // transaksinya. Total pinjaman cuma tercatat di angsuran "ke 1",
+                    // dan baris itu terhapus begitu ditandai lunas -- tanpa jalur
+                    // kedua ini, melunasi angsuran pertama bikin sisa jadwalnya
+                    // kehilangan kartu grup dan tampil satu-satu.
+                    const installmentByBaseTitle = new Map();
+                    cardInstallments.forEach((i) => {
+                        installmentByBaseTitle.set(getInstallmentBaseTitle(i.name), i);
+                    });
+
                     const groups = new Map();
                     const ungrouped = [];
 
                     cardTransactions.forEach((t) => {
                         const baseTitle = getInstallmentBaseTitle(t.title);
                         const parent = parentByBaseTitle.get(baseTitle);
+                        const installment = installmentByBaseTitle.get(baseTitle);
 
-                        if (!parent) {
+                        if (!parent && !installment) {
                             ungrouped.push(t);
                             return;
                         }
@@ -537,6 +548,7 @@ export default function Accounts({
                         if (!groups.has(baseTitle)) {
                             groups.set(baseTitle, {
                                 parent,
+                                installment,
                                 // Cicilan ditampilkan sebagai jadwal utuh, bukan
                                 // dipotong siklus tagihan: satu cicilan adalah satu
                                 // komitmen lintas bulan, dan memotongnya bikin kartu
@@ -550,9 +562,6 @@ export default function Accounts({
                                     .sort((a, b) =>
                                         String(a.date).localeCompare(String(b.date))
                                     ),
-                                installment: cardInstallments.find(
-                                    (i) => getInstallmentBaseTitle(i.name) === baseTitle
-                                ),
                             });
                         }
                     });
@@ -647,7 +656,11 @@ export default function Accounts({
                                                 </div>
                                                 <div className="flex items-center gap-2 shrink-0">
                                                     <p className="text-xs font-bold text-slate-700">
-                                                        {formatCurrency(parent.installmentTotalLoan)}
+                                                        {formatCurrency(
+                                                            parent?.installmentTotalLoan ??
+                                                                installment?.totalLoan ??
+                                                                0
+                                                        )}
                                                     </p>
                                                     <svg
                                                         className={`w-4 h-4 text-slate-400 transition-transform ${isExpanded ? "rotate-180" : ""}`}

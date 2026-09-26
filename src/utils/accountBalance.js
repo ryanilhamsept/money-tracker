@@ -92,6 +92,11 @@ const getTransactionAccountEffects = (accounts, transaction) => {
         return effects;
     }
 
+    // Angsuran yang sudah dilunasi tidak lagi membebani kartu. Dulu efek ini
+    // dicapai dengan menghapus barisnya; sekarang barisnya tetap ada demi
+    // riwayat, jadi yang dinetralkan cuma pengaruhnya ke saldo.
+    if (transaction.paidAt) return [];
+
     const isCreditCardSpend =
         transaction.danaDipakai === "Spend CC" ||
         String(transaction.source || "").toLowerCase().includes("credit card");

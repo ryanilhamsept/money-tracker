@@ -9,6 +9,7 @@ import {
 import {
     createTransaction as syncTransactionToSupabase,
     deleteTransaction as deleteTransactionFromSupabase,
+    setTransactionPaid as setTransactionPaidOnServer,
     getTransactions as getTransactionsFromSupabase,
     updateTransaction as updateTransactionToSupabase,
 } from "../services/api";
@@ -429,6 +430,45 @@ export const useTransactions = ({
         }
     };
 
+    // Menandai lunas, bukan menghapus: belanjanya benar-benar terjadi dan harus
+    // tetap ada di riwayat. Efek ke saldo kartu sama seperti dulu waktu baris
+    // ini dihapus, karena getTransactionAccountEffects mengabaikan yang lunas.
+    const markTransactionPaid = async (id, paid = true) => {
+        const existing = transactions.find((item) => item.id === id);
+        if (!existing) return false;
+
+        const updated = { ...existing, paidAt: paid ? new Date().toISOString() : null };
+
+        setTransactions((current) =>
+            current.map((item) => (item.id === id ? updated : item))
+        );
+        applyTransactionBalanceChange?.(existing, updated);
+
+        setSyncStatus(paid ? "Menandai lunas..." : "Membatalkan status lunas...");
+        startMutation();
+
+        try {
+            const result = await setTransactionPaidOnServer(id, paid);
+            assertSuccessfulSync(result);
+            await syncAccountBalancesForTransaction?.(existing, updated);
+
+            setSyncStatus(paid ? "Ditandai lunas." : "Status lunas dibatalkan.");
+            setTimeout(() => setSyncStatus(""), 3000);
+            return true;
+        } catch (error) {
+            console.error("MARK PAID ERROR:", error);
+
+            setTransactions((current) =>
+                current.map((item) => (item.id === id ? existing : item))
+            );
+            applyTransactionBalanceChange?.(updated, existing);
+            setSyncStatus("Gagal menandai lunas. Coba lagi.");
+            return false;
+        } finally {
+            finishMutation();
+        }
+    };
+
     const deleteTransaction = async (id) => {
         const deletedTransaction = transactions.find(
             (item) => item.id === id
@@ -499,6 +539,7 @@ export const useTransactions = ({
         addTransaction,
         updateTransaction,
         deleteTransaction,
+        markTransactionPaid,
         retryPendingSync,
         reloadTransactions: loadTransactions,
     };

@@ -86,4 +86,5 @@ export const normalizeTransaction = (item) => ({
     time: item.time || "",
     createdAt: item.createdAt,
     installmentTotalLoan: item.installmentTotalLoan ?? null,
+    paidAt: item.paidAt ?? null,
 });

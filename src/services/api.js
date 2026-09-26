@@ -73,6 +73,13 @@ export const updateTransaction = async (transaction) => {
     });
 };
 
+export const setTransactionPaid = async (id, paid) => {
+    return apiFetch(`/api/transactions/${id}/paid`, {
+        method: "POST",
+        body: JSON.stringify({ paid }),
+    });
+};
+
 export const deleteTransaction = async (id) => {
     return apiFetch(`/api/transactions/${id}`, {
         method: "DELETE",

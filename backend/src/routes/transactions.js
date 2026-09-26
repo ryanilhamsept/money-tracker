@@ -9,7 +9,7 @@ module.exports = function transactionRoutes(pool) {
     router.get("/", asyncHandler("GET /transactions", async (req, res) => {
         const { rows } = await pool.query(
             `SELECT id, date, time, title, category, amount, source, dana_dipakai,
-                    type, installment_total_loan, created_at
+                    type, installment_total_loan, paid_at, created_at
              FROM transactions
              WHERE user_id = $1
              ORDER BY date DESC, time DESC NULLS LAST, created_at DESC`,
@@ -41,7 +41,7 @@ module.exports = function transactionRoutes(pool) {
         if (t.allowDuplicate !== true) {
             const { rows: existing } = await pool.query(
                 `SELECT id, date, time, title, category, amount, source, dana_dipakai,
-                        type, installment_total_loan, created_at
+                        type, installment_total_loan, paid_at, created_at
                  FROM transactions
                  WHERE user_id = $1
                    AND id <> $2
@@ -128,6 +128,33 @@ module.exports = function transactionRoutes(pool) {
         res.json({ success: true, data: mapFromDB(rows[0]) });
     }));
 
+    // POST /api/transactions/:id/paid
+    // Menandai lunas, bukan menghapus. Sebelumnya "Tandai Lunas" memanggil
+    // DELETE, sehingga belanja yang benar-benar terjadi lenyap dari riwayat --
+    // dan untuk cicilan, baris "ke 1" yang terhapus membawa serta satu-satunya
+    // penanda bahwa sisa angsurannya satu kelompok.
+    router.post("/:id/paid", asyncHandler("POST /transactions/:id/paid", async (req, res) => {
+        const paid = req.body?.paid !== false;
+
+        const { rows } = await pool.query(
+            `UPDATE transactions SET paid_at = $3
+             WHERE id = $1 AND user_id = $2
+             RETURNING id, date, time, title, category, amount, source, dana_dipakai,
+                       type, installment_total_loan, paid_at, created_at`,
+            [req.params.id, req.userId, paid ? new Date().toISOString() : null]
+        );
+
+        if (rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                code: "NOT_FOUND",
+                error: "Transaksi tidak ditemukan di database.",
+            });
+        }
+
+        res.json({ success: true, data: mapFromDB(rows[0]) });
+    }));
+
     // DELETE /api/transactions/:id
     router.delete("/:id", asyncHandler("DELETE /transactions", async (req, res) => {
         // Hard delete. rowCount must be checked: a DELETE whose WHERE matches
@@ -169,6 +196,7 @@ function mapFromDB(row) {
         danaDipakai: row.dana_dipakai || "",
         type: row.type === "income" ? "income" : "expense",
         installmentTotalLoan: row.installment_total_loan != null ? Number(row.installment_total_loan) : null,
+        paidAt: row.paid_at || null,
         createdAt: row.created_at,
     };
 }

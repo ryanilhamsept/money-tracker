@@ -77,6 +77,7 @@ export default function App() {
         addTransaction,
         updateTransaction,
         deleteTransaction,
+        markTransactionPaid,
         retryPendingSync,
         reloadTransactions,
     } = useTransactions({
@@ -412,6 +413,7 @@ export default function App() {
                         deleteInstallment={handleDeleteInstallment}
                         transactions={transactions}
                         deleteTransaction={handleDeleteTransaction}
+                        markTransactionPaid={markTransactionPaid}
                     />
                 )}
 

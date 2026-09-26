@@ -196,8 +196,12 @@ export default function Tracker({
         };
     }, [currentMonthTransactions, leftBudget]);
 
+    // Daftar ini memuat SELURUH transaksi, bukan cuma bulan berjalan. Dibatasi
+    // per bulan, menyaring "Credit Card - BCA" cuma memunculkan tiga baris
+    // padahal ada 43, dan angsuran yang jatuh tempo bulan depan tidak pernah
+    // terlihat sampai bulannya tiba. Kartu statistik di atas tetap per bulan.
     const filteredTransactions = useMemo(() => {
-        return currentMonthTransactions
+        return transactions
             .filter((item) => {
                 const matchesQuery =
                     `${item.title} ${item.category} ${item.source} ${item.danaDipakai}`
@@ -221,7 +225,7 @@ export default function Tracker({
 
                 return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
             });
-    }, [currentMonthTransactions, query, categoryFilter, sourceFilter]);
+    }, [transactions, query, categoryFilter, sourceFilter]);
 
     // Dikelompokkan per tanggal dulu sebelum dipaginasi, biar transaksi di satu
     // tanggal nggak pernah kepotong jadi dua grup terpisah di dua halaman
@@ -934,7 +938,7 @@ export default function Tracker({
                         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white/70 p-3 text-sm">
                             <p className="font-medium text-slate-500">
                                 Showing {paginatedTransactions.length} of{" "}
-                                {filteredTransactions.length} current month transactions
+                                {filteredTransactions.length} transactions
                             </p>
 
                             <div className="flex items-center gap-2">

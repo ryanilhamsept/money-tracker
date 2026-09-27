@@ -260,14 +260,19 @@ export default function Tracker({
         const pages = [];
         let current = [];
         let currentCount = 0;
+        // Tanggal diisi dulu, baru halaman ditutup setelah kuotanya terlampaui.
+        // Kalau dicek sebelum diisi, satu tanggal yang ramai memaksa tanggal
+        // kecil sebelumnya berdiri sendirian -- halaman 1 sempat cuma berisi
+        // satu transaksi karena tanggal berikutnya punya 23 dan tidak muat.
         dateGroupsAll.forEach((group) => {
-            if (currentCount > 0 && currentCount + group.items.length > historyPageSize) {
+            current.push(group);
+            currentCount += group.items.length;
+
+            if (currentCount >= historyPageSize) {
                 pages.push(current);
                 current = [];
                 currentCount = 0;
             }
-            current.push(group);
-            currentCount += group.items.length;
         });
         if (current.length > 0) pages.push(current);
         return pages.length > 0 ? pages : [[]];

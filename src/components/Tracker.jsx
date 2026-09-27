@@ -206,7 +206,10 @@ export default function Tracker({
         const todayStr = today();
 
         return transactions
-            .filter((item) => normalizeDate(item.date) <= todayStr)
+            // Berhenti di hari ini -- angsuran yang jatuh temponya masih di
+            // depan belum terjadi. Kecuali yang sudah dibayar: begitu dilunasi
+            // uangnya sudah keluar, tanggal jatuh temponya tidak lagi relevan.
+            .filter((item) => item.paidAt || normalizeDate(item.date) <= todayStr)
             .filter((item) => {
                 const matchesQuery =
                     `${item.title} ${item.category} ${item.source} ${item.danaDipakai}`

@@ -210,8 +210,13 @@ export default function MonthlyReport({ transactions, budget = 0 }) {
             .sort((a, b) => b[0].localeCompare(a[0]))
             .map(([date, list]) => ({
                 date,
+                // Diurut dari nominal terbesar: yang dicari saat membuka rincian
+                // harian itu "apa yang bikin hari ini mahal", bukan urutan
+                // kejadiannya. Yang nominalnya sama jatuh ke urutan waktu.
                 transactions: list.sort(
-                    (a, b) => sortTimestamp(b) - sortTimestamp(a)
+                    (a, b) =>
+                        Number(b.amount) - Number(a.amount) ||
+                        sortTimestamp(b) - sortTimestamp(a)
                 ),
                 amount: list
                     .filter((item) => item.type !== "income")

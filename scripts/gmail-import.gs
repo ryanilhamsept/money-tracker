@@ -576,6 +576,33 @@ function supabaseRequest(path, method, payload) {
 // SEMUA email lain yang udah bener ke-insert bakal ke-insert ULANG dobel tiap
 // kali status-nya di-reset, bukan cuma email yang bermasalah.
 function transactionAlreadyExists(tx) {
+  // Satu perjalanan Grab mengirim DUA email: notifikasi bank (judulnya memuat
+  // kode perjalanan, "Grab* A-9ST...", sumber dananya benar) lalu struk dari
+  // Grab sendiri (judulnya cuma "Grab", sumber dananya tebakan). Judulnya
+  // berbeda, jadi pencocokan biasa tidak menangkapnya dan satu perjalanan
+  // tercatat dua kali dari dua rekening.
+  //
+  // Yang dilewati HANYA struk polos ketika notifikasi bank untuk perjalanan
+  // yang sama sudah tersimpan. Dua baris yang sama-sama berkode dibiarkan:
+  // kodenya berbeda berarti perjalanannya memang berbeda, dan beberapa
+  // perjalanan bertarif sama dalam sehari itu hal biasa.
+  const GRAB_CODE = /\bA-[A-Z0-9]{6,}/i;
+  if (/^grab\b/i.test(tx.title) && !GRAB_CODE.test(tx.title)) {
+    const grabParams = [
+      'user_id=eq.' + encodeURIComponent(IMPORT_USER_ID),
+      'title=ilike.' + encodeURIComponent('grab%A-%'),
+      'amount=eq.' + encodeURIComponent(tx.amount),
+      'date=eq.' + encodeURIComponent(tx.date),
+      'select=id',
+      'limit=1',
+    ].join('&');
+    const grabResponse = supabaseRequest('/rest/v1/transactions?' + grabParams, 'get');
+    if (grabResponse.getResponseCode() >= 200 && grabResponse.getResponseCode() < 300) {
+      const grabRows = JSON.parse(grabResponse.getContentText());
+      if (Array.isArray(grabRows) && grabRows.length > 0) return true;
+    }
+  }
+
   const params = [
     'user_id=eq.' + encodeURIComponent(IMPORT_USER_ID),
     'title=eq.' + encodeURIComponent(tx.title),

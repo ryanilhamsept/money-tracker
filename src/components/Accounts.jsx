@@ -498,9 +498,14 @@ export default function Accounts({
                     const windowStart = getOutstandingWindowStart(
                         getStatementDay(account)
                     );
+                    // Yang sudah dibayar keluar dari kartu: kartu ini menjawab
+                    // "berapa yang masih harus dibayar", bukan riwayat belanja.
+                    // Barisnya sendiri tidak hilang -- tetap ada di daftar
+                    // transaksi dan tetap terhitung sebagai pengeluaran.
                     const cardTransactions = transactions.filter(
                         (t) =>
                             t.danaDipakai === "Spend CC" &&
+                            !t.paidAt &&
                             t.date >= windowStart &&
                             findCreditCardForSource(accounts, t.source)?.id === account.id
                     );
@@ -706,13 +711,9 @@ export default function Accounts({
                                                             </p>
                                                             <input
                                                                 type="checkbox"
-                                                                title={t.paidAt ? "Sudah dibayar -- hapus centang untuk membatalkan" : "Tandai sudah dibayar"}
-                                                                checked={t.paidAt ? true : selectedPaidIds.has(t.id)}
-                                                                onChange={() =>
-                                                                    t.paidAt
-                                                                        ? markTransactionPaid?.(t.id, false)
-                                                                        : toggleSelectedPaid(t.id)
-                                                                }
+                                                                title="Tandai sudah dibayar"
+                                                                checked={selectedPaidIds.has(t.id)}
+                                                                onChange={() => toggleSelectedPaid(t.id)}
                                                                 className="h-4 w-4 rounded border-slate-300 text-pink-600"
                                                             />
                                                         </div>
@@ -745,13 +746,9 @@ export default function Accounts({
                                         </p>
                                         <input
                                             type="checkbox"
-                                            title={t.paidAt ? "Sudah dibayar -- hapus centang untuk membatalkan" : "Tandai sudah dibayar"}
-                                            checked={t.paidAt ? true : selectedPaidIds.has(t.id)}
-                                            onChange={() =>
-                                                t.paidAt
-                                                    ? markTransactionPaid?.(t.id, false)
-                                                    : toggleSelectedPaid(t.id)
-                                            }
+                                            title="Tandai sudah dibayar"
+                                            checked={selectedPaidIds.has(t.id)}
+                                            onChange={() => toggleSelectedPaid(t.id)}
                                             className="h-4 w-4 rounded border-slate-300 text-pink-600"
                                         />
                                     </div>

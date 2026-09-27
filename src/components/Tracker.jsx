@@ -196,12 +196,17 @@ export default function Tracker({
         };
     }, [currentMonthTransactions, leftBudget]);
 
-    // Daftar ini memuat SELURUH transaksi, bukan cuma bulan berjalan. Dibatasi
+    // Daftar ini memuat seluruh riwayat, bukan cuma bulan berjalan -- dibatasi
     // per bulan, menyaring "Credit Card - BCA" cuma memunculkan tiga baris
-    // padahal ada 43, dan angsuran yang jatuh tempo bulan depan tidak pernah
-    // terlihat sampai bulannya tiba. Kartu statistik di atas tetap per bulan.
+    // padahal ada 43. Tapi berhenti di hari ini: angsuran yang jatuh temponya
+    // masih di depan belum terjadi, jadi bukan riwayat. Jadwal lengkapnya
+    // tetap bisa dilihat di kartu kartu kredit. Kartu statistik di atas
+    // tetap dihitung per bulan.
     const filteredTransactions = useMemo(() => {
+        const todayStr = today();
+
         return transactions
+            .filter((item) => normalizeDate(item.date) <= todayStr)
             .filter((item) => {
                 const matchesQuery =
                     `${item.title} ${item.category} ${item.source} ${item.danaDipakai}`

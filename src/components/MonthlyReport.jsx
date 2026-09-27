@@ -216,6 +216,10 @@ export default function MonthlyReport({ transactions, budget = 0 }) {
                 amount: list
                     .filter((item) => item.type !== "income")
                     .reduce((sum, item) => sum + Number(item.amount), 0),
+                incomeCount: list.filter((item) => item.type === "income").length,
+                incomeAmount: list
+                    .filter((item) => item.type === "income")
+                    .reduce((sum, item) => sum + Number(item.amount), 0),
             }));
     }, [monthlyTransactions]);
 
@@ -904,7 +908,18 @@ export default function MonthlyReport({ transactions, budget = 0 }) {
                                                     {formatDisplayDate(item.date)}
                                                 </p>
                                                 <p className="text-sm font-medium text-slate-500">
-                                                    {item.transactions.length} transaksi
+                                                    {/* Yang dihitung cuma pengeluaran, jadi yang
+                                                        disebut juga pengeluaran -- menulis "23
+                                                        transaksi" di samping total yang hanya
+                                                        menjumlahkan 22 bikin angkanya mustahil
+                                                        dicocokkan sendiri. */}
+                                                    {item.transactions.filter((t) => t.type !== "income").length}{" "}
+                                                    pengeluaran
+                                                    {item.incomeCount > 0 && (
+                                                        <span className="text-emerald-600">
+                                                            {" "}· {item.incomeCount} pemasukan +{formatCurrency(item.incomeAmount)}
+                                                        </span>
+                                                    )}
                                                 </p>
                                             </div>
                                             <p className="shrink-0 text-lg font-black text-rose-500">

@@ -656,6 +656,14 @@ function insertTransaction(tx) {
 
     return true;
   }
+  // 409 = indeks unik di database menolak karena barisnya sudah ada. Itu
+  // hasil yang benar, bukan kegagalan: kalau dianggap gagal, emailnya tidak
+  // pernah ditandai selesai dan dicoba ulang terus setiap 15 menit.
+  if (code === 409) {
+    Logger.log('Skip (ditolak indeks unik, sudah ada): ' + tx.title + ' Rp' + tx.amount);
+    return true;
+  }
+
   Logger.log('Insert failed (' + code + '): ' + response.getContentText());
   return false;
 }

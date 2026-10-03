@@ -210,13 +210,11 @@ export default function MonthlyReport({ transactions, budget = 0 }) {
             .sort((a, b) => b[0].localeCompare(a[0]))
             .map(([date, list]) => ({
                 date,
-                // Diurut dari nominal terbesar: yang dicari saat membuka rincian
-                // harian itu "apa yang bikin hari ini mahal", bukan urutan
-                // kejadiannya. Yang nominalnya sama jatuh ke urutan waktu.
+                // Urut waktu, terbaru dulu -- sama persis dengan tab Transaksi.
+                // Dua daftar yang memuat transaksi yang sama tapi urutannya
+                // berbeda bikin susah dicocokkan satu sama lain.
                 transactions: list.sort(
-                    (a, b) =>
-                        Number(b.amount) - Number(a.amount) ||
-                        sortTimestamp(b) - sortTimestamp(a)
+                    (a, b) => sortTimestamp(b) - sortTimestamp(a)
                 ),
                 amount: list
                     .filter((item) => item.type !== "income")
@@ -953,7 +951,9 @@ export default function MonthlyReport({ transactions, budget = 0 }) {
                                                                         {t.title}
                                                                     </p>
                                                                     <p className="text-xs font-medium text-slate-500">
-                                                                        {t.category} • {t.source} • {t.danaDipakai}
+                                                                        {t.category} • {t.source}
+                                                                        {t.danaDipakai ? ` • ${t.danaDipakai}` : ""}
+                                                                        {t.time ? ` • ${t.time}` : ""}
                                                                     </p>
                                                                 </div>
                                                             </div>

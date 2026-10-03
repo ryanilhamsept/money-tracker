@@ -25,7 +25,7 @@ const BANK_CONFIG = [
   { match: 'kartukreditbca@klikbca.com', source: 'Credit Card - BCA', dana: 'Spend CC' },
   { match: 'noreply.livin@bankmandiri.co.id', source: 'Mandiri', dana: 'Spend Bulanan' },
   { match: 'superbank.id', source: 'Superbank', dana: 'Spend Bulanan' },
-  { match: 'wondr@bni.co.id', source: 'BNI', dana: 'Spend Bulanan' },
+  { match: 'wondr@bni.co.id', source: 'BNI', dana: 'Spend Bulanan', card: 'Credit Card - BNI' },
   { match: 'receipts@blubybcadigital.id', source: 'Blu', dana: 'Spend Bulanan' },
   { match: 'bca@bca.co.id', source: 'BCA', dana: 'Spend Bulanan' },
   { match: 'no-reply@grab.com', source: 'Superbank', dana: 'Spend Bulanan', defaultTitle: 'Grab', isGrab: true },
@@ -356,6 +356,10 @@ function parseTransactionEmail(body, subject, bank, dateHeader) {
 
   let source = bank.source;
   let dana = bank.dana;
+  if (bank.card && paidByCreditCard(body)) {
+    source = bank.card;
+    dana = 'Spend CC';
+  }
   if (bank.isGrab) {
     const payment = extractGrabPaymentSource(body);
     if (payment) {
@@ -507,6 +511,16 @@ function remapKnownMerchant(name) {
 
 // Grab bisa dibayar dari beberapa sumber -- cari 4 digit terakhir kartu/rekening
 // di deket label "Paid by"/"Dibayar dengan", atau deteksi cash.
+// Satu email bisa berasal dari rekening ATAU kartu kredit bank yang sama --
+// wondr by BNI memakai template identik untuk keduanya, dan yang membedakan
+// cuma label "Sumber dana". Tanpa membacanya, belanja kartu kredit tercatat
+// sebagai debit rekening dan utang kartunya tidak pernah bertambah.
+function paidByCreditCard(body) {
+  const m = body.match(/Sumber\s*dana\s*:?\s*\n?([\s\S]{0,160})/i);
+  if (!m) return false;
+  return /mastercard|visa|kartu\s*kredit|credit\s*card|\bjcc\b/i.test(m[1]);
+}
+
 function extractGrabPaymentSource(body) {
   if (/(?:paid by|dibayar dengan)\s*:?\s*\n?\s*cash/i.test(body)) {
     return { source: 'Cash', dana: 'Spend Bulanan' };

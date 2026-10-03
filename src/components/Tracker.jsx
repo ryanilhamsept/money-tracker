@@ -196,19 +196,15 @@ export default function Tracker({
         };
     }, [currentMonthTransactions, leftBudget]);
 
-    // Tanpa penyaring apa pun, daftar ini soal "bulan ini" -- begitu ganti
-    // bulan, seluruh riwayat lama tidak ikut menumpuk. Tapi begitu ada
-    // pencarian atau filter, cakupannya dibuka ke semua bulan: menyaring
-    // "Credit Card - BCA" lalu cuma dapat tiga baris dari 43 bukan hasil yang
-    // dicari siapa pun. Kartu statistik di atas selalu per bulan.
-    const isFiltering =
-        query.trim() !== "" || categoryFilter !== "all" || sourceFilter !== "all";
-
+    // Selalu bulan berjalan, disaring atau tidak. Cakupan yang berubah-ubah
+    // mengikuti ada tidaknya filter sempat dicoba dan justru membingungkan:
+    // memilih satu sumber dana tiba-tiba memunculkan bulan-bulan lama yang
+    // tidak diminta. Satu aturan yang sama di segala keadaan lebih mudah
+    // dipercaya. Kartu statistik di atas juga per bulan, jadi keduanya sejalan.
     const filteredTransactions = useMemo(() => {
         const todayStr = today();
-        const scope = isFiltering ? transactions : currentMonthTransactions;
 
-        return scope
+        return currentMonthTransactions
             // Berhenti di hari ini -- angsuran yang jatuh temponya masih di
             // depan belum terjadi. Kecuali yang sudah dibayar: begitu dilunasi
             // uangnya sudah keluar, tanggal jatuh temponya tidak lagi relevan.
@@ -236,7 +232,7 @@ export default function Tracker({
 
                 return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
             });
-    }, [transactions, currentMonthTransactions, isFiltering, query, categoryFilter, sourceFilter]);
+    }, [currentMonthTransactions, query, categoryFilter, sourceFilter]);
 
     // Dikelompokkan per tanggal dulu sebelum dipaginasi, biar transaksi di satu
     // tanggal nggak pernah kepotong jadi dua grup terpisah di dua halaman
@@ -954,8 +950,7 @@ export default function Tracker({
                         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white/70 p-3 text-sm">
                             <p className="font-medium text-slate-500">
                                 Showing {paginatedTransactions.length} of{" "}
-                                {filteredTransactions.length} transactions
-                                {!isFiltering && " bulan ini"}
+                                {filteredTransactions.length} transactions bulan ini
                             </p>
 
                             <div className="flex items-center gap-2">

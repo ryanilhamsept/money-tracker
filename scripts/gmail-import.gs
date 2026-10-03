@@ -35,9 +35,15 @@ const BANK_CONFIG = [
 // selain BANK_CONFIG yang "spesifik", karena kalau di-generalisir jadi satu
 // source tetap, saldo akun yang salah bakal jadi keliru tiap kali bayar Grab
 // pake kartu/rekening yang berbeda.
+// Empat digit terakhir kartu pada blok "Paid by" di struk Grab.
+// `ownEmail` menandai sumber dana yang banknya mengirim notifikasi sendiri
+// untuk perjalanan itu -- struk Grab-nya jadi salinan kedua dan dilewati.
+// Superbank tidak mengirim email untuk pembayaran Grab, jadi struknya justru
+// satu-satunya catatan dan tetap diimpor.
 const GRAB_PAYMENT_SOURCES = {
   '9628': { source: 'Superbank', dana: 'Spend Bulanan' },
-  '4904': { source: 'Credit Card - BCA', dana: 'Spend CC' },
+  '8818': { source: 'Blu', dana: 'Spend Bulanan', ownEmail: true },
+  '4904': { source: 'Credit Card - BCA', dana: 'Spend CC', ownEmail: true },
 };
 
 // Dipakai kalau alamat pengirim belum ada di BANK_CONFIG -- transaksinya
@@ -363,6 +369,11 @@ function parseTransactionEmail(body, subject, bank, dateHeader) {
   if (bank.isGrab) {
     const payment = extractGrabPaymentSource(body);
     if (payment) {
+      // Dibayar dari rekening yang banknya mengirim notifikasi sendiri:
+      // perjalanan ini sudah tercatat dari sana, lengkap dengan sumber dana
+      // yang benar. Struknya dilewati supaya tidak tercatat dua kali.
+      if (payment.ownEmail) return 'SKIP_MARK_READ';
+
       source = payment.source;
       dana = payment.dana;
     }

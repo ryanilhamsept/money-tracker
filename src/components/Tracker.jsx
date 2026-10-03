@@ -196,16 +196,19 @@ export default function Tracker({
         };
     }, [currentMonthTransactions, leftBudget]);
 
-    // Daftar ini memuat seluruh riwayat, bukan cuma bulan berjalan -- dibatasi
-    // per bulan, menyaring "Credit Card - BCA" cuma memunculkan tiga baris
-    // padahal ada 43. Tapi berhenti di hari ini: angsuran yang jatuh temponya
-    // masih di depan belum terjadi, jadi bukan riwayat. Jadwal lengkapnya
-    // tetap bisa dilihat di kartu kartu kredit. Kartu statistik di atas
-    // tetap dihitung per bulan.
+    // Tanpa penyaring apa pun, daftar ini soal "bulan ini" -- begitu ganti
+    // bulan, seluruh riwayat lama tidak ikut menumpuk. Tapi begitu ada
+    // pencarian atau filter, cakupannya dibuka ke semua bulan: menyaring
+    // "Credit Card - BCA" lalu cuma dapat tiga baris dari 43 bukan hasil yang
+    // dicari siapa pun. Kartu statistik di atas selalu per bulan.
+    const isFiltering =
+        query.trim() !== "" || categoryFilter !== "all" || sourceFilter !== "all";
+
     const filteredTransactions = useMemo(() => {
         const todayStr = today();
+        const scope = isFiltering ? transactions : currentMonthTransactions;
 
-        return transactions
+        return scope
             // Berhenti di hari ini -- angsuran yang jatuh temponya masih di
             // depan belum terjadi. Kecuali yang sudah dibayar: begitu dilunasi
             // uangnya sudah keluar, tanggal jatuh temponya tidak lagi relevan.
@@ -233,7 +236,7 @@ export default function Tracker({
 
                 return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
             });
-    }, [transactions, query, categoryFilter, sourceFilter]);
+    }, [transactions, currentMonthTransactions, isFiltering, query, categoryFilter, sourceFilter]);
 
     // Dikelompokkan per tanggal dulu sebelum dipaginasi, biar transaksi di satu
     // tanggal nggak pernah kepotong jadi dua grup terpisah di dua halaman
@@ -952,6 +955,7 @@ export default function Tracker({
                             <p className="font-medium text-slate-500">
                                 Showing {paginatedTransactions.length} of{" "}
                                 {filteredTransactions.length} transactions
+                                {!isFiltering && " bulan ini"}
                             </p>
 
                             <div className="flex items-center gap-2">

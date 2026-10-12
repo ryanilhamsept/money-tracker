@@ -27,7 +27,7 @@ const BANK_CONFIG = [
   { match: 'superbank.id', source: 'Superbank', dana: 'Spend Bulanan' },
   { match: 'wondr@bni.co.id', source: 'BNI', dana: 'Spend Bulanan', card: 'Credit Card - BNI' },
   { match: 'receipts@blubybcadigital.id', source: 'Blu', dana: 'Spend Bulanan' },
-  { match: 'bca@bca.co.id', source: 'BCA', dana: 'Spend Bulanan' },
+  { match: 'bca@bca.co.id', source: 'BCA', dana: 'Spend Bulanan', card: 'Credit Card - BCA' },
   { match: 'no-reply@grab.com', source: 'Superbank', dana: 'Spend Bulanan', defaultTitle: 'Grab', isGrab: true },
 ];
 
@@ -44,6 +44,7 @@ const GRAB_PAYMENT_SOURCES = {
   '9628': { source: 'Superbank', dana: 'Spend Bulanan' },
   '8818': { source: 'Blu', dana: 'Spend Bulanan', ownEmail: true },
   '4904': { source: 'Credit Card - BCA', dana: 'Spend CC', ownEmail: true },
+  '7095': { source: 'BCA', dana: 'Spend Bulanan' },
 };
 
 // Dipakai kalau alamat pengirim belum ada di BANK_CONFIG -- transaksinya
@@ -312,6 +313,10 @@ function parseTransactionEmail(body, subject, bank, dateHeader) {
   if (/pengembalian dana|refund|dana masuk|transaksi masuk|transfer masuk/i.test(body)) {
     return 'SKIP_MARK_READ';
   }
+  // Transaksi yang gagal tidak memindahkan uang -- jangan dicatat sebagai belanja.
+  if (/Status\s*\|?\s*:?\s*\|?\s*Gagal\b/i.test(body)) {
+    return 'SKIP_MARK_READ';
+  }
   // Pembayaran tagihan kartu kredit lewat myBCA. Belanjanya sendiri memang
   // sudah tercatat dari email kartu kredit, jadi ini BUKAN belanja baru --
   // tapi uangnya benar-benar keluar dari rekening dan utang kartunya
@@ -364,6 +369,11 @@ function parseTransactionEmail(body, subject, bank, dateHeader) {
   let dana = bank.dana;
   if (bank.card && paidByCreditCard(body)) {
     source = bank.card;
+    dana = 'Spend CC';
+  }
+  // Notifikasi kartu kredit BCA kadang tidak menyebut "Sumber dana", cuma nomor kartu masked.
+  if (/\d{6}X+4904\b/i.test(body)) {
+    source = 'Credit Card - BCA';
     dana = 'Spend CC';
   }
   if (bank.isGrab) {
@@ -529,7 +539,7 @@ function remapKnownMerchant(name) {
 function paidByCreditCard(body) {
   const m = body.match(/Sumber\s*dana\s*:?\s*\n?([\s\S]{0,160})/i);
   if (!m) return false;
-  return /mastercard|visa|kartu\s*kredit|credit\s*card|\bjcc\b/i.test(m[1]);
+  return /mastercard|visa|kartu\s*kredit|credit\s*card|\bjcc\b|\bkki\b/i.test(m[1]);
 }
 
 function extractGrabPaymentSource(body) {

@@ -202,13 +202,7 @@ export default function Tracker({
     // tidak diminta. Satu aturan yang sama di segala keadaan lebih mudah
     // dipercaya. Kartu statistik di atas juga per bulan, jadi keduanya sejalan.
     const filteredTransactions = useMemo(() => {
-        const todayStr = today();
-
         return currentMonthTransactions
-            // Berhenti di hari ini -- angsuran yang jatuh temponya masih di
-            // depan belum terjadi. Kecuali yang sudah dibayar: begitu dilunasi
-            // uangnya sudah keluar, tanggal jatuh temponya tidak lagi relevan.
-            .filter((item) => item.paidAt || normalizeDate(item.date) <= todayStr)
             .filter((item) => {
                 const matchesQuery =
                     `${item.title} ${item.category} ${item.source} ${item.danaDipakai}`

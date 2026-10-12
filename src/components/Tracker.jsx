@@ -185,7 +185,12 @@ export default function Tracker({
     const isOverDailyLimit = selectedDateTotalAfterInput >= DAILY_LIMIT;
 
     const totals = useMemo(() => {
+        const todayStr = today();
+
         const totalSpending = currentMonthTransactions
+            // Cicilan yang jatuh temponya masih di depan belum benar-benar
+            // keluar duitnya -- kecuali yang sudah dibayar lebih awal.
+            .filter((item) => item.paidAt || normalizeDate(item.date) <= todayStr)
             .filter((item) => item.type !== "income")
             .reduce((sum, item) => sum + Number(item.amount), 0);
 

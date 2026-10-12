@@ -309,8 +309,43 @@ function getEmailBody(message) {
 // nggak presisi dibanding parser lama, tapi jauh lebih tahan banting kalau
 // bank ubah sedikit tata letak emailnya.
 function parseTransactionEmail(body, subject, bank, dateHeader) {
-  // Skip: dana MASUK (refund/transfer masuk) -- bukan pengeluaran.
-  if (/pengembalian dana|refund|dana masuk|transaksi masuk|transfer masuk/i.test(body)) {
+  // Pengembalian dana / refund -- reversal dari pengeluaran sebelumnya, bukan
+  // pemasukan baru. Terlalu rumit buat dicocokkan balik ke transaksi aslinya,
+  // jadi tetap dilewati, bukan dicatat sebagai apa pun.
+  if (/pengembalian dana|refund/i.test(body)) {
+    return 'SKIP_MARK_READ';
+  }
+
+  // Dana masuk dari orang lain (ditransfer balik, dibayar teman, dst) itu
+  // pemasukan beneran -- dicatat sebagai income. Dana masuk dari diri
+  // sendiri (top up / pindah saldo antar rekening sendiri) BUKAN pemasukan,
+  // itu cuma uang pindah tempat, jadi tetap dilewati seperti sebelumnya.
+  const incoming = body.match(
+    /(?:Dana Masuk dari|Transfer Masuk dari|Transaksi Masuk dari)\s*:?\s*\n?\s*([^\n|]{2,60})/i
+  );
+  if (incoming) {
+    const senderName = incoming[1].trim();
+    if (OWNER_NAME.test(senderName)) return 'SKIP_MARK_READ';
+
+    const amount = extractAmount(body);
+    const dateTime = extractDateTime(body, dateHeader);
+    const needsReview = !amount || !dateTime.date;
+
+    return {
+      title: senderName,
+      date: dateTime.date || headerDateFallback(dateHeader),
+      time: dateTime.time,
+      amount: amount || 0,
+      category: needsReview ? 'Perlu Dicek' : 'Transfer Masuk',
+      source: bank.source,
+      dana_dipakai: '',
+      type: 'income',
+    };
+  }
+
+  // Dana masuk dengan format yang belum kecocokan pola di atas -- tetap
+  // dilewati daripada salah dicatat sebagai pengeluaran.
+  if (/dana masuk|transaksi masuk|transfer masuk/i.test(body)) {
     return 'SKIP_MARK_READ';
   }
   // Transaksi yang gagal tidak memindahkan uang -- jangan dicatat sebagai belanja.
@@ -671,6 +706,7 @@ function insertTransaction(tx) {
     amount: tx.amount,
     source: tx.source,
     dana_dipakai: tx.dana_dipakai,
+    type: tx.type || 'expense',
     user_id: IMPORT_USER_ID,
   };
 
@@ -679,7 +715,9 @@ function insertTransaction(tx) {
   const code = response.getResponseCode();
   if (code >= 200 && code < 300) {
     Logger.log('Inserted: ' + tx.title + ' Rp' + tx.amount);
-    const delta = tx.dana_dipakai === 'Spend CC' ? tx.amount : -tx.amount;
+    const delta = tx.type === 'income'
+      ? tx.amount
+      : (tx.dana_dipakai === 'Spend CC' ? tx.amount : -tx.amount);
     applyAccountBalanceDelta(tx.source, delta);
 
     // Bayar tagihan menyentuh DUA akun: rekening pembayar berkurang (di atas)

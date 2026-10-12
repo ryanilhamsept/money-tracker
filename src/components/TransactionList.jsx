@@ -150,6 +150,7 @@ export default function TransactionList({
         const wasSaved = await updateTransaction(id, {
             ...editForm,
             title: wantsInstallment ? formatInstallmentTitle(baseTitle, 1) : editForm.title,
+            danaDipakai: editForm.type === "income" ? "" : editForm.danaDipakai,
             installmentTotalLoan: wantsInstallment ? totalLoan : null,
         });
 
@@ -257,7 +258,9 @@ export default function TransactionList({
 
                                                             <p className="mt-2 text-sm font-semibold text-slate-500">
                                                                 {item.source}
-                                                                {item.danaDipakai ? ` · ${item.danaDipakai}` : ""}
+                                                                {item.type !== "income" && item.danaDipakai
+                                                                    ? ` · ${item.danaDipakai}`
+                                                                    : ""}
                                                                 {item.time ? ` · ${item.time}` : ""}
                                                             </p>
 
@@ -399,27 +402,29 @@ export default function TransactionList({
                                     ))}
                                 </select>
 
-                                <select
-                                    value={editForm.danaDipakai}
-                                    onChange={(event) => {
-                                        setEditForm((prev) => ({
-                                            ...prev,
-                                            danaDipakai: event.target.value,
-                                        }));
-                                        if (event.target.value !== "Spend CC") {
-                                            setIsInstallment(false);
-                                        }
-                                    }}
-                                    className="w-full min-w-0 max-w-full rounded-2xl border-2 border-slate-100 bg-white px-3 py-2 outline-none focus:border-pink-400"
-                                >
-                                    {danaDipakaiOptions.map((item) => (
-                                        <option key={item} value={item}>
-                                            {item}
-                                        </option>
-                                    ))}
-                                </select>
+                                {editForm.type !== "income" && (
+                                    <select
+                                        value={editForm.danaDipakai}
+                                        onChange={(event) => {
+                                            setEditForm((prev) => ({
+                                                ...prev,
+                                                danaDipakai: event.target.value,
+                                            }));
+                                            if (event.target.value !== "Spend CC") {
+                                                setIsInstallment(false);
+                                            }
+                                        }}
+                                        className="w-full min-w-0 max-w-full rounded-2xl border-2 border-slate-100 bg-white px-3 py-2 outline-none focus:border-pink-400"
+                                    >
+                                        {danaDipakaiOptions.map((item) => (
+                                            <option key={item} value={item}>
+                                                {item}
+                                            </option>
+                                        ))}
+                                    </select>
+                                )}
 
-                                {editForm.danaDipakai === "Spend CC" && (
+                                {editForm.type !== "income" && editForm.danaDipakai === "Spend CC" && (
                                     <div className="space-y-3 rounded-2xl border-2 border-slate-100 bg-slate-50 p-3">
                                         <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
                                             <input

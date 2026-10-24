@@ -6,9 +6,11 @@ import {
     PieChart,
     Wallet,
     RefreshCw,
+    ShoppingCart,
 } from "lucide-react";
 
 import Tracker from "../components/Tracker";
+import Spending from "../components/Spending";
 import Plan from "../components/Plan";
 import MonthlyReport from "../components/MonthlyReport";
 import Accounts from "../components/Accounts";
@@ -198,6 +200,11 @@ export default function App() {
 
     const navItems = [
         {
+            id: "spending",
+            label: "Spending",
+            icon: ShoppingCart,
+        },
+        {
             id: "tracker",
             label: "Tracker",
             icon: Home,
@@ -384,6 +391,13 @@ export default function App() {
                             : "Sync Now"}
                     </button>
                 </div>
+
+                {activePage === "spending" && (
+                    <Spending
+                        transactions={transactions}
+                        onAdd={() => setActivePage("tracker")}
+                    />
+                )}
 
                 {activePage === "tracker" && (
                     <Tracker

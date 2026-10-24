@@ -72,3 +72,17 @@ export const shiftMonth = (yyyyMm, delta) => {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   return `${year}-${month}`;
 };
+
+export const addMonthsToDate = (dateStr, monthsToAdd) => {
+  const [yearStr, monthStr, dayStr] = dateStr.split("-");
+  const y = parseInt(yearStr, 10);
+  const m = parseInt(monthStr, 10) - 1;
+  const d = parseInt(dayStr, 10);
+
+  const nextDate = new Date(y, m + monthsToAdd, d);
+  const outY = nextDate.getFullYear();
+  const outM = String(nextDate.getMonth() + 1).padStart(2, "0");
+  const outD = String(nextDate.getDate()).padStart(2, "0");
+
+  return `${outY}-${outM}-${outD}`;
+};

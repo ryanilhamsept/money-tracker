@@ -10,10 +10,11 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { formatCurrency } from "../utils/formatters";
 import { findCreditCardForSource } from "../utils/accountBalance";
-import { getCurrentCycleStart, getStatementDay } from "../utils/billingCycle";
+import { getOutstandingWindowStart, getStatementDay } from "../utils/billingCycle";
 import { getInstallmentBaseTitle } from "../utils/installmentTitle";
 import Dropdown from "./Dropdown";
 
@@ -68,7 +69,21 @@ const emptyNewAccount = {
   color: CARD_COLORS[0],
 };
 
-export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBalance, onUpdateFields, installments = [], onDeleteInstallment, transactions = [], onDeleteTransaction }) {
+export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBalance, onUpdateFields, installments = [], onDeleteInstallment, transactions = [], onDeleteTransaction, onMarkPaid }) {
+  // Nyentang = nandai lunas, BUKAN hapus. Barisnya tetap ada di daftar
+  // transaksi dan tetap kehitung sebagai pengeluaran; yang hilang cuma
+  // bebannya di kartu. Dikonfirmasi dulu, mirror dari dialog di app web.
+  const confirmMarkPaid = (t) => {
+    Alert.alert(
+      "Tandai Lunas",
+      `${t.title}\n${formatCurrency(t.amount)} \u2022 ${t.date}\n\nBarisnya tetap ada di daftar transaksi, cuma keluar dari kartu ini.`,
+      [
+        { text: "Batal", style: "cancel" },
+        { text: "Tandai Lunas", onPress: () => onMarkPaid?.(t.id, true) },
+      ]
+    );
+  };
+
   const [searchQuery, setSearchQuery] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -220,37 +235,74 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
     const remaining = totalLimit - used;
     const usedPct = totalLimit > 0 ? Math.min(100, Math.max(0, (used / totalLimit) * 100)) : 0;
 
-    // Riwayat transaksi kartu ini sejak tutup buku terakhir -- yang sebelum itu
-    // sudah masuk tagihan yang lalu. Mirror dari Accounts.jsx (web).
-    const cycleStart = getCurrentCycleStart(getStatementDay(account));
+    // Mulai satu siklus ke belakang, bukan dari tutup buku terakhir. Dibatasi
+    // siklus berjalan, belanja bulan ini lenyap dari daftar tepat saat
+    // tagihannya terbit -- justru ketika paling perlu dilihat. Jendela ini
+    // memuat tagihan yang jatuh tempo sekaligus belanja sesudahnya.
+    // Mirror dari Accounts.jsx (web).
+    const windowStart = getOutstandingWindowStart(getStatementDay(account));
+    // Yang sudah dibayar keluar dari kartu: kartu ini menjawab "berapa yang
+    // masih harus dibayar", bukan riwayat belanja. Barisnya sendiri tetap ada
+    // di daftar transaksi dan tetap terhitung sebagai pengeluaran.
     const cardTransactions = isCard
       ? transactions.filter(
           (t) =>
             t.danaDipakai === "Spend CC" &&
-            t.date >= cycleStart &&
+            !t.paidAt &&
+            t.date >= windowStart &&
             findCreditCardForSource(accounts, t.source)?.id === account.id
         )
       : [];
 
-    const parents = cardTransactions.filter((t) => Number(t.installmentTotalLoan) > 0);
-    const parentBaseTitles = new Set(parents.map((t) => getInstallmentBaseTitle(t.title)));
     const cardInstallments = installments.filter((i) => i.accountId === account.id);
 
-    const historyGroups = new Map();
-    parents.forEach((parent) => {
-      const baseTitle = getInstallmentBaseTitle(parent.title);
-      historyGroups.set(baseTitle, {
-        parent,
-        children: cardTransactions
-          .filter((t) => getInstallmentBaseTitle(t.title) === baseTitle)
-          .sort((a, b) => String(a.date).localeCompare(String(b.date))),
-        installment: cardInstallments.find((i) => getInstallmentBaseTitle(i.name) === baseTitle),
-      });
+    const parentByBaseTitle = new Map();
+    cardTransactions.forEach((t) => {
+      if (Number(t.installmentTotalLoan) > 0) {
+        parentByBaseTitle.set(getInstallmentBaseTitle(t.title), t);
+      }
     });
 
-    const historyUngrouped = cardTransactions.filter(
-      (t) => !parentBaseTitles.has(getInstallmentBaseTitle(t.title))
-    );
+    // Rencana cicilan juga menandai sebuah grup, bukan cuma baris transaksinya.
+    // Total pinjaman cuma tercatat di angsuran "ke 1", dan baris itu keluar
+    // dari daftar begitu ditandai lunas -- tanpa jalur kedua ini, melunasi
+    // angsuran pertama bikin sisa jadwalnya kehilangan kartu grup dan tampil
+    // satu-satu.
+    const installmentByBaseTitle = new Map();
+    cardInstallments.forEach((i) => {
+      installmentByBaseTitle.set(getInstallmentBaseTitle(i.name), i);
+    });
+
+    const historyGroups = new Map();
+    const historyUngrouped = [];
+
+    cardTransactions.forEach((t) => {
+      const baseTitle = getInstallmentBaseTitle(t.title);
+      const parent = parentByBaseTitle.get(baseTitle);
+      const installment = installmentByBaseTitle.get(baseTitle);
+
+      if (!parent && !installment) {
+        historyUngrouped.push(t);
+        return;
+      }
+
+      if (!historyGroups.has(baseTitle)) {
+        historyGroups.set(baseTitle, {
+          parent,
+          installment,
+          // Cicilan ditampilkan sebagai jadwal utuh, bukan dipotong siklus
+          // tagihan: satu cicilan adalah satu komitmen lintas bulan.
+          children: cardTransactions
+            .filter((x) => getInstallmentBaseTitle(x.title) === baseTitle)
+            // Diurut menaik biar kebaca cicilan ke-1, ke-2, dst.
+            .sort((a, b) => String(a.date).localeCompare(String(b.date))),
+        });
+      }
+    });
+
+    const historyShownCount =
+      historyUngrouped.length +
+      [...historyGroups.values()].reduce((sum, g) => sum + g.children.length, 0);
 
     return (
       <View key={account.id} style={styles.accountCard}>
@@ -392,7 +444,7 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
         {isCard && cardTransactions.length > 0 && (
             <View style={styles.installmentsWrap}>
                 <Text style={styles.historyTitle}>
-                    RIWAYAT TRANSAKSI ({cardTransactions.length})
+                    RIWAYAT TRANSAKSI ({historyShownCount})
                 </Text>
 
                 {Array.from(historyGroups.entries()).map(([title, { parent, children, installment }]) => {
@@ -418,7 +470,11 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
                                     </View>
                                     <View style={styles.historyGroupRight}>
                                         <Text style={styles.installmentName}>
-                                            {formatCurrency(parent.installmentTotalLoan)}
+                                            {formatCurrency(
+                                                parent?.installmentTotalLoan ??
+                                                    installment?.totalLoan ??
+                                                    0
+                                            )}
                                         </Text>
                                         <Text style={styles.historyChevron}>{isExpanded ? "▲" : "▼"}</Text>
                                     </View>
@@ -452,7 +508,7 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
                                                 </Text>
                                                 <Pressable
                                                     style={styles.checkbox}
-                                                    onPress={() => onDeleteTransaction?.(t.id)}
+                                                    onPress={() => confirmMarkPaid(t)}
                                                 >
                                                     <Text style={styles.checkboxMark}> </Text>
                                                 </Pressable>
@@ -480,7 +536,7 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
                             <Text style={styles.installmentName}>{formatCurrency(t.amount)}</Text>
                             <Pressable
                                 style={styles.checkbox}
-                                onPress={() => onDeleteTransaction?.(t.id)}
+                                onPress={() => confirmMarkPaid(t)}
                             >
                                 <Text style={styles.checkboxMark}> </Text>
                             </Pressable>

@@ -4,7 +4,9 @@ const GENERIC_SOURCE_WORDS = new Set(["credit", "card", "kartu", "kredit", "cc",
 
 const tokenize = (value) =>
   normalizeName(value)
-    .split(/[\s-]+/)
+    .replace(/[^a-z0-9\s]/g, "")
+    .trim()
+    .split(/\s+/)
     .filter((token) => token && !GENERIC_SOURCE_WORDS.has(token));
 
 const findAccountForSource = (accounts, source) => {
@@ -88,7 +90,14 @@ const getTransactionAccountEffects = (accounts, transaction) => {
     return effects;
   }
 
-  const isCreditCardSpend = transaction.danaDipakai === "Spend CC";
+  // Angsuran yang sudah dilunasi tidak lagi membebani kartu. Dulu efek ini
+  // dicapai dengan menghapus barisnya; sekarang barisnya tetap ada demi
+  // riwayat, jadi yang dinetralkan cuma pengaruhnya ke saldo.
+  if (transaction.paidAt) return [];
+
+  const isCreditCardSpend =
+    transaction.danaDipakai === "Spend CC" ||
+    String(transaction.source || "").toLowerCase().includes("credit card");
 
   // Tiap transaksi cicilan (parent maupun child) kecatet sebesar cicilan
   // bulanannya sendiri, sama kayak transaksi CC biasa -- `installmentTotalLoan`

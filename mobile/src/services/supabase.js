@@ -84,6 +84,28 @@ export const addTransaction = async (transaction) => {
     .from("transactions")
     .insert([mapTransactionToDB(transaction)]);
 
+  // Unique index di DB adalah lapisan terakhir kalau cek duplikat di app
+  // kelewat -- misal importer Gmail nulis baris yang sama barengan. Pesan
+  // Postgres mentah nggak ngasih tahu apa-apa ke yang makai, jadi
+  // diterjemahin, sama kayak 409 dari backend yang dipakai app web.
+  if (error) {
+    if (error.code === "23505") {
+      throw new Error("Transaksi serupa sudah ada.");
+    }
+    throw error;
+  }
+};
+
+// Nandai angsuran lunas TANPA menghapus barisnya: barisnya tetap ada di
+// riwayat transaksi, cuma berhenti membebani kartu. `paid_at` sengaja nggak
+// ikut di mapTransactionToDB -- pemanggil update biasa ngirim objek dari form
+// yang nggak punya field ini, dan itu bakal ngehapus statusnya tanpa sengaja.
+export const setTransactionPaid = async (id, paid) => {
+  const { error } = await supabase
+    .from("transactions")
+    .update({ paid_at: paid ? new Date().toISOString() : null })
+    .eq("id", id);
+
   if (error) throw error;
 };
 

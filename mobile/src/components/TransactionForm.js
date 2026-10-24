@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   Switch,
 } from "react-native";
+import { formatCurrency } from "../utils/formatters";
 import { categories, incomeCategories, fundSources, danaDipakaiOptions } from "../constants/options";
 import Dropdown from "./Dropdown";
 
@@ -80,6 +81,7 @@ export default function TransactionForm({ visible, initial, onClose, onSubmit, o
   const [form, setForm] = useState(emptyForm);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [duplicateWarning, setDuplicateWarning] = useState(null);
   
   const [wantsInstallment, setWantsInstallment] = useState(false);
   const [totalLoan, setTotalLoan] = useState("");
@@ -151,7 +153,7 @@ export default function TransactionForm({ visible, initial, onClose, onSubmit, o
     recalcInstallmentAmount(totalLoan, digitsOnly);
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async ({ allowDuplicate = false } = {}) => {
     const amount = parseAmountRounded(form.amount);
 
     if (!form.title.trim()) {
@@ -188,7 +190,7 @@ export default function TransactionForm({ visible, initial, onClose, onSubmit, o
     setErrorMessage("");
     setIsSaving(true);
     try {
-      await onSubmit({
+      const result = await onSubmit({
         ...form,
         title: form.title.trim(),
         amount,
@@ -198,7 +200,15 @@ export default function TransactionForm({ visible, initial, onClose, onSubmit, o
           remainingTerm: remainingTerm,
           provider: provider,
           dueDate: dueDate,
-      });
+      }, { allowDuplicate });
+
+      // Transaksi serupa ketahuan: belum ada yang disimpan, keputusannya
+      // dibalikin ke yang ngisi -- dua Grab identik dalam sehari itu wajar.
+      if (result && result.reason === "duplicate") {
+        setDuplicateWarning(result.duplicateOf);
+        return;
+      }
+      setDuplicateWarning(null);
     } catch (err) {
       setErrorMessage(err.message || "Gagal menyimpan transaksi.");
     } finally {
@@ -408,9 +418,44 @@ export default function TransactionForm({ visible, initial, onClose, onSubmit, o
                 </View>
               ) : null}
 
+              {duplicateWarning ? (
+                <View style={styles.duplicateBox}>
+                  <Text style={styles.duplicateTitle}>Transaksi serupa sudah ada</Text>
+                  <Text style={styles.duplicateDetail}>
+                    {duplicateWarning.title}
+                    {" \u2022 "}
+                    {formatCurrency(duplicateWarning.amount)}
+                    {" \u2022 "}
+                    {duplicateWarning.date}
+                    {duplicateWarning.time ? ` ${duplicateWarning.time}` : ""}
+                    {" \u2022 "}
+                    {duplicateWarning.source}
+                  </Text>
+                  <Text style={styles.duplicateHint}>
+                    Kalau ini memang pembelian yang berbeda, tetap simpan.
+                  </Text>
+                  <View style={styles.duplicateActions}>
+                    <Pressable
+                      style={[styles.duplicateKeep, isSaving && styles.disabled]}
+                      onPress={() => handleSubmit({ allowDuplicate: true })}
+                      disabled={isSaving}
+                    >
+                      <Text style={styles.duplicateKeepText}>Tetap simpan</Text>
+                    </Pressable>
+                    <Pressable
+                      style={styles.duplicateCancel}
+                      onPress={() => setDuplicateWarning(null)}
+                      disabled={isSaving}
+                    >
+                      <Text style={styles.duplicateCancelText}>Batal</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              ) : null}
+
               <Pressable
                 style={[styles.saveButton, isSaving && styles.disabled]}
-                onPress={handleSubmit}
+                onPress={() => handleSubmit()}
                 disabled={isSaving}
               >
                 {isSaving ? (
@@ -527,6 +572,60 @@ const styles = StyleSheet.create({
     fontSize: 15,
     paddingHorizontal: 14,
     paddingVertical: 12,
+  },
+  duplicateBox: {
+    backgroundColor: "#fffbeb",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#fde68a",
+    marginBottom: 12,
+    padding: 12,
+  },
+  duplicateTitle: {
+    color: "#78350f",
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  duplicateDetail: {
+    color: "#92400e",
+    fontSize: 13,
+    marginTop: 6,
+  },
+  duplicateHint: {
+    color: "#b45309",
+    fontSize: 11,
+    marginTop: 6,
+  },
+  duplicateActions: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 10,
+  },
+  duplicateKeep: {
+    alignItems: "center",
+    backgroundColor: "#d97706",
+    borderRadius: 12,
+    flex: 1,
+    paddingVertical: 10,
+  },
+  duplicateKeepText: {
+    color: "#ffffff",
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  duplicateCancel: {
+    alignItems: "center",
+    backgroundColor: "#ffffff",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#fcd34d",
+    flex: 1,
+    paddingVertical: 10,
+  },
+  duplicateCancelText: {
+    color: "#78350f",
+    fontSize: 13,
+    fontWeight: "800",
   },
   errorBox: {
     backgroundColor: "#fee2e2",

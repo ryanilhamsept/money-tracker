@@ -26,6 +26,7 @@ import {
   addInstallment,
   updateInstallment,
   deleteInstallment,
+  setTransactionPaid,
   getBudget,
   saveBudget,
   getGoals,
@@ -39,7 +40,7 @@ import {
   supabase,
 } from "./src/services/supabase";
 import { formatCurrency, formatDate } from "./src/utils/formatters";
-import { getAccountBalanceDeltas } from "./src/utils/accountBalance";
+import { getAccountBalanceDeltas, findCreditCardForSource } from "./src/utils/accountBalance";
 import {
   formatInstallmentTitle,
   getInstallmentBaseTitle,
@@ -51,7 +52,13 @@ import {
   normalizeDate,
   shiftMonth,
   today,
+  addMonthsToDate,
 } from "./src/utils/date";
+import {
+  getFirstInstallmentMonthOffset,
+  getStatementDay,
+} from "./src/utils/billingCycle";
+import { findDuplicateTransaction } from "./src/utils/transactions";
 import { categories, incomeCategories, fundSources } from "./src/constants/options";
 import Login from "./src/components/Login";
 import TransactionForm from "./src/components/TransactionForm";
@@ -398,7 +405,12 @@ export default function App() {
     setEditingTransaction(null);
   };
 
-  const handleFormSubmit = async (form, wantsInstallment, installmentDetails) => {
+  const handleFormSubmit = async (
+    form,
+    wantsInstallment,
+    installmentDetails,
+    { allowDuplicate = false } = {}
+  ) => {
     if (editingTransaction) {
       const isNewlyConverted = wantsInstallment && !editingTransaction.installmentTotalLoan;
       const baseTitle = form.title.trim();
@@ -449,11 +461,7 @@ export default function App() {
               });
           }
 
-          let normalizedSource = payload.source.trim();
-          if (normalizedSource === "Credit Card - BCA") normalizedSource = "CC BCA";
-          if (normalizedSource === "Credit Card - BNI") normalizedSource = "CC BNI";
-
-          const matchedCard = accounts.find(a => a.name === normalizedSource);
+          const matchedCard = findCreditCardForSource(accounts, payload.source);
           if (matchedCard) {
               const totalLoan = Number(installmentDetails.totalLoan);
               const amount = Number(payload.amount);
@@ -474,34 +482,50 @@ export default function App() {
     } else {
       let firstTransactionId = null;
       const newBaseTitle = form.title.trim();
+      const matchedCardForDates = findCreditCardForSource(accounts, form.source);
+
       if (wantsInstallment) {
           const term = Number(installmentDetails.remainingTerm) || 1;
-          const [yearStr, monthStr, dayStr] = form.date.split('-');
-          const y = parseInt(yearStr, 10);
-          const m = parseInt(monthStr, 10) - 1;
-          const d = parseInt(dayStr, 10);
+          const purchaseDay = parseInt(form.date.split('-')[2], 10);
 
-          for (let i = 0; i < term; i++) {
-              const nextDate = new Date(y, m + i, d);
-              const outY = nextDate.getFullYear();
-              const outM = String(nextDate.getMonth() + 1).padStart(2, '0');
-              const outD = String(nextDate.getDate()).padStart(2, '0');
-              const dateString = `${outY}-${outM}-${outD}`;
+          // Cicilan pertama nempel di tagihan pertama setelah belanja. Kartu
+          // tutup buku tiap tanggal `statementDay`, jadi belanja pada/sesudah
+          // tanggal itu baru ditagih bulan berikutnya -- belanja 29 Agu (tutup
+          // buku 25) jatuh di Sep, Okt, Nov.
+          const statementDay = getStatementDay(matchedCardForDates);
+          const monthOffset = getFirstInstallmentMonthOffset(purchaseDay, statementDay);
 
-              const currentTxId = generateId();
-              if (i === 0) firstTransactionId = currentTxId;
+          const candidates = Array.from({ length: term }, (_, i) => ({
+              ...form,
+              title: formatInstallmentTitle(newBaseTitle, i + 1),
+              id: generateId(),
+              date: addMonthsToDate(form.date, i + monthOffset),
+              installmentTotalLoan: i === 0 ? Number(installmentDetails.totalLoan) : 0,
+          }));
 
-              await addTransaction({
-                  ...form,
-                  title: formatInstallmentTitle(newBaseTitle, i + 1),
-                  id: currentTxId,
-                  date: dateString,
-                  installmentTotalLoan: i === 0 ? Number(installmentDetails.totalLoan) : 0,
-              });
+          // Semua angsuran dicek dulu sebelum satu pun disimpan, biar duplikat
+          // yang ketemu di bulan ke-2 nggak ninggalin bulan ke-1 setengah jadi.
+          if (!allowDuplicate) {
+              const duplicateOf = candidates
+                  .map((c) => findDuplicateTransaction(transactions, c))
+                  .find(Boolean);
+              if (duplicateOf) return { ok: false, reason: "duplicate", duplicateOf };
+          }
+
+          firstTransactionId = candidates[0].id;
+          for (const candidate of candidates) {
+              await addTransaction(candidate);
           }
       } else {
           firstTransactionId = generateId();
-          await addTransaction({ ...form, id: firstTransactionId });
+          const candidate = { ...form, id: firstTransactionId };
+
+          if (!allowDuplicate) {
+              const duplicateOf = findDuplicateTransaction(transactions, candidate);
+              if (duplicateOf) return { ok: false, reason: "duplicate", duplicateOf };
+          }
+
+          await addTransaction(candidate);
       }
 
       const payload = {
@@ -512,11 +536,7 @@ export default function App() {
       await applyBalanceDeltas(null, payload);
 
       if (wantsInstallment && firstTransactionId) {
-          let normalizedSource = form.source.trim();
-          if (normalizedSource === "Credit Card - BCA") normalizedSource = "CC BCA";
-          if (normalizedSource === "Credit Card - BNI") normalizedSource = "CC BNI";
-
-          const matchedCard = accounts.find(a => a.name === normalizedSource);
+          const matchedCard = matchedCardForDates;
           if (matchedCard) {
               const totalLoan = Number(installmentDetails.totalLoan);
               const amount = Number(form.amount);
@@ -565,6 +585,21 @@ export default function App() {
 
     closeForm();
     await loadDashboard();
+  };
+
+  // Angsuran yang sudah dibayar keluar dari kartu kredit tapi barisnya tetap
+  // ada di daftar transaksi -- dulu checkbox-nya ngehapus baris, dan itu bikin
+  // riwayat pengeluarannya hilang. Yang dinetralkan cuma pengaruhnya ke saldo.
+  const handleMarkTransactionPaid = async (id, paid = true) => {
+    const existing = transactions.find((t) => t.id === id);
+    if (!existing) return;
+
+    const updated = { ...existing, paidAt: paid ? new Date().toISOString() : null };
+
+    await setTransactionPaid(id, paid);
+    await applyBalanceDeltas(existing, updated);
+
+    setTransactions((current) => current.map((t) => (t.id === id ? updated : t)));
   };
 
   const handleDeleteTransactionById = async (id) => {
@@ -1043,6 +1078,7 @@ export default function App() {
           onDeleteInstallment={handleDeleteInstallment}
           transactions={transactions}
           onDeleteTransaction={handleDeleteTransactionById}
+          onMarkPaid={handleMarkTransactionPaid}
         />
       ) : null}
 

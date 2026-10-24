@@ -1,7 +1,17 @@
 const normalizeName = (value) => String(value || "").trim().toLowerCase();
 
+const GENERIC_SOURCE_WORDS = new Set(["credit", "card", "kartu", "kredit", "cc", "bayar"]);
+
+const tokenize = (value) =>
+    normalizeName(value)
+        .replace(/[^a-z0-9\s]/g, "")
+        .trim()
+        .split(/\s+/)
+        .filter((token) => token && !GENERIC_SOURCE_WORDS.has(token));
+
 const findAccountForSource = (accounts, source) => {
     const normalizedSource = normalizeName(source);
+    if (!normalizedSource) return null;
 
     const exactMatch = accounts.find(
         (account) => normalizeName(account.name) === normalizedSource
@@ -18,16 +28,6 @@ const findAccountForSource = (accounts, source) => {
     return null;
 };
 
-const tokenize = (str) =>
-    String(str || "")
-        .toLowerCase()
-        .replace(/[^a-z0-9\s]/g, "")
-        .trim()
-        .split(/\s+/)
-        .filter(Boolean);
-
-const GENERIC_SOURCE_WORDS = new Set(["credit", "card", "kartu", "kredit", "cc", "bayar"]);
-
 // "Spend CC" transactions (and "Bayar CC" titles) don't necessarily name the
 // card exactly (e.g. source "Credit Card - BCA" / title "Bayar CC BCA" vs
 // account name "CC BCA"), so match loosely by shared keyword (e.g. "bca")
@@ -40,9 +40,7 @@ export const findCreditCardForSource = (accounts, source) => {
     const exactMatch = findAccountForSource(creditCardAccounts, source);
     if (exactMatch) return exactMatch;
 
-    const sourceTokens = tokenize(source).filter(
-        (token) => !GENERIC_SOURCE_WORDS.has(token)
-    );
+    const sourceTokens = tokenize(source);
     if (sourceTokens.length === 0) return null;
 
     return (

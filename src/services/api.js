@@ -209,16 +209,3 @@ export const replyToReview = async (summary, previousReview, userComment) => {
     });
     return data.reply;
 };
-
-// --- Category budgets API ---
-
-export const getCategoryBudgets = async () => {
-    return apiFetch("/api/category-budgets");
-};
-
-export const saveCategoryBudgets = async (budgets) => {
-    return apiFetch("/api/category-budgets", {
-        method: "PUT",
-        body: JSON.stringify({ budgets }),
-    });
-};

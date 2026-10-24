@@ -13,7 +13,6 @@ const { authMiddleware } = require("./middleware/auth");
 const transactionRoutes = require("./routes/transactions");
 const accountRoutes = require("./routes/accounts");
 const budgetRoutes = require("./routes/budgets");
-const categoryBudgetRoutes = require("./routes/categoryBudgets");
 const goalRoutes = require("./routes/goals");
 const installmentRoutes = require("./routes/installments");
 const aiRoutes = require("./routes/ai");
@@ -53,7 +52,6 @@ app.get("/api/health", (req, res) => {
 app.use("/api/transactions", authMiddleware, transactionRoutes(pool));
 app.use("/api/accounts", authMiddleware, accountRoutes(pool));
 app.use("/api/budgets", authMiddleware, budgetRoutes(pool));
-app.use("/api/category-budgets", authMiddleware, categoryBudgetRoutes(pool));
 app.use("/api/goals", authMiddleware, goalRoutes(pool));
 app.use("/api/installments", authMiddleware, installmentRoutes(pool));
 app.use("/api/ai", authMiddleware, aiRoutes());

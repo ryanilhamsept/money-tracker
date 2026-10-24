@@ -209,7 +209,7 @@ export default function TransactionList({
         <div className="space-y-4">
             {/* Semua transaksi, dikelompokkan per tanggal (mirror mobile app) */}
             {dayGroupsForDisplay.map((dayGroup) => (
-                <div key={dayGroup.date} className="space-y-3">
+                <div key={dayGroup.date} className="space-y-2">
                     <div className="flex items-center justify-between px-1">
                         <h3 className="text-sm font-black text-slate-600">
                             {formatDayHeader(dayGroup.date)}
@@ -231,14 +231,14 @@ export default function TransactionList({
                                 key={item.id}
                                 initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                className="overflow-hidden rounded-[2rem] border border-white/70 bg-white/90 p-5 shadow-lg backdrop-blur"
+                                className="overflow-hidden rounded-2xl border border-white/70 bg-white/90 p-3.5 shadow-sm backdrop-blur"
                             >
                                 {!isEditing ? (
                                     <>
                                         <div className="flex items-start justify-between gap-4">
-                                            <div className="flex min-w-0 flex-1 items-start gap-4">
+                                            <div className="flex min-w-0 flex-1 items-start gap-3">
                                                 <div
-                                                    className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-2xl"
+                                                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-xl"
                                                     style={{
                                                         backgroundColor:
                                                             item.type === "income"
@@ -252,11 +252,11 @@ export default function TransactionList({
                                                 <div className="min-w-0 flex-1">
                                                     <div className="flex min-w-0 items-start justify-between gap-3">
                                                         <div className="min-w-0">
-                                                            <h3 className="truncate text-xl font-black text-slate-950">
+                                                            <h3 className="truncate text-base font-black text-slate-950">
                                                                 {item.title}
                                                             </h3>
 
-                                                            <p className="mt-2 text-sm font-semibold text-slate-500">
+                                                            <p className="mt-0.5 text-xs font-semibold text-slate-500">
                                                                 {item.source}
                                                                 {item.type !== "income" && item.danaDipakai
                                                                     ? ` · ${item.danaDipakai}`
@@ -277,42 +277,41 @@ export default function TransactionList({
                                                             )}
                                                         </div>
 
-                                                        <p
-                                                            className={`shrink-0 text-right text-xl font-black sm:text-2xl ${
-                                                                item.type === "income"
-                                                                    ? "text-emerald-500"
-                                                                    : "text-rose-500"
-                                                            }`}
-                                                        >
-                                                            {item.type === "income" ? "+" : "-"}
-                                                            {formatCurrency(item.amount)}
-                                                        </p>
+                                                        <div className="flex shrink-0 items-center gap-2">
+                                                            <p
+                                                                className={`text-right text-lg font-black ${
+                                                                    item.type === "income"
+                                                                        ? "text-emerald-500"
+                                                                        : "text-rose-500"
+                                                                }`}
+                                                            >
+                                                                {item.type === "income" ? "+" : "-"}
+                                                                {formatCurrency(item.amount)}
+                                                            </p>
+
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => openEdit(item)}
+                                                                className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-400 transition hover:bg-slate-50 hover:text-slate-600 active:scale-95"
+                                                                aria-label="Edit transaction"
+                                                            >
+                                                                <Pencil className="h-4 w-4" />
+                                                            </button>
+
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => deleteTransaction(item.id)}
+                                                                className="flex h-9 w-9 items-center justify-center rounded-xl border border-rose-100 bg-rose-50 text-rose-400 transition hover:bg-rose-100 hover:text-rose-600 active:scale-95"
+                                                                aria-label="Delete transaction"
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        <div className="mt-5 border-t border-slate-100 pt-4">
-                                            <div className="flex items-center justify-end gap-3">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => openEdit(item)}
-                                                    className="flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:bg-slate-50 active:scale-95"
-                                                    aria-label="Edit transaction"
-                                                >
-                                                    <Pencil className="h-5 w-5" />
-                                                </button>
-
-                                                <button
-                                                    type="button"
-                                                    onClick={() => deleteTransaction(item.id)}
-                                                    className="flex h-12 w-12 items-center justify-center rounded-2xl border border-rose-100 bg-rose-50 text-rose-500 shadow-sm transition hover:bg-rose-100 active:scale-95"
-                                                    aria-label="Delete transaction"
-                                                >
-                                                    <Trash2 className="h-5 w-5" />
-                                                </button>
-                                            </div>
-                                        </div>
                                     </>
                                 ) : (
                             <div className="min-w-0 space-y-3 overflow-hidden">

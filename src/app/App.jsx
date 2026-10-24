@@ -6,10 +6,12 @@ import {
     PieChart,
     Wallet,
     RefreshCw,
+    Target,
 } from "lucide-react";
 
 import Tracker from "../components/Tracker";
 import Plan from "../components/Plan";
+import Budget from "../components/Budget";
 import MonthlyReport from "../components/MonthlyReport";
 import Accounts from "../components/Accounts";
 import Login from "../components/Login";
@@ -206,6 +208,11 @@ export default function App() {
             id: "accounts",
             label: "Akun",
             icon: Wallet,
+        },
+        {
+            id: "budget",
+            label: "Budget",
+            icon: Target,
         },
         {
             id: "plan",
@@ -415,6 +422,10 @@ export default function App() {
                         deleteTransaction={handleDeleteTransaction}
                         markTransactionPaid={markTransactionPaid}
                     />
+                )}
+
+                {activePage === "budget" && (
+                    <Budget transactions={transactions} />
                 )}
 
                 {activePage === "plan" && (

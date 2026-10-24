@@ -62,6 +62,7 @@ const mapTransactionFromDB = (t) => ({
   danaDipakai: t.dana_dipakai,
   type: t.type === "income" ? "income" : "expense",
   installmentTotalLoan: t.installment_total_loan,
+  paidAt: t.paid_at ?? null,
   createdAt: t.created_at,
 });
 

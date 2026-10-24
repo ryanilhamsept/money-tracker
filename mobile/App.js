@@ -50,6 +50,7 @@ import {
   getTransactionMonth,
   normalizeDate,
   shiftMonth,
+  today,
 } from "./src/utils/date";
 import { categories, incomeCategories, fundSources } from "./src/constants/options";
 import Login from "./src/components/Login";
@@ -266,13 +267,32 @@ export default function App() {
 
   const groupedTransactions = transactionPages[transactionPage - 1] || [];
 
-  const totalSpending = useMemo(
-    () =>
-      currentMonthTransactions
-        .filter((t) => t.type !== "income")
-        .reduce((sum, t) => sum + Number(t.amount), 0),
-    [currentMonthTransactions]
-  );
+  // Cicilan yang jatuh temponya masih di depan belum benar-benar keluar
+  // duitnya -- kecuali yang sudah dibayar lebih awal. Aturannya disamakan
+  // persis dengan kartu di app web biar angka di dua tempat nggak beda.
+  const monthTotals = useMemo(() => {
+    const todayStr = today();
+    const realised = currentMonthTransactions.filter(
+      (t) => t.paidAt || normalizeDate(t.date) <= todayStr
+    );
+
+    const spending = realised
+      .filter((t) => t.type !== "income")
+      .reduce((sum, t) => sum + Number(t.amount), 0);
+
+    const income = realised
+      .filter((t) => t.type === "income")
+      .reduce((sum, t) => sum + Number(t.amount), 0);
+
+    return { spending, income, net: income - spending };
+  }, [currentMonthTransactions]);
+
+  const totalSpending = monthTotals.spending;
+
+  const incomeShare =
+    monthTotals.income + monthTotals.spending > 0
+      ? monthTotals.income / (monthTotals.income + monthTotals.spending)
+      : 0.5;
 
   const totalSpentSince2026 = useMemo(
     () =>
@@ -753,13 +773,47 @@ export default function App() {
             end={{ x: 1, y: 1 }}
             style={styles.heroCard}
           >
-            <Text style={styles.heroLabel}>Total Spending</Text>
-            <Text style={styles.heroValue}>{formatCurrency(totalSpending)}</Text>
+            <Text style={styles.heroLabel}>Selisih bulan ini</Text>
+            <Text
+              style={[
+                styles.heroValue,
+                monthTotals.net >= 0 ? styles.heroValuePositive : styles.heroValueNegative,
+              ]}
+            >
+              {monthTotals.net >= 0 ? "+" : "-"}
+              {formatCurrency(Math.abs(monthTotals.net))}
+            </Text>
+
+            {/* Proporsi masuk vs keluar -- dua angka berdampingan nggak
+                langsung nunjukin mana yang lebih besar. */}
+            <View style={styles.heroBar}>
+              <View style={[styles.heroBarIncome, { flex: Math.max(incomeShare, 0.001) }]} />
+              <View
+                style={[styles.heroBarSpending, { flex: Math.max(1 - incomeShare, 0.001) }]}
+              />
+            </View>
+
+            <View style={styles.heroSplitRow}>
+              <View style={styles.heroSplitItem}>
+                <Text style={styles.heroSplitLabel}>↙ Pemasukan</Text>
+                <Text style={styles.heroSplitValue} numberOfLines={1}>
+                  {formatCurrency(monthTotals.income)}
+                </Text>
+              </View>
+              <View style={styles.heroSplitDivider} />
+              <View style={styles.heroSplitItem}>
+                <Text style={styles.heroSplitLabel}>↗ Pengeluaran</Text>
+                <Text style={styles.heroSplitValue} numberOfLines={1}>
+                  {formatCurrency(monthTotals.spending)}
+                </Text>
+              </View>
+            </View>
+
             {spendingComparison ? (
               <View style={styles.heroChip}>
                 <Text style={styles.heroChipText}>
                   {spendingComparison.isIncrease ? "▲" : "▼"} {spendingComparison.percent}%{" "}
-                  dari bulan lalu
+                  pengeluaran dari bulan lalu
                 </Text>
               </View>
             ) : null}
@@ -1455,6 +1509,49 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontSize: 12,
     fontWeight: "800",
+  },
+  heroValuePositive: {
+    color: "#a7f3d0",
+  },
+  heroValueNegative: {
+    color: "#fecdd3",
+  },
+  heroBar: {
+    backgroundColor: "rgba(255,255,255,0.25)",
+    borderRadius: 999,
+    flexDirection: "row",
+    height: 8,
+    marginTop: 16,
+    overflow: "hidden",
+  },
+  heroBarIncome: {
+    backgroundColor: "#34d399",
+  },
+  heroBarSpending: {
+    backgroundColor: "#fb7185",
+  },
+  heroSplitRow: {
+    flexDirection: "row",
+    marginTop: 16,
+  },
+  heroSplitItem: {
+    flex: 1,
+  },
+  heroSplitDivider: {
+    backgroundColor: "rgba(255,255,255,0.25)",
+    marginHorizontal: 14,
+    width: 1,
+  },
+  heroSplitLabel: {
+    color: "#f5d0fe",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  heroSplitValue: {
+    color: "#ffffff",
+    fontSize: 17,
+    fontWeight: "900",
+    marginTop: 3,
   },
   lifetimeCard: {
     borderRadius: 20,

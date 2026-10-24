@@ -152,37 +152,6 @@ function debugDumpBodies() {
   });
 }
 
-/**
- * Debug: cari & dump email berdasarkan kata kunci subject (bukan cuma 5
- * transaksi terbaru kayak debugDumpBodies()). Ganti SUBJECT_KEYWORD di bawah
- * sesuai kebutuhan, lalu jalankan manual (Run -> debugSearchBySubject).
- */
-function debugSearchBySubject() {
-  const SUBJECT_KEYWORD = 'Internet Transaction Journal';
-  const QUERY = 'label:transaction subject:"' + SUBJECT_KEYWORD + '"';
-  const list = Gmail.Users.Messages.list('me', { q: QUERY, maxResults: 10 });
-  const messages = list.messages || [];
-
-  if (messages.length === 0) {
-    Logger.log('Tidak ada email yang cocok dengan query: ' + QUERY);
-    return;
-  }
-
-  messages.forEach(function (m) {
-    const full = Gmail.Users.Messages.get('me', m.id, { format: 'full' });
-    const from = getHeader(full, 'From').toLowerCase();
-    const subject = getHeader(full, 'Subject');
-    const body = getEmailBody(full);
-    const dateHeader = getHeader(full, 'Date');
-    const bank = BANK_CONFIG.find(function (b) { return from.indexOf(b.match) !== -1; }) || UNKNOWN_BANK;
-
-    Logger.log('=== ' + subject + ' | ' + from + ' ===');
-    Logger.log(body.substring(0, 2000));
-    Logger.log('Parse result: ' + JSON.stringify(parseTransactionEmail(body, subject, bank, dateHeader)));
-    Logger.log('--- END ---');
-  });
-}
-
 // ===== MAIN ENTRY POINT =====
 // Pakai Advanced Gmail Service (Gmail.Users.*) alih-alih GmailApp bawaan.
 // GmailApp punya kuota harian sendiri yang ketat buat akun consumer ("Service

@@ -13,6 +13,8 @@ import {
     CreditCard,
     CalendarDays,
     Banknote,
+    ArrowDownLeft,
+    ArrowUpRight,
 } from "lucide-react";
 
 import { Card, CardContent } from "./ui/card";
@@ -187,19 +189,33 @@ export default function Tracker({
     const totals = useMemo(() => {
         const todayStr = today();
 
-        const totalSpending = currentMonthTransactions
-            // Cicilan yang jatuh temponya masih di depan belum benar-benar
-            // keluar duitnya -- kecuali yang sudah dibayar lebih awal.
-            .filter((item) => item.paidAt || normalizeDate(item.date) <= todayStr)
+        // Cicilan yang jatuh temponya masih di depan belum benar-benar keluar
+        // duitnya -- kecuali yang sudah dibayar lebih awal.
+        const realised = currentMonthTransactions.filter(
+            (item) => item.paidAt || normalizeDate(item.date) <= todayStr
+        );
+
+        const totalSpending = realised
             .filter((item) => item.type !== "income")
+            .reduce((sum, item) => sum + Number(item.amount), 0);
+
+        const totalIncome = realised
+            .filter((item) => item.type === "income")
             .reduce((sum, item) => sum + Number(item.amount), 0);
 
         return {
             totalSpending,
+            totalIncome,
+            net: totalIncome - totalSpending,
             remainingBudget: Number(leftBudget) || 0,
             currentMonthTransactionCount: currentMonthTransactions.length,
         };
     }, [currentMonthTransactions, leftBudget]);
+
+    const incomeShare =
+        totals.totalIncome + totals.totalSpending > 0
+            ? totals.totalIncome / (totals.totalIncome + totals.totalSpending)
+            : 0.5;
 
     // Selalu bulan berjalan, disaring atau tidak. Cakupan yang berubah-ubah
     // mengikuti ada tidaknya filter sempat dicoba dan justru membingungkan:
@@ -464,11 +480,53 @@ export default function Tracker({
             )}
 
             <section className="grid gap-4 xl:grid-cols-3">
-                <StatCard
-                    icon={Wallet}
-                    label="Total Spending"
-                    value={formatCurrency(totals.totalSpending)}
-                />
+                <Card className="h-full overflow-hidden rounded-[1.75rem] border-white/70 bg-white/85 shadow-xl backdrop-blur">
+                    <CardContent className="flex h-full flex-col justify-center p-6">
+                        <p className="text-sm font-semibold text-slate-500">Selisih bulan ini</p>
+                        <p
+                            className={`mt-1 text-3xl font-black tracking-tight ${
+                                totals.net >= 0 ? "text-emerald-600" : "text-rose-600"
+                            }`}
+                        >
+                            {totals.net >= 0 ? "+" : "-"}
+                            {formatCurrency(Math.abs(totals.net))}
+                        </p>
+
+                        {/* Proporsi masuk vs keluar -- angka saja tidak langsung
+                            memberi tahu mana yang lebih besar. */}
+                        <div className="mt-4 flex h-2 overflow-hidden rounded-full bg-slate-100">
+                            <div
+                                className="bg-emerald-500"
+                                style={{ width: `${incomeShare * 100}%` }}
+                            />
+                            <div
+                                className="bg-rose-500"
+                                style={{ width: `${(1 - incomeShare) * 100}%` }}
+                            />
+                        </div>
+
+                        <div className="mt-4 grid grid-cols-2 divide-x divide-slate-100">
+                            <div className="pr-4">
+                                <p className="flex items-center gap-1.5 text-xs font-semibold text-slate-500">
+                                    <ArrowDownLeft className="h-3.5 w-3.5 text-emerald-500" />
+                                    Pemasukan
+                                </p>
+                                <p className="mt-0.5 text-lg font-black text-emerald-600">
+                                    {formatCurrency(totals.totalIncome)}
+                                </p>
+                            </div>
+                            <div className="pl-4">
+                                <p className="flex items-center gap-1.5 text-xs font-semibold text-slate-500">
+                                    <ArrowUpRight className="h-3.5 w-3.5 text-rose-500" />
+                                    Pengeluaran
+                                </p>
+                                <p className="mt-0.5 text-lg font-black text-rose-600">
+                                    {formatCurrency(totals.totalSpending)}
+                                </p>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
 
                 <Card className="overflow-hidden rounded-[1.75rem] border-white/70 bg-white/85 shadow-xl backdrop-blur">
                     <CardContent className="space-y-5 p-5">

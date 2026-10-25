@@ -12,6 +12,7 @@ import {
   getTransactionMonth,
   normalizeDate,
   shiftMonth,
+  today,
 } from "../utils/date";
 
 function StatCard({ label, value, meta, tone }) {
@@ -135,10 +136,23 @@ export default function MonthlyReportScreen({ transactions, budget = 0 }) {
 
   const canGoNext = month < maxAvailableMonth;
 
-  const monthTransactions = useMemo(
-    () => transactions.filter((t) => getTransactionMonth(t.date) === month),
-    [transactions, month]
-  );
+  const monthTransactions = useMemo(() => {
+    const inMonth = transactions.filter((t) => getTransactionMonth(t.date) === month);
+
+    // Dasar hitungnya sama dengan kartu di Home: angsuran yang jatuh temponya
+    // masih di depan belum benar-benar keluar duitnya, jadi belum dihitung.
+    // Kalau laporan pakai aturan lain, satu aplikasi punya dua angka
+    // "pengeluaran bulan ini" dan keduanya jadi susah dipercaya.
+    //
+    // Cuma berlaku di bulan berjalan. Bulan-bulan yang sudah lewat semua
+    // tanggalnya sudah di belakang, jadi angkanya tidak berubah sedikit pun;
+    // bulan depan justru memang isinya jadwal, dan di sana daftarnya
+    // ditampilkan apa adanya.
+    if (month !== currentMonth()) return inMonth;
+
+    const todayStr = today();
+    return inMonth.filter((t) => t.paidAt || normalizeDate(t.date) <= todayStr);
+  }, [transactions, month]);
 
   // Semua laporan/statistik di bawah ini soal pengeluaran -- pemasukan
   // dipisah biar nggak ngaco-in angka "Total bulan ini" dkk.

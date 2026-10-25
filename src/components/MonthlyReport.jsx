@@ -39,6 +39,7 @@ import {
     formatDisplayDate,
     getTransactionMonth,
     normalizeDate,
+    today,
 } from "../utils/date";
 import { formatCurrency } from "../utils/currency";
 import { reviewSpending, replyToReview } from "../services/api";
@@ -170,9 +171,26 @@ export default function MonthlyReport({ transactions, budget = 0 }) {
     const [expandedDana, setExpandedDana] = useState("");
     const [hoveredSlice, setHoveredSlice] = useState(null);
     const monthlyTransactions = useMemo(() => {
-        return transactions.filter((item) => {
+        const inMonth = transactions.filter((item) => {
             return getTransactionMonth(item.date) === selectedMonth;
         });
+
+        // Dasar hitungnya sama dengan kartu di Home: angsuran yang jatuh
+        // temponya masih di depan belum benar-benar keluar duitnya, jadi
+        // belum dihitung. Kalau laporan pakai aturan lain, satu aplikasi
+        // punya dua angka "pengeluaran bulan ini" dan keduanya jadi susah
+        // dipercaya.
+        //
+        // Cuma berlaku di bulan berjalan. Bulan-bulan yang sudah lewat
+        // semua tanggalnya sudah di belakang, jadi angkanya tidak berubah
+        // sedikit pun; bulan depan justru memang isinya jadwal, dan di
+        // sana daftarnya ditampilkan apa adanya.
+        if (selectedMonth !== currentMonth()) return inMonth;
+
+        const todayStr = today();
+        return inMonth.filter(
+            (item) => item.paidAt || normalizeDate(item.date) <= todayStr
+        );
     }, [transactions, selectedMonth]);
     // Laporan spending di bawah ini semua soal pengeluaran -- pemasukan
     // dipisah biar nggak ngaco-in "Total bulan ini" dkk.

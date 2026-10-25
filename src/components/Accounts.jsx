@@ -19,6 +19,24 @@ import { formatCurrency, formatThousands } from "../utils/currency";
 import { findCreditCardForSource } from "../utils/accountBalance";
 import { getOutstandingWindowStart, getStatementDay } from "../utils/billingCycle";
 import { getInstallmentBaseTitle } from "../utils/installmentTitle";
+import { formatMonthLabel } from "../utils/date";
+import {
+    summariseNetWorth,
+    getNetWorthHistory,
+    GROUP_WALLET,
+    GROUP_CASH,
+    GROUP_INVESTMENT,
+    GROUP_DEBT,
+} from "../utils/netWorth";
+
+// Urutan dan warna mengikuti kartu di aplikasi perbankan yang jadi acuan:
+// aset menumpuk ke atas dari garis nol, utang turun ke bawah.
+const NET_WORTH_GROUPS = [
+    { key: GROUP_WALLET, label: "E-wallet & lainnya", fill: "#2563eb", dot: "bg-blue-600" },
+    { key: GROUP_CASH, label: "Bank & tunai", fill: "#34d399", dot: "bg-emerald-400" },
+    { key: GROUP_INVESTMENT, label: "Investasi", fill: "#8b5cf6", dot: "bg-violet-500" },
+    { key: GROUP_DEBT, label: "Hutang & tagihan", fill: "#f59e0b", dot: "bg-amber-500" },
+];
 
 const CARD_COLORS = ["#0f172a", "#1e293b", "#1d4ed8", "#78350f", "#1e3a8a"];
 
@@ -82,13 +100,25 @@ export default function Accounts({
         }));
     }, [accounts]);
 
-    const totalAccountBalance = useMemo(() => {
-        // Kartu kredit nyimpen "saldo terpakai" (utang), bukan saldo yang dimiliki --
-        // jangan ikut dijumlah ke Total Saldo Akun.
-        return accountsWithBalances
-            .filter((acc) => acc.type !== "Kartu Kredit")
-            .reduce((sum, acc) => sum + acc.balance, 0);
-    }, [accountsWithBalances]);
+    const netWorth = useMemo(() => summariseNetWorth(accounts), [accounts]);
+
+    const netWorthHistory = useMemo(
+        () => getNetWorthHistory(accounts, transactions),
+        [accounts, transactions]
+    );
+
+    // Perbandingan dengan bulan sebelumnya -- baru ada artinya kalau grafiknya
+    // punya minimal dua titik.
+    const netWorthChange = useMemo(() => {
+        if (netWorthHistory.length < 2) return null;
+        const latest = netWorthHistory[netWorthHistory.length - 1];
+        const previous = netWorthHistory[netWorthHistory.length - 2];
+        return {
+            month: latest.month,
+            previousMonth: previous.month,
+            amount: latest.net - previous.net,
+        };
+    }, [netWorthHistory]);
 
     // Filter accounts based on query and type filter
     const filteredAccounts = useMemo(() => {
@@ -767,22 +797,198 @@ export default function Accounts({
                 Akun
             </h1>
 
-            {/* Total saldo akun */}
+            {/* Kekayaan bersih -- menggantikan "Total Saldo Akun", yang menjumlah
+                akun piutang sebagai kekayaan dan mengabaikan tagihan kartu.
+                Dua angka besar yang berbeda di satu layar cuma bikin ragu. */}
             <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="overflow-hidden rounded-[2rem] border border-white/70 bg-gradient-to-br from-zinc-800 to-zinc-900 p-6 text-white shadow-xl backdrop-blur md:p-8"
+                className="overflow-hidden rounded-[2rem] border border-white/70 bg-white/85 p-6 shadow-xl backdrop-blur md:p-8"
             >
-                <p className="text-sm font-semibold text-white/70">
-                    Total Saldo Akun
+                <p className="text-sm font-semibold text-slate-500">Kekayaan bersih</p>
+                <p className="mt-1 text-4xl font-black tracking-tight text-slate-900 md:text-5xl">
+                    {formatCurrency(netWorth.net)}
                 </p>
 
-                <p className="mt-2 text-4xl font-black tracking-tight md:text-5xl">
-                    {formatCurrency(totalAccountBalance)}
-                </p>
+                {netWorthHistory.length > 0 && (() => {
+                    const positiveOf = (entry) =>
+                        entry.totals[GROUP_WALLET] +
+                        entry.totals[GROUP_CASH] +
+                        entry.totals[GROUP_INVESTMENT];
 
-                <p className="mt-4 text-xs font-semibold text-white/50">
-                    {accounts.length} Akun Terdaftar
+                    const maxPositive = Math.max(
+                        ...netWorthHistory.map(positiveOf),
+                        1
+                    );
+                    const maxDebt = Math.max(
+                        ...netWorthHistory.map((entry) => entry.totals[GROUP_DEBT]),
+                        0
+                    );
+
+                    const width = 640;
+                    const height = 200;
+                    const padTop = 12;
+                    const padBottom = 26;
+                    const plotHeight = height - padTop - padBottom;
+                    const range = maxPositive + maxDebt || 1;
+                    const toY = (value) =>
+                        padTop + ((maxPositive - value) * plotHeight) / range;
+                    const zeroY = toY(0);
+
+                    const slot = width / netWorthHistory.length;
+                    const barWidth = Math.min(slot * 0.5, 34);
+                    const centreOf = (index) => slot * index + slot / 2;
+
+                    const stacked = [GROUP_CASH, GROUP_INVESTMENT, GROUP_WALLET];
+
+                    return (
+                        <div className="mt-6">
+                            <div className="flex items-baseline justify-between gap-3">
+                                <h3 className="text-base font-black text-slate-900">
+                                    Pertumbuhan aset
+                                </h3>
+                                <p className="text-xs font-semibold text-slate-400">
+                                    {netWorthHistory.length} bulan terakhir
+                                </p>
+                            </div>
+
+                            <svg
+                                viewBox={`0 0 ${width} ${height}`}
+                                className="mt-3 w-full"
+                                role="img"
+                                aria-label="Grafik pertumbuhan aset per bulan"
+                            >
+                                <line
+                                    x1="0"
+                                    x2={width}
+                                    y1={zeroY}
+                                    y2={zeroY}
+                                    stroke="#e2e8f0"
+                                    strokeWidth="1"
+                                />
+
+                                {netWorthHistory.map((entry, index) => {
+                                    const x = centreOf(index) - barWidth / 2;
+                                    let cursor = zeroY;
+
+                                    return (
+                                        <g key={entry.month}>
+                                            {stacked.map((group) => {
+                                                const value = entry.totals[group];
+                                                if (value <= 0) return null;
+                                                const barHeight =
+                                                    (value * plotHeight) / range;
+                                                cursor -= barHeight;
+                                                return (
+                                                    <rect
+                                                        key={group}
+                                                        x={x}
+                                                        y={cursor}
+                                                        width={barWidth}
+                                                        height={barHeight}
+                                                        fill={
+                                                            NET_WORTH_GROUPS.find(
+                                                                (g) => g.key === group
+                                                            ).fill
+                                                        }
+                                                    />
+                                                );
+                                            })}
+
+                                            {entry.totals[GROUP_DEBT] > 0 && (
+                                                <rect
+                                                    x={x}
+                                                    y={zeroY}
+                                                    width={barWidth}
+                                                    height={
+                                                        (entry.totals[GROUP_DEBT] *
+                                                            plotHeight) /
+                                                        range
+                                                    }
+                                                    fill="#f59e0b"
+                                                />
+                                            )}
+                                        </g>
+                                    );
+                                })}
+
+                                <polyline
+                                    fill="none"
+                                    stroke="#0f172a"
+                                    strokeWidth="2"
+                                    points={netWorthHistory
+                                        .map(
+                                            (entry, index) =>
+                                                `${centreOf(index)},${toY(entry.net)}`
+                                        )
+                                        .join(" ")}
+                                />
+
+                                {netWorthHistory.map((entry, index) => (
+                                    <circle
+                                        key={entry.month}
+                                        cx={centreOf(index)}
+                                        cy={toY(entry.net)}
+                                        r="4"
+                                        fill="#0f172a"
+                                        stroke="#ffffff"
+                                        strokeWidth="2"
+                                    />
+                                ))}
+
+                                {netWorthHistory.map((entry, index) => (
+                                    <text
+                                        key={entry.month}
+                                        x={centreOf(index)}
+                                        y={height - 8}
+                                        textAnchor="middle"
+                                        className="fill-slate-400 text-[11px] font-semibold"
+                                    >
+                                        {formatMonthLabel(entry.month).split(" ")[0].slice(0, 3)}
+                                    </text>
+                                ))}
+                            </svg>
+                        </div>
+                    );
+                })()}
+
+                <div className="mt-5 grid gap-x-6 gap-y-4 border-t border-slate-100 pt-5 sm:grid-cols-2">
+                    {NET_WORTH_GROUPS.filter(
+                        (group) => netWorth.members[group.key].length > 0
+                    ).map((group) => (
+                        <div key={group.key} className="min-w-0">
+                            <p className="flex items-center gap-2 text-sm font-semibold text-slate-500">
+                                <span
+                                    className={`h-2.5 w-2.5 shrink-0 rounded-full ${group.dot}`}
+                                />
+                                {group.label}
+                            </p>
+                            <p className="mt-0.5 truncate text-lg font-black text-slate-900">
+                                {group.key === GROUP_DEBT ? "-" : ""}
+                                {formatCurrency(netWorth.totals[group.key])}
+                            </p>
+                        </div>
+                    ))}
+                </div>
+
+                {netWorthChange && (
+                    <div className="mt-5 border-t border-slate-100 pt-5">
+                        <p className="text-base font-black text-slate-900">
+                            {formatMonthLabel(netWorthChange.month).split(" ")[0]}{" "}
+                            {netWorthChange.amount >= 0 ? "naik" : "turun"}{" "}
+                            {formatCurrency(Math.abs(netWorthChange.amount))}
+                        </p>
+                        <p className="text-sm font-medium text-slate-500">
+                            Dari {formatMonthLabel(netWorthChange.previousMonth).split(" ")[0]}
+                        </p>
+                    </div>
+                )}
+
+                <p className="mt-4 text-xs leading-relaxed text-slate-400">
+                    Bulan-bulan sebelumnya dihitung mundur dari catatan transaksi.
+                    Akun yang saldonya diisi manual dan tidak pernah punya transaksi
+                    (Bibit, CRYPTO) dianggap tetap, karena riwayat saldonya memang
+                    tidak tersimpan. Akun piutang tidak dihitung sebagai kekayaan.
                 </p>
             </motion.div>
 

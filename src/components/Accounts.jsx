@@ -23,6 +23,8 @@ import { formatMonthLabel } from "../utils/date";
 import {
     summariseNetWorth,
     getNetWorthHistory,
+    getAccountGroup,
+    isExcludedAccount,
     GROUP_WALLET,
     GROUP_CASH,
     GROUP_INVESTMENT,
@@ -137,6 +139,48 @@ export default function Accounts({
         () => filteredAccounts.filter((acc) => acc.type !== "Kartu Kredit"),
         [filteredAccounts]
     );
+
+    // Daftar akun dikelompokkan persis seperti legenda di kartu kekayaan
+    // bersih, lengkap dengan subtotalnya. Tanpa ini, angka "Bank & tunai" di
+    // kartu cuma angka -- nggak kelihatan akun mana saja yang membentuknya.
+    // Subtotalnya dihitung dari baris yang benar-benar tampil, jadi tetap
+    // jujur waktu daftarnya lagi disaring.
+    const accountGroups = useMemo(() => {
+        const definitions = [
+            { key: GROUP_CASH, label: "Bank & tunai", dot: "bg-emerald-400" },
+            { key: GROUP_INVESTMENT, label: "Investasi", dot: "bg-violet-500" },
+            { key: GROUP_WALLET, label: "E-wallet & lainnya", dot: "bg-blue-600" },
+        ];
+
+        const counted = regularAccounts.filter((acc) => !isExcludedAccount(acc));
+        const excluded = regularAccounts.filter((acc) => isExcludedAccount(acc));
+
+        const groups = definitions
+            .map((definition) => {
+                const members = counted.filter(
+                    (acc) => getAccountGroup(acc) === definition.key
+                );
+                return {
+                    ...definition,
+                    members,
+                    total: members.reduce((sum, acc) => sum + acc.balance, 0),
+                };
+            })
+            .filter((group) => group.members.length > 0);
+
+        if (excluded.length > 0) {
+            groups.push({
+                key: "excluded",
+                label: "Piutang",
+                dot: "bg-slate-300",
+                note: "Tidak dihitung sebagai kekayaan",
+                members: excluded,
+                total: excluded.reduce((sum, acc) => sum + acc.balance, 0),
+            });
+        }
+
+        return groups;
+    }, [regularAccounts]);
 
     const creditCardAccounts = useMemo(
         () => filteredAccounts.filter((acc) => acc.type === "Kartu Kredit"),
@@ -1037,16 +1081,41 @@ export default function Accounts({
                 </div>
             </div>
 
-            {/* Accounts List */}
-            <div className="grid gap-3">
-                {regularAccounts.length > 0 ? (
-                    regularAccounts.map(renderAccountItem)
-                ) : (
-                    <div className="rounded-2xl border border-dashed border-slate-200 p-8 text-center text-slate-500">
-                        Tidak ada akun ditemukan. Klik "+ Tambah" untuk menambahkan akun baru.
-                    </div>
-                )}
-            </div>
+            {/* Accounts List -- dikelompokkan sesuai legenda kartu di atas */}
+            {regularAccounts.length > 0 ? (
+                <div className="space-y-6">
+                    {accountGroups.map((group) => (
+                        <div key={group.key} className="space-y-3">
+                            <div className="flex min-w-0 items-baseline justify-between gap-3">
+                                <div className="flex min-w-0 items-center gap-2">
+                                    <span
+                                        className={`h-2.5 w-2.5 shrink-0 rounded-full ${group.dot}`}
+                                    />
+                                    <h3 className="truncate text-sm font-black uppercase tracking-wide text-slate-500">
+                                        {group.label}
+                                    </h3>
+                                    {group.note && (
+                                        <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-500">
+                                            {group.note}
+                                        </span>
+                                    )}
+                                </div>
+                                <p className="shrink-0 text-sm font-black text-slate-900">
+                                    {formatCurrency(group.total)}
+                                </p>
+                            </div>
+
+                            <div className="grid gap-3">
+                                {group.members.map(renderAccountItem)}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            ) : (
+                <div className="rounded-2xl border border-dashed border-slate-200 p-8 text-center text-slate-500">
+                    Tidak ada akun ditemukan. Klik "+ Tambah" untuk menambahkan akun baru.
+                </div>
+            )}
 
             {/* Credit Card Section */}
             {creditCardAccounts.length > 0 && (

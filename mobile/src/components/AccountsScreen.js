@@ -18,6 +18,8 @@ import { formatMonthLabel } from "../utils/date";
 import {
   summariseNetWorth,
   getNetWorthHistory,
+  getAccountGroup,
+  isExcludedAccount,
   GROUP_WALLET,
   GROUP_CASH,
   GROUP_INVESTMENT,
@@ -152,6 +154,49 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
     () => filteredAccounts.filter((a) => a.type !== "Kartu Kredit"),
     [filteredAccounts]
   );
+
+  // Daftar akun dikelompokkan persis seperti legenda di kartu kekayaan bersih,
+  // lengkap dengan subtotalnya. Tanpa ini, angka "Bank & tunai" di kartu cuma
+  // angka -- nggak kelihatan akun mana saja yang membentuknya. Subtotalnya
+  // dihitung dari baris yang benar-benar tampil, jadi tetap jujur waktu
+  // daftarnya lagi disaring.
+  const accountGroups = useMemo(() => {
+    const definitions = [
+      { key: GROUP_CASH, label: "Bank & tunai", fill: "#34d399" },
+      { key: GROUP_INVESTMENT, label: "Investasi", fill: "#8b5cf6" },
+      { key: GROUP_WALLET, label: "E-wallet & lainnya", fill: "#2563eb" },
+    ];
+
+    const counted = regularAccounts.filter((a) => !isExcludedAccount(a));
+    const excluded = regularAccounts.filter((a) => isExcludedAccount(a));
+
+    const groups = definitions
+      .map((definition) => {
+        const members = counted.filter((a) => getAccountGroup(a) === definition.key);
+        return {
+          ...definition,
+          members,
+          total: members.reduce(
+            (sum, a) => sum + (Number(a.startingBalance) || 0),
+            0
+          ),
+        };
+      })
+      .filter((group) => group.members.length > 0);
+
+    if (excluded.length > 0) {
+      groups.push({
+        key: "excluded",
+        label: "Piutang",
+        fill: "#cbd5e1",
+        note: "Tidak dihitung",
+        members: excluded,
+        total: excluded.reduce((sum, a) => sum + (Number(a.startingBalance) || 0), 0),
+      });
+    }
+
+    return groups;
+  }, [regularAccounts]);
 
   const creditCardAccounts = useMemo(
     () => filteredAccounts.filter((a) => a.type === "Kartu Kredit"),
@@ -759,15 +804,32 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
         onChangeText={setSearchQuery}
       />
 
-      <View style={styles.list}>
-        {regularAccounts.length === 0 ? (
+      {regularAccounts.length === 0 ? (
+        <View style={styles.list}>
           <Text style={styles.emptyText}>
             Tidak ada akun ditemukan. Tap "+ Tambah" untuk menambahkan akun baru.
           </Text>
-        ) : (
-          regularAccounts.map(renderAccountCard)
-        )}
-      </View>
+        </View>
+      ) : (
+        accountGroups.map((group) => (
+          <View key={group.key} style={styles.accountGroup}>
+            <View style={styles.accountGroupHeader}>
+              <View style={styles.accountGroupLabelRow}>
+                <View style={[styles.netWorthDot, { backgroundColor: group.fill }]} />
+                <Text style={styles.accountGroupLabel}>{group.label}</Text>
+                {group.note ? (
+                  <View style={styles.accountGroupBadge}>
+                    <Text style={styles.accountGroupBadgeText}>{group.note}</Text>
+                  </View>
+                ) : null}
+              </View>
+              <Text style={styles.accountGroupTotal}>{formatCurrency(group.total)}</Text>
+            </View>
+
+            <View style={styles.list}>{group.members.map(renderAccountCard)}</View>
+          </View>
+        ))
+      )}
 
       {creditCardAccounts.length > 0 && (
         <View style={styles.list}>
@@ -1048,6 +1110,13 @@ const styles = StyleSheet.create({
   netWorthChange: { borderTopColor: "#f1f5f9", borderTopWidth: 1, marginTop: 4, paddingTop: 16 },
   netWorthChangeTitle: { color: "#0f172a", fontSize: 15, fontWeight: "900" },
   netWorthChangeMeta: { color: "#64748b", fontSize: 13, fontWeight: "600", marginTop: 2 },
+  accountGroup: { gap: 10 },
+  accountGroupHeader: { alignItems: "baseline", flexDirection: "row", justifyContent: "space-between", gap: 10 },
+  accountGroupLabelRow: { alignItems: "center", flexDirection: "row", flexShrink: 1, gap: 6 },
+  accountGroupLabel: { color: "#64748b", fontSize: 12, fontWeight: "900", letterSpacing: 0.4, textTransform: "uppercase" },
+  accountGroupBadge: { backgroundColor: "#f1f5f9", borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
+  accountGroupBadgeText: { color: "#64748b", fontSize: 10, fontWeight: "800" },
+  accountGroupTotal: { color: "#0f172a", fontSize: 13, fontWeight: "900" },
   netWorthNote: { color: "#94a3b8", fontSize: 11, lineHeight: 16, marginTop: 14 },
   headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   sectionTitle: { color: "#0f172a", fontSize: 18, fontWeight: "900" },

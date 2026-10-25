@@ -59,7 +59,12 @@ import {
   getStatementDay,
 } from "./src/utils/billingCycle";
 import { findDuplicateTransaction } from "./src/utils/transactions";
-import { categories, incomeCategories, fundSources } from "./src/constants/options";
+import {
+  categories,
+  incomeCategories,
+  fundSources,
+  danaDipakaiOptions,
+} from "./src/constants/options";
 import Login from "./src/components/Login";
 import TransactionForm from "./src/components/TransactionForm";
 import Dropdown from "./src/components/Dropdown";
@@ -136,6 +141,7 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [sourceFilter, setSourceFilter] = useState("all");
+  const [danaFilter, setDanaFilter] = useState("all");
   const [transactionPage, setTransactionPage] = useState(1);
   const TRANSACTIONS_PAGE_SIZE = 20;
 
@@ -217,13 +223,14 @@ export default function App() {
         .includes(searchQuery.toLowerCase());
       const matchesCategory = categoryFilter === "all" || item.category === categoryFilter;
       const matchesSource = sourceFilter === "all" || item.source === sourceFilter;
-      return matchesQuery && matchesCategory && matchesSource;
+      const matchesDana = danaFilter === "all" || item.danaDipakai === danaFilter;
+      return matchesQuery && matchesCategory && matchesSource && matchesDana;
     });
-  }, [currentMonthTransactions, searchQuery, categoryFilter, sourceFilter]);
+  }, [currentMonthTransactions, searchQuery, categoryFilter, sourceFilter, danaFilter]);
 
   useEffect(() => {
     setTransactionPage(1);
-  }, [searchQuery, categoryFilter, sourceFilter]);
+  }, [searchQuery, categoryFilter, sourceFilter, danaFilter]);
 
   // Dikelompokkan per tanggal dulu sebelum dipaginasi, biar transaksi di satu
   // tanggal nggak pernah kepotong jadi dua grup terpisah di dua halaman.
@@ -975,6 +982,19 @@ export default function App() {
                 options={[
                   { label: "All sources", value: "all" },
                   ...fundSources.map((s) => ({ label: s, value: s })),
+                ]}
+              />
+            </View>
+          </View>
+
+          <View style={styles.filterRow}>
+            <View style={styles.filterDropdown}>
+              <Dropdown
+                value={danaFilter}
+                onChange={setDanaFilter}
+                options={[
+                  { label: "Semua dana", value: "all" },
+                  ...danaDipakaiOptions.map((d) => ({ label: d, value: d })),
                 ]}
               />
             </View>

@@ -121,6 +121,7 @@ function DailySparkline({ values }) {
 export default function MonthlyReportScreen({ transactions, budget = 0 }) {
   const [month, setMonth] = useState(currentMonth());
   const [expandedCategory, setExpandedCategory] = useState("");
+  const [expandedDana, setExpandedDana] = useState("");
   const [expandedDate, setExpandedDate] = useState("");
 
   // Nggak boleh maju ke bulan yang belum ada datanya sama sekali -- kecuali
@@ -633,12 +634,45 @@ export default function MonthlyReportScreen({ transactions, budget = 0 }) {
           <Text style={styles.emptyText}>Belum ada data bulan ini.</Text>
         ) : (
           <View style={styles.list}>
-            {danaReport.map((item) => (
-              <View key={item.dana} style={styles.simpleRow}>
-                <Text style={styles.simpleLabel}>{item.dana}</Text>
-                <Text style={styles.simpleValue}>{formatCurrency(item.total)}</Text>
-              </View>
-            ))}
+            {danaReport.map((item) => {
+              const expanded = expandedDana === item.dana;
+              // Urutannya ngikut daftar transaksi (terbaru dulu), sama kayak
+              // rincian per kategori di atas -- satu layar, satu aturan.
+              const detail = monthExpenses.filter((t) => t.danaDipakai === item.dana);
+              return (
+                <View key={item.dana} style={styles.categoryCard}>
+                  <Pressable onPress={() => setExpandedDana(expanded ? "" : item.dana)}>
+                    <View style={styles.categoryRow}>
+                      <Text style={styles.categoryName}>{item.dana}</Text>
+                      <View style={styles.danaAmountRow}>
+                        <Text style={styles.categoryAmount}>
+                          {formatCurrency(item.total)}
+                        </Text>
+                        <Text style={styles.danaChevron}>{expanded ? "▲" : "▼"}</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.categoryPercent}>{detail.length} transaksi</Text>
+                  </Pressable>
+
+                  {expanded ? (
+                    <View style={styles.dayDetail}>
+                      {detail.map((t) => (
+                        <View key={t.id} style={styles.detailRow}>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.detailTitle}>{t.title}</Text>
+                            <Text style={styles.detailMeta}>
+                              {formatDisplayDate(t.date)}
+                              {t.time ? ` ${t.time}` : ""} · {t.source}
+                            </Text>
+                          </View>
+                          <Text style={styles.detailAmount}>-{formatCurrency(t.amount)}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  ) : null}
+                </View>
+              );
+            })}
           </View>
         )}
       </View>
@@ -734,6 +768,8 @@ const styles = StyleSheet.create({
   detailTitle: { color: "#0f172a", fontSize: 13, fontWeight: "800" },
   detailMeta: { color: "#64748b", fontSize: 11, fontWeight: "600", marginTop: 2 },
   detailAmount: { color: "#e11d48", fontSize: 13, fontWeight: "900" },
+  danaAmountRow: { alignItems: "center", flexDirection: "row", gap: 8 },
+  danaChevron: { color: "#94a3b8", fontSize: 11, fontWeight: "900" },
   simpleRow: { flexDirection: "row", justifyContent: "space-between", backgroundColor: "#ffffff", borderRadius: 14, padding: 14 },
   simpleLabel: { color: "#0f172a", fontSize: 14, fontWeight: "900" },
   simpleValue: { color: "#0f172a", fontSize: 14, fontWeight: "900" },

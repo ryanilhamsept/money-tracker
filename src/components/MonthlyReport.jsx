@@ -26,6 +26,7 @@ import {
     RotateCw,
     Send,
     X,
+    ChevronDown,
 } from "lucide-react";
 import { Card, CardContent } from "./ui/card";
 import {
@@ -166,6 +167,7 @@ export default function MonthlyReport({ transactions, budget = 0 }) {
     const [selectedMonth, setSelectedMonth] = useState(currentMonth());
     const [expandedMonthlyCategory, setExpandedMonthlyCategory] = useState("");
     const [expandedDailyDate, setExpandedDailyDate] = useState("");
+    const [expandedDana, setExpandedDana] = useState("");
     const [hoveredSlice, setHoveredSlice] = useState(null);
     const monthlyTransactions = useMemo(() => {
         return transactions.filter((item) => {
@@ -1154,19 +1156,94 @@ export default function MonthlyReport({ transactions, budget = 0 }) {
                             </div>
                         ) : (
                             <div className="space-y-3">
-                                {danaReport.map((item) => (
-                                    <div
-                                        key={item.dana}
-                                        className="flex min-w-0 items-center justify-between gap-3 rounded-3xl bg-slate-50 p-4"
-                                    >
-                                        <p className="truncate font-black text-slate-900">
-                                            {item.dana}
-                                        </p>
-                                        <p className="shrink-0 font-black text-slate-900">
-                                            {formatCurrency(item.total)}
-                                        </p>
-                                    </div>
-                                ))}
+                                {danaReport.map((item) => {
+                                    // Urutannya ngikut daftar transaksi (terbaru
+                                    // dulu), sama kayak rincian per kategori di
+                                    // kartu atas -- dua-duanya dibuka dari layar
+                                    // yang sama, jadi jangan beda aturan.
+                                    const detailTransactions = monthlyExpenses.filter(
+                                        (transaction) => transaction.danaDipakai === item.dana
+                                    );
+                                    const isExpanded = expandedDana === item.dana;
+
+                                    return (
+                                        <div
+                                            key={item.dana}
+                                            className="space-y-3 rounded-3xl bg-slate-50 p-4"
+                                        >
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    setExpandedDana((current) =>
+                                                        current === item.dana ? "" : item.dana
+                                                    )
+                                                }
+                                                className="flex w-full min-w-0 items-center justify-between gap-3 text-left"
+                                            >
+                                                <div className="min-w-0">
+                                                    <p className="truncate font-black text-slate-900">
+                                                        {item.dana}
+                                                    </p>
+                                                    <p className="text-sm font-medium text-slate-500">
+                                                        {detailTransactions.length} transaksi
+                                                    </p>
+                                                </div>
+                                                <div className="flex shrink-0 items-center gap-2">
+                                                    <p className="font-black text-slate-900">
+                                                        {formatCurrency(item.total)}
+                                                    </p>
+                                                    <ChevronDown
+                                                        className={`h-4 w-4 text-slate-400 transition-transform ${
+                                                            isExpanded ? "rotate-180" : ""
+                                                        }`}
+                                                    />
+                                                </div>
+                                            </button>
+
+                                            {isExpanded && (
+                                                <div className="space-y-2 border-t border-slate-200 pt-3">
+                                                    {detailTransactions.map((transaction) => {
+                                                        const detailCategoryData =
+                                                            categoryIcons[transaction.category] ||
+                                                            categoryIcons["Miscellaneous"];
+                                                        const DetailIcon = detailCategoryData.icon;
+
+                                                        return (
+                                                            <div
+                                                                key={transaction.id}
+                                                                className="flex min-w-0 items-center justify-between gap-3 rounded-2xl bg-white p-3 shadow-sm"
+                                                            >
+                                                                <div className="flex min-w-0 items-center gap-3">
+                                                                    <div
+                                                                        className={`shrink-0 rounded-2xl p-2 ${detailCategoryData.bg}`}
+                                                                    >
+                                                                        <DetailIcon
+                                                                            className={`h-4 w-4 ${detailCategoryData.color}`}
+                                                                        />
+                                                                    </div>
+                                                                    <div className="min-w-0">
+                                                                        <p className="truncate font-bold text-slate-900">
+                                                                            {transaction.title}
+                                                                        </p>
+                                                                        <p className="text-xs font-medium text-slate-500">
+                                                                            {formatDisplayDate(
+                                                                                transaction.date
+                                                                            )}{" "}
+                                                                            • {transaction.source}
+                                                                        </p>
+                                                                    </div>
+                                                                </div>
+                                                                <p className="shrink-0 font-black text-rose-500">
+                                                                    -{formatCurrency(transaction.amount)}
+                                                                </p>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
                             </div>
                         )}
                     </CardContent>

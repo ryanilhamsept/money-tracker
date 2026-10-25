@@ -66,6 +66,7 @@ export default function Tracker({
     const [query, setQuery] = useState("");
     const [categoryFilter, setCategoryFilter] = useState("all");
     const [sourceFilter, setSourceFilter] = useState("all");
+    const [danaFilter, setDanaFilter] = useState("all");
     const [historyPage, setHistoryPage] = useState(1);
     const [isEditingBudget, setIsEditingBudget] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -236,7 +237,10 @@ export default function Tracker({
                 const matchesSource =
                     sourceFilter === "all" || item.source === sourceFilter;
 
-                return matchesQuery && matchesCategory && matchesSource;
+                const matchesDana =
+                    danaFilter === "all" || item.danaDipakai === danaFilter;
+
+                return matchesQuery && matchesCategory && matchesSource && matchesDana;
             })
             .sort((a, b) => {
                 const dateCompare = normalizeDate(b.date).localeCompare(normalizeDate(a.date));
@@ -247,7 +251,7 @@ export default function Tracker({
 
                 return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
             });
-    }, [currentMonthTransactions, query, categoryFilter, sourceFilter]);
+    }, [currentMonthTransactions, query, categoryFilter, sourceFilter, danaFilter]);
 
     // Dikelompokkan per tanggal dulu sebelum dipaginasi, biar transaksi di satu
     // tanggal nggak pernah kepotong jadi dua grup terpisah di dua halaman
@@ -944,7 +948,7 @@ export default function Tracker({
                                 Transactions
                             </h2>
 
-                            <div className="grid w-full gap-2 md:grid-cols-[1fr_180px_180px]">
+                            <div className="grid w-full gap-2 md:grid-cols-[1fr_170px_170px_170px]">
                                 <div className="relative">
                                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
 
@@ -989,6 +993,23 @@ export default function Tracker({
                                     {activeFundSources.map((source) => (
                                         <option key={source} value={source}>
                                             {source}
+                                        </option>
+                                    ))}
+                                </select>
+
+                                <select
+                                    value={danaFilter}
+                                    onChange={(event) => {
+                                        setDanaFilter(event.target.value);
+                                        setHistoryPage(1);
+                                    }}
+                                    className="rounded-2xl border border-slate-200 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-pink-200"
+                                >
+                                    <option value="all">Semua dana</option>
+
+                                    {danaDipakaiOptions.map((dana) => (
+                                        <option key={dana} value={dana}>
+                                            {dana}
                                         </option>
                                     ))}
                                 </select>

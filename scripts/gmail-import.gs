@@ -411,6 +411,7 @@ function parseTransactionEmail(body, subject, bank, dateHeader) {
     source = 'Credit Card - BCA';
     dana = 'Spend CC';
   }
+  let grabSourceUnknown = false;
   if (bank.isGrab) {
     const payment = extractGrabPaymentSource(body);
     if (payment) {
@@ -421,6 +422,16 @@ function parseTransactionEmail(body, subject, bank, dateHeader) {
 
       source = payment.source;
       dana = payment.dana;
+    } else {
+      // Nomor kartunya nggak kebaca di struk. Dulu transaksinya diam-diam
+      // jatuh ke source default BANK_CONFIG (Superbank) -- tiga perjalanan
+      // Oktober 2026 yang dibayar pakai kartu debit blu nyangkut di Superbank
+      // gara-gara ini, dan baru ketahuan waktu dicocokin sama rekening koran.
+      // Akun yang salah jauh lebih susah ketahuan daripada akun yang kosong,
+      // jadi lebih baik ditandai minta dicek daripada ditebak.
+      source = UNKNOWN_BANK.source;
+      dana = UNKNOWN_BANK.dana;
+      grabSourceUnknown = true;
     }
   }
 
@@ -428,7 +439,7 @@ function parseTransactionEmail(body, subject, bank, dateHeader) {
   // adanya biar datanya nggak ilang, tapi ditandai "Perlu Dicek" biar user
   // liat & lengkapin sendiri di app (lihat notifyAdminOfReviewNeeded di
   // handleMessage buat pemberitahuan ke developer).
-  const needsReview = !amount || !dateTime.date;
+  const needsReview = !amount || !dateTime.date || grabSourceUnknown;
 
   return {
     title: title,

@@ -27,6 +27,7 @@ import {
     Send,
     X,
     ChevronDown,
+    Trash2,
 } from "lucide-react";
 import { Card, CardContent } from "./ui/card";
 import {
@@ -164,11 +165,15 @@ const buildSparklinePath = (values) => {
         .join(" ");
 };
 
-export default function MonthlyReport({ transactions, budget = 0 }) {
+export default function MonthlyReport({ transactions, budget = 0, deleteTransaction }) {
     const [selectedMonth, setSelectedMonth] = useState(currentMonth());
     const [expandedMonthlyCategory, setExpandedMonthlyCategory] = useState("");
     const [expandedDailyDate, setExpandedDailyDate] = useState("");
     const [expandedDana, setExpandedDana] = useState("");
+    // Menghapus tidak bisa dibatalkan, dan ini layar riwayat -- barisnya bisa
+    // berumur berbulan-bulan. Tombolnya karena itu minta diklik dua kali:
+    // sekali buat mengarahkan, sekali buat benar-benar menghapus.
+    const [pendingDeleteId, setPendingDeleteId] = useState("");
     const [hoveredSlice, setHoveredSlice] = useState(null);
     const monthlyTransactions = useMemo(() => {
         const inMonth = transactions.filter((item) => {
@@ -977,14 +982,50 @@ export default function MonthlyReport({ transactions, budget = 0 }) {
                                                                     </p>
                                                                 </div>
                                                             </div>
-                                                            <p
-                                                                className={`shrink-0 font-black ${
-                                                                    isIncome ? "text-emerald-500" : "text-rose-500"
-                                                                }`}
-                                                            >
-                                                                {isIncome ? "+" : "-"}
-                                                                {formatCurrency(t.amount)}
-                                                            </p>
+                                                            <div className="flex shrink-0 items-center gap-2">
+                                                                <p
+                                                                    className={`font-black ${
+                                                                        isIncome ? "text-emerald-500" : "text-rose-500"
+                                                                    }`}
+                                                                >
+                                                                    {isIncome ? "+" : "-"}
+                                                                    {formatCurrency(t.amount)}
+                                                                </p>
+
+                                                                {deleteTransaction && (
+                                                                    pendingDeleteId === t.id ? (
+                                                                        <div className="flex items-center gap-1">
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => {
+                                                                                    setPendingDeleteId("");
+                                                                                    void deleteTransaction(t.id);
+                                                                                }}
+                                                                                className="rounded-xl bg-rose-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-rose-700 active:scale-95"
+                                                                            >
+                                                                                Hapus
+                                                                            </button>
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => setPendingDeleteId("")}
+                                                                                className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-400 transition hover:bg-slate-50"
+                                                                                aria-label="Batal hapus"
+                                                                            >
+                                                                                <X className="h-4 w-4" />
+                                                                            </button>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => setPendingDeleteId(t.id)}
+                                                                            className="flex h-8 w-8 items-center justify-center rounded-xl border border-rose-100 bg-rose-50 text-rose-400 transition hover:bg-rose-100 hover:text-rose-600 active:scale-95"
+                                                                            aria-label="Hapus transaksi"
+                                                                        >
+                                                                            <Trash2 className="h-4 w-4" />
+                                                                        </button>
+                                                                    )
+                                                                )}
+                                                            </div>
                                                         </div>
                                                     );
                                                 })}

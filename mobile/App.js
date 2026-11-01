@@ -1112,7 +1112,11 @@ export default function App() {
       ) : null}
 
       {activeTab === "monthly" ? (
-        <MonthlyReportScreen transactions={transactions} budget={budget} />
+        <MonthlyReportScreen
+          transactions={transactions}
+          budget={budget}
+          onDeleteTransaction={handleDeleteTransactionById}
+        />
       ) : null}
 
       {activeTab === "splitbill" ? (

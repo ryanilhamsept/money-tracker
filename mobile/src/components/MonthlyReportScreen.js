@@ -119,11 +119,15 @@ function DailySparkline({ values }) {
   );
 }
 
-export default function MonthlyReportScreen({ transactions, budget = 0 }) {
+export default function MonthlyReportScreen({ transactions, budget = 0, onDeleteTransaction }) {
   const [month, setMonth] = useState(currentMonth());
   const [expandedCategory, setExpandedCategory] = useState("");
   const [expandedDana, setExpandedDana] = useState("");
   const [expandedDate, setExpandedDate] = useState("");
+  // Menghapus tidak bisa dibatalkan, dan ini layar riwayat -- barisnya bisa
+  // berumur berbulan-bulan. Tombolnya karena itu minta ditekan dua kali:
+  // sekali buat mengarahkan, sekali buat benar-benar menghapus.
+  const [pendingDeleteId, setPendingDeleteId] = useState("");
 
   // Nggak boleh maju ke bulan yang belum ada datanya sama sekali -- kecuali
   // emang udah ada transaksi tercatat di bulan depan (misal cicilan CC).
@@ -569,6 +573,35 @@ export default function MonthlyReportScreen({ transactions, budget = 0 }) {
                               {isIncome ? "+" : "-"}
                               {formatCurrency(t.amount)}
                             </Text>
+
+                            {onDeleteTransaction ? (
+                              pendingDeleteId === t.id ? (
+                                <View style={styles.deleteConfirmRow}>
+                                  <Pressable
+                                    style={styles.deleteConfirm}
+                                    onPress={() => {
+                                      setPendingDeleteId("");
+                                      onDeleteTransaction(t.id);
+                                    }}
+                                  >
+                                    <Text style={styles.deleteConfirmText}>Hapus</Text>
+                                  </Pressable>
+                                  <Pressable
+                                    style={styles.deleteCancel}
+                                    onPress={() => setPendingDeleteId("")}
+                                  >
+                                    <Text style={styles.deleteCancelText}>✕</Text>
+                                  </Pressable>
+                                </View>
+                              ) : (
+                                <Pressable
+                                  style={styles.deleteButton}
+                                  onPress={() => setPendingDeleteId(t.id)}
+                                >
+                                  <Text style={styles.deleteButtonText}>🗑</Text>
+                                </Pressable>
+                              )
+                            ) : null}
                           </View>
                         );
                       })}
@@ -777,6 +810,13 @@ const styles = StyleSheet.create({
   categoryPercent: { color: "#94a3b8", fontSize: 11, fontWeight: "700", marginTop: 4 },
   barTrack: { height: 6, backgroundColor: "#f1f5f9", borderRadius: 3, marginTop: 8, overflow: "hidden" },
   barFill: { height: "100%", backgroundColor: "#ec4899", borderRadius: 3 },
+  deleteButton: { alignItems: "center", backgroundColor: "#fff1f2", borderRadius: 10, height: 30, justifyContent: "center", width: 30 },
+  deleteButtonText: { fontSize: 13 },
+  deleteConfirmRow: { alignItems: "center", flexDirection: "row", gap: 6 },
+  deleteConfirm: { backgroundColor: "#e11d48", borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6 },
+  deleteConfirmText: { color: "#ffffff", fontSize: 12, fontWeight: "800" },
+  deleteCancel: { alignItems: "center", backgroundColor: "#ffffff", borderColor: "#e2e8f0", borderRadius: 10, borderWidth: 1, height: 30, justifyContent: "center", width: 30 },
+  deleteCancelText: { color: "#64748b", fontSize: 12, fontWeight: "800" },
   dayDetail: { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: "#f1f5f9", gap: 8 },
   detailRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "#f4f7fb", borderRadius: 12, padding: 10, gap: 10 },
   detailTitle: { color: "#0f172a", fontSize: 13, fontWeight: "800" },

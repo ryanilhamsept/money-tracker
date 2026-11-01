@@ -422,7 +422,11 @@ export default function App() {
                 )}
 
                 {activePage === "report" && (
-                    <MonthlyReport transactions={transactions} budget={budget} />
+                    <MonthlyReport
+                        transactions={transactions}
+                        budget={budget}
+                        deleteTransaction={handleDeleteTransaction}
+                    />
                 )}
             </div>
 

@@ -7,7 +7,6 @@
     "@react-native-picker/picker": "2.11.4",
     "@supabase/supabase-js": "^2.110.8",
     "expo": "~57.0.2",
-    "expo-image-picker": "~57.0.12",
     "expo-linear-gradient": "~57.0.1",
     "expo-secure-store": "~57.0.1",
     "expo-status-bar": "~57.0.0",

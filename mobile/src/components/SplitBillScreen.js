@@ -12,10 +12,8 @@ import {
   ActivityIndicator,
   Share,
 } from "react-native";
-import * as ImagePicker from "expo-image-picker";
 import { formatCurrency } from "../utils/formatters";
 import { formatDisplayDate, today } from "../utils/date";
-import { scanReceipt } from "../services/gemini";
 
 const generateId = () =>
   `split-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
@@ -93,8 +91,6 @@ export default function SplitBillScreen({ bills, onAdd, onUpdate, onDelete, onBa
   const [form, setForm] = useState(emptyForm);
   const [isSaving, setIsSaving] = useState(false);
   const [expandedId, setExpandedId] = useState("");
-  const [isScanning, setIsScanning] = useState(false);
-  const [scanError, setScanError] = useState("");
 
   const totalAmountValue = parseAmount(form.totalAmount);
   const equalShares = useMemo(() => {
@@ -121,57 +117,12 @@ export default function SplitBillScreen({ bills, onAdd, onUpdate, onDelete, onBa
 
   const openAddForm = () => {
     setForm(emptyForm);
-    setScanError("");
     setFormVisible(true);
   };
 
   const closeForm = () => {
     setFormVisible(false);
     setForm(emptyForm);
-    setScanError("");
-  };
-
-  const handleScanReceipt = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      setScanError("Izin akses foto ditolak.");
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      base64: true,
-      quality: 0.5,
-    });
-
-    if (result.canceled || !result.assets?.[0]?.base64) return;
-
-    setIsScanning(true);
-    setScanError("");
-    try {
-      const asset = result.assets[0];
-      const mimeType = asset.mimeType || "image/jpeg";
-      const scanned = await scanReceipt(asset.base64, mimeType);
-      const items = scanned.items.map((it) => ({ ...it, assignedTo: null }));
-      setForm((f) => ({
-        ...f,
-        title: scanned.title,
-        totalAmount: formatThousands(String(scanned.totalAmount)),
-        items,
-        subtotal: scanned.subtotal,
-        serviceCharge: scanned.serviceCharge,
-        tax: scanned.tax,
-        splitMethod: items.length > 0 ? "byItem" : f.splitMethod,
-      }));
-    } catch (err) {
-      setScanError(
-        err.message === "QUOTA_EXCEEDED"
-          ? "Kuota AI harian sudah penuh, coba lagi besok ya."
-          : err.message || "Gagal scan struk."
-      );
-    } finally {
-      setIsScanning(false);
-    }
   };
 
   const setParticipantField = (index, key) => (value) => {
@@ -350,19 +301,6 @@ export default function SplitBillScreen({ bills, onAdd, onUpdate, onDelete, onBa
             <View style={styles.sheet}>
               <ScrollView showsVerticalScrollIndicator={false}>
                 <Text style={styles.sheetTitle}>Split Bill Baru</Text>
-
-                <Pressable
-                  style={[styles.scanButton, isScanning && styles.disabled]}
-                  onPress={handleScanReceipt}
-                  disabled={isScanning}
-                >
-                  {isScanning ? (
-                    <ActivityIndicator color="#ffffff" size="small" />
-                  ) : (
-                    <Text style={styles.scanButtonText}>📷 Scan Struk (Isi Otomatis)</Text>
-                  )}
-                </Pressable>
-                {scanError ? <Text style={styles.scanErrorText}>{scanError}</Text> : null}
 
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>Judul</Text>
@@ -667,16 +605,6 @@ const styles = StyleSheet.create({
     maxHeight: "88%",
   },
   sheetTitle: { color: "#0f172a", fontSize: 20, fontWeight: "900", marginBottom: 16 },
-  scanButton: {
-    alignItems: "center",
-    backgroundColor: "#8b5cf6",
-    borderRadius: 14,
-    justifyContent: "center",
-    marginBottom: 12,
-    paddingVertical: 14,
-  },
-  scanButtonText: { color: "#ffffff", fontSize: 13, fontWeight: "800" },
-  scanErrorText: { color: "#e11d48", fontSize: 12, fontWeight: "700", marginBottom: 12, textAlign: "center" },
   receiptBreakdown: {
     backgroundColor: "#f4f7fb",
     borderRadius: 12,

@@ -74,6 +74,7 @@ import SplitBillScreen from "./src/components/SplitBillScreen";
 import MonthlyReportScreen from "./src/components/MonthlyReportScreen";
 import PinLockScreen from "./src/components/PinLockScreen";
 import { hasPinSet } from "./src/utils/pinStorage";
+import { colors, radius, shadow } from "./src/theme";
 
 // Hermes/RN nggak selalu punya crypto.randomUUID -- pakai fallback manual biar aman.
 const generateId = () => {
@@ -751,17 +752,31 @@ export default function App() {
     <SafeAreaView style={styles.screen}>
       <StatusBar style="dark" />
 
+      {/* Latarnya gradien, bukan warna rata -- ini tanda visual paling kuat
+          yang bikin app ini kelihatan satu keluarga sama app web. */}
+      <LinearGradient
+        colors={colors.bgGradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+
       {activeTab === "transactions" ? (
         <ScrollView
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.header}>
-            <View style={styles.avatarCircle}>
+            <LinearGradient
+              colors={colors.accentSoft}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.avatarCircle}
+            >
               <Text style={styles.avatarText}>
                 {(user?.email || "?").charAt(0).toUpperCase()}
               </Text>
-            </View>
+            </LinearGradient>
 
             <View style={{ flex: 1, paddingHorizontal: 12 }}>
               <Text style={styles.eyebrow} numberOfLines={1} ellipsizeMode="tail">
@@ -1184,7 +1199,7 @@ export default function App() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: "#f4f7fb",
+    backgroundColor: colors.bgGradient[1],
   },
   content: {
     padding: 20,
@@ -1210,7 +1225,7 @@ const styles = StyleSheet.create({
   },
   refreshButton: {
     backgroundColor: "#0f766e",
-    borderRadius: 8,
+    borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 10,
   },
@@ -1227,7 +1242,7 @@ const styles = StyleSheet.create({
   },
   balancePanel: {
     backgroundColor: "#0f172a",
-    borderRadius: 8,
+    borderRadius: 28,
     padding: 20,
   },
   panelLabel: {
@@ -1243,8 +1258,11 @@ const styles = StyleSheet.create({
   },
   loadingPanel: {
     alignItems: "center",
-    backgroundColor: "#ffffff",
-    borderRadius: 8,
+    backgroundColor: colors.surface,
+    borderColor: colors.surfaceBorder,
+    borderWidth: 1,
+    ...shadow.card,
+    borderRadius: 24,
     gap: 10,
     padding: 18,
   },
@@ -1256,7 +1274,7 @@ const styles = StyleSheet.create({
   errorPanel: {
     backgroundColor: "#fff1f2",
     borderColor: "#fecdd3",
-    borderRadius: 8,
+    borderRadius: 24,
     borderWidth: 1,
     padding: 14,
   },
@@ -1282,10 +1300,12 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   searchInput: {
-    backgroundColor: "#ffffff",
+    backgroundColor: colors.surface,
+    borderColor: colors.surfaceBorder,
+    borderWidth: 1,
     borderColor: "#e2e8f0",
     borderWidth: 1,
-    borderRadius: 14,
+    borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 12,
     color: "#0f172a",
@@ -1301,8 +1321,11 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   statCard: {
-    backgroundColor: "#ffffff",
-    borderRadius: 16,
+    backgroundColor: colors.surface,
+    borderColor: colors.surfaceBorder,
+    borderWidth: 1,
+    ...shadow.card,
+    borderRadius: 24,
     padding: 16,
   },
   statCardHeader: {
@@ -1332,7 +1355,7 @@ const styles = StyleSheet.create({
   editIconButton: {
     width: 30,
     height: 30,
-    borderRadius: 15,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: "#e2e8f0",
     backgroundColor: "#ffffff",
@@ -1354,7 +1377,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#f4f7fb",
     borderColor: "#e2e8f0",
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 12,
     paddingHorizontal: 10,
     paddingVertical: 8,
     color: "#0f172a",
@@ -1362,7 +1385,7 @@ const styles = StyleSheet.create({
   iconButtonDark: {
     width: 34,
     height: 34,
-    borderRadius: 17,
+    borderRadius: 12,
     backgroundColor: "#0f172a",
     alignItems: "center",
     justifyContent: "center",
@@ -1375,7 +1398,7 @@ const styles = StyleSheet.create({
   iconButtonLight: {
     width: 34,
     height: 34,
-    borderRadius: 17,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: "#e2e8f0",
     backgroundColor: "#ffffff",
@@ -1416,8 +1439,10 @@ const styles = StyleSheet.create({
   },
   transactionRow: {
     alignItems: "center",
-    backgroundColor: "#ffffff",
-    borderRadius: 8,
+    backgroundColor: colors.surface,
+    borderColor: colors.surfaceBorder,
+    borderWidth: 1,
+    borderRadius: 16,
     flexDirection: "row",
     justifyContent: "space-between",
     padding: 16,
@@ -1450,7 +1475,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff1f2",
     borderColor: "#fecdd3",
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
@@ -1461,7 +1486,7 @@ const styles = StyleSheet.create({
   },
   fab: {
     alignItems: "center",
-    backgroundColor: "#ec4899",
+    backgroundColor: colors.accent[0],
     borderRadius: 30,
     bottom: 38,
     elevation: 6,
@@ -1484,9 +1509,9 @@ const styles = StyleSheet.create({
   },
   tabBar: {
     flexDirection: "row",
-    backgroundColor: "#ffffff",
+    backgroundColor: colors.surface,
     borderTopWidth: 1,
-    borderTopColor: "#e2e8f0",
+    borderTopColor: colors.surfaceBorder,
     paddingBottom: 18,
     paddingTop: 14,
   },
@@ -1496,23 +1521,23 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   tabLabel: {
-    color: "#94a3b8",
+    color: colors.textFaint,
     fontSize: 15,
     fontWeight: "800",
   },
   tabLabelActive: {
-    color: "#ec4899",
+    color: colors.accent[0],
   },
   tabSpacer: {
     width: 60,
   },
   avatarCircle: {
     alignItems: "center",
-    backgroundColor: "#8b5cf6",
-    borderRadius: 22,
+    borderRadius: radius.md,
     height: 44,
     justifyContent: "center",
     width: 44,
+    ...shadow.raised,
   },
   avatarText: {
     color: "#ffffff",
@@ -1530,7 +1555,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#ffffff",
     borderColor: "#e2e8f0",
-    borderRadius: 20,
+    borderRadius: 16,
     borderWidth: 1,
     height: 40,
     justifyContent: "center",
@@ -1543,7 +1568,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   heroCard: {
-    borderRadius: 8,
+    borderRadius: 28,
     padding: 22,
   },
   heroLabel: {
@@ -1560,7 +1585,7 @@ const styles = StyleSheet.create({
   heroChip: {
     alignSelf: "flex-start",
     backgroundColor: "rgba(255,255,255,0.22)",
-    borderRadius: 20,
+    borderRadius: 999,
     marginTop: 14,
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -1614,7 +1639,7 @@ const styles = StyleSheet.create({
     marginTop: 3,
   },
   lifetimeCard: {
-    borderRadius: 20,
+    borderRadius: 28,
     padding: 20,
   },
   lifetimeLabel: {
@@ -1647,8 +1672,11 @@ const styles = StyleSheet.create({
   },
   moneyCard: {
     alignItems: "center",
-    backgroundColor: "#ffffff",
-    borderRadius: 16,
+    backgroundColor: colors.surface,
+    borderColor: colors.surfaceBorder,
+    borderWidth: 1,
+    ...shadow.card,
+    borderRadius: 24,
     flex: 1,
     flexDirection: "row",
     gap: 10,
@@ -1657,7 +1685,7 @@ const styles = StyleSheet.create({
   moneyIconWrap: {
     alignItems: "center",
     backgroundColor: "#fef3c7",
-    borderRadius: 18,
+    borderRadius: 16,
     height: 36,
     justifyContent: "center",
     width: 36,
@@ -1697,7 +1725,7 @@ const styles = StyleSheet.create({
   aiBanner: {
     alignItems: "center",
     backgroundColor: "#0f172a",
-    borderRadius: 16,
+    borderRadius: 24,
     flexDirection: "row",
     justifyContent: "space-between",
     paddingHorizontal: 18,
@@ -1734,7 +1762,7 @@ const styles = StyleSheet.create({
   },
   transactionIconWrap: {
     alignItems: "center",
-    borderRadius: 20,
+    borderRadius: 16,
     height: 40,
     justifyContent: "center",
     marginRight: 12,

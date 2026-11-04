@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { formatCurrency } from "../utils/formatters";
 import { formatDisplayDate, today } from "../utils/date";
+import { colors } from "../theme";
 
 const generateId = () =>
   `split-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
@@ -552,12 +553,12 @@ const styles = StyleSheet.create({
   backButtonText: { color: "#0f172a", fontSize: 20, fontWeight: "900" },
   title: { color: "#0f172a", fontSize: 22, fontWeight: "900" },
   subtitle: { color: "#64748b", fontSize: 12, fontWeight: "600", marginTop: 2 },
-  addButton: { backgroundColor: "#0f172a", borderRadius: 14, paddingHorizontal: 14, paddingVertical: 10 },
+  addButton: { backgroundColor: "#0f172a", borderRadius: 16, paddingHorizontal: 14, paddingVertical: 10 },
   addButtonText: { color: "#ffffff", fontSize: 12, fontWeight: "800" },
-  emptyPanel: { backgroundColor: "#ffffff", borderRadius: 16, padding: 24, alignItems: "center" },
+  emptyPanel: { backgroundColor: colors.surface, borderColor: colors.surfaceBorder, borderWidth: 1, borderRadius: 16, padding: 24, alignItems: "center" },
   emptyText: { color: "#64748b", fontSize: 13, fontWeight: "600", textAlign: "center" },
   list: { gap: 12 },
-  billCard: { backgroundColor: "#ffffff", borderRadius: 20, padding: 16 },
+  billCard: { backgroundColor: colors.surface, borderColor: colors.surfaceBorder, borderWidth: 1, borderRadius: 24, padding: 16 },
   billHeader: { flexDirection: "row", alignItems: "center", gap: 10 },
   billTitle: { color: "#0f172a", fontSize: 15, fontWeight: "900" },
   billMeta: { color: "#94a3b8", fontSize: 11, fontWeight: "600", marginTop: 3 },
@@ -567,8 +568,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "#f4f7fb",
-    borderRadius: 12,
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: 16,
     padding: 10,
     gap: 10,
   },
@@ -587,8 +588,8 @@ const styles = StyleSheet.create({
   paidBadgeTextActive: { color: "#15803d" },
   shareBillButton: {
     alignItems: "center",
-    backgroundColor: "#f4f7fb",
-    borderRadius: 12,
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: 16,
     paddingVertical: 10,
     marginTop: 4,
   },
@@ -606,8 +607,8 @@ const styles = StyleSheet.create({
   },
   sheetTitle: { color: "#0f172a", fontSize: 20, fontWeight: "900", marginBottom: 16 },
   receiptBreakdown: {
-    backgroundColor: "#f4f7fb",
-    borderRadius: 12,
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: 16,
     padding: 12,
     marginTop: -8,
     marginBottom: 16,
@@ -620,10 +621,10 @@ const styles = StyleSheet.create({
   inputGroup: { gap: 8, marginBottom: 16 },
   label: { color: "#64748b", fontSize: 12, fontWeight: "700", textTransform: "uppercase" },
   input: {
-    backgroundColor: "#f4f7fb",
+    backgroundColor: colors.surfaceMuted,
     borderColor: "#e2e8f0",
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 16,
     color: "#0f172a",
     fontSize: 15,
     paddingHorizontal: 14,
@@ -631,13 +632,13 @@ const styles = StyleSheet.create({
   },
   typeToggle: {
     flexDirection: "row",
-    backgroundColor: "#f4f7fb",
-    borderRadius: 14,
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: 16,
     padding: 4,
     gap: 4,
     marginBottom: 16,
   },
-  typeToggleButton: { flex: 1, alignItems: "center", borderRadius: 10, paddingVertical: 10 },
+  typeToggleButton: { flex: 1, alignItems: "center", borderRadius: 12, paddingVertical: 10 },
   typeToggleButtonActive: { backgroundColor: "#0f172a" },
   typeToggleText: { color: "#64748b", fontSize: 13, fontWeight: "800" },
   typeToggleTextActive: { color: "#ffffff" },
@@ -659,7 +660,7 @@ const styles = StyleSheet.create({
   addRowButtonText: { color: "#334155", fontSize: 12, fontWeight: "800" },
   splitHint: { color: "#64748b", fontSize: 11, fontWeight: "700", marginTop: 4 },
   splitHintWarn: { color: "#e11d48" },
-  itemRow: { backgroundColor: "#f4f7fb", borderRadius: 12, padding: 10, marginBottom: 8 },
+  itemRow: { backgroundColor: colors.surfaceMuted, borderRadius: 16, padding: 10, marginBottom: 8 },
   itemHeaderRow: { flexDirection: "row", justifyContent: "space-between", gap: 10 },
   itemName: { color: "#0f172a", fontSize: 13, fontWeight: "800", flex: 1 },
   itemPrice: { color: "#0f172a", fontSize: 13, fontWeight: "800" },
@@ -689,7 +690,7 @@ const styles = StyleSheet.create({
   saveButton: {
     alignItems: "center",
     backgroundColor: "#ec4899",
-    borderRadius: 14,
+    borderRadius: 16,
     justifyContent: "center",
     paddingVertical: 15,
   },

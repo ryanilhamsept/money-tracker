@@ -15,6 +15,7 @@ import { formatCurrency } from "../utils/formatters";
 import { formatDisplayDate } from "../utils/date";
 import { goalIcons, goalColors } from "../constants/options";
 import CreditCalculator from "./CreditCalculator";
+import { colors } from "../theme";
 
 const generateId = () =>
   `goal-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
@@ -384,17 +385,17 @@ const styles = StyleSheet.create({
     backgroundColor: "#ffffff",
     borderColor: "#e2e8f0",
     borderWidth: 1,
-    borderRadius: 14,
+    borderRadius: 16,
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
   toolbarButtonText: { color: "#334155", fontSize: 12, fontWeight: "800" },
   addButton: { backgroundColor: "#0f172a", borderColor: "#0f172a", marginLeft: "auto" },
   addButtonText: { color: "#ffffff", fontSize: 12, fontWeight: "800" },
-  emptyPanel: { backgroundColor: "#ffffff", borderRadius: 16, padding: 24, alignItems: "center" },
+  emptyPanel: { backgroundColor: colors.surface, borderColor: colors.surfaceBorder, borderWidth: 1, borderRadius: 16, padding: 24, alignItems: "center" },
   emptyText: { color: "#64748b", fontSize: 13, fontWeight: "600", textAlign: "center" },
   list: { gap: 12 },
-  goalCard: { backgroundColor: "#ffffff", borderRadius: 20, padding: 16, gap: 10 },
+  goalCard: { backgroundColor: colors.surface, borderColor: colors.surfaceBorder, borderWidth: 1, borderRadius: 24, padding: 16, gap: 10 },
   goalHeader: { flexDirection: "row", alignItems: "center", gap: 12 },
   goalIconWrap: {
     width: 46,
@@ -466,10 +467,10 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   input: {
-    backgroundColor: "#f4f7fb",
+    backgroundColor: colors.surfaceMuted,
     borderColor: "#e2e8f0",
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 16,
     color: "#0f172a",
     fontSize: 15,
     paddingHorizontal: 14,
@@ -479,8 +480,8 @@ const styles = StyleSheet.create({
   iconPickerItem: {
     width: 44,
     height: 44,
-    borderRadius: 14,
-    backgroundColor: "#f4f7fb",
+    borderRadius: 16,
+    backgroundColor: colors.surfaceMuted,
     borderWidth: 1,
     borderColor: "#e2e8f0",
     alignItems: "center",
@@ -491,7 +492,7 @@ const styles = StyleSheet.create({
   saveButton: {
     alignItems: "center",
     backgroundColor: "#ec4899",
-    borderRadius: 14,
+    borderRadius: 16,
     justifyContent: "center",
     paddingVertical: 15,
   },
@@ -500,7 +501,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#fff1f2",
     borderColor: "#fecdd3",
-    borderRadius: 14,
+    borderRadius: 16,
     borderWidth: 1,
     justifyContent: "center",
     marginTop: 10,

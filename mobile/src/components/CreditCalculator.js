@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { View, Text, TextInput, Pressable, ScrollView, StyleSheet } from "react-native";
 import { formatCurrency } from "../utils/formatters";
+import { colors } from "../theme";
 
 const formatThousands = (value) => {
   const raw = String(value || "").replace(/[^\d]/g, "");
@@ -224,11 +225,11 @@ const styles = StyleSheet.create({
   typeToggle: {
     flexDirection: "row",
     backgroundColor: "#ffffff",
-    borderRadius: 14,
+    borderRadius: 16,
     padding: 4,
     gap: 4,
   },
-  typeToggleButton: { flex: 1, alignItems: "center", borderRadius: 10, paddingVertical: 10 },
+  typeToggleButton: { flex: 1, alignItems: "center", borderRadius: 12, paddingVertical: 10 },
   typeToggleButtonActive: { backgroundColor: "#0f172a" },
   typeToggleText: { color: "#64748b", fontSize: 13, fontWeight: "800" },
   typeToggleTextActive: { color: "#ffffff" },
@@ -240,16 +241,16 @@ const styles = StyleSheet.create({
     backgroundColor: "#ffffff",
     borderColor: "#e2e8f0",
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 16,
     color: "#0f172a",
     fontSize: 15,
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
-  principalPanel: { backgroundColor: "#f4f7fb", borderRadius: 14, padding: 14 },
+  principalPanel: { backgroundColor: colors.surfaceMuted, borderRadius: 16, padding: 14 },
   principalLabel: { color: "#64748b", fontSize: 11, fontWeight: "700" },
   principalValue: { color: "#0f172a", fontSize: 18, fontWeight: "900", marginTop: 4 },
-  resultPanel: { backgroundColor: "#0f172a", borderRadius: 20, padding: 20 },
+  resultPanel: { backgroundColor: "#0f172a", borderRadius: 24, padding: 20 },
   resultLabel: { color: "#94a3b8", fontSize: 13, fontWeight: "700" },
   resultValue: { color: "#ffffff", fontSize: 28, fontWeight: "900", marginTop: 6 },
   resultMetaRow: { flexDirection: "row", gap: 24, marginTop: 16 },
@@ -260,7 +261,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#ffffff",
     borderColor: "#e2e8f0",
     borderWidth: 1,
-    borderRadius: 14,
+    borderRadius: 16,
     paddingVertical: 12,
   },
   scheduleToggleText: { color: "#334155", fontSize: 13, fontWeight: "800" },
@@ -270,13 +271,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     backgroundColor: "#ffffff",
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 12,
     gap: 10,
   },
   scheduleMonth: { color: "#0f172a", fontSize: 13, fontWeight: "800" },
   scheduleMeta: { color: "#94a3b8", fontSize: 10, fontWeight: "600", marginTop: 2 },
   schedulePayment: { color: "#0f172a", fontSize: 13, fontWeight: "900" },
-  emptyPanel: { backgroundColor: "#ffffff", borderRadius: 16, padding: 24, alignItems: "center" },
+  emptyPanel: { backgroundColor: colors.surface, borderColor: colors.surfaceBorder, borderWidth: 1, borderRadius: 16, padding: 24, alignItems: "center" },
   emptyText: { color: "#64748b", fontSize: 13, fontWeight: "600", textAlign: "center" },
 });

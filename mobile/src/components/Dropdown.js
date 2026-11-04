@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { View, Text, Pressable, Modal, ScrollView, StyleSheet } from "react-native";
+import { colors } from "../theme";
 
 export default function Dropdown({ value, options, onChange, placeholder = "Pilih" }) {
   const [open, setOpen] = useState(false);
@@ -60,10 +61,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "#f4f7fb",
+    backgroundColor: colors.surfaceMuted,
     borderColor: "#e2e8f0",
     borderWidth: 1,
-    borderRadius: 14,
+    borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 13,
   },
@@ -90,7 +91,7 @@ const styles = StyleSheet.create({
   },
   sheet: {
     backgroundColor: "#ffffff",
-    borderRadius: 20,
+    borderRadius: 24,
     padding: 10,
     maxHeight: "70%",
   },
@@ -103,7 +104,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 14,
-    borderRadius: 14,
+    borderRadius: 16,
   },
   optionSelected: {
     backgroundColor: "#fdf2f8",

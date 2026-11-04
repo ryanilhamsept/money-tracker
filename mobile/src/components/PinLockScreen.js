@@ -207,7 +207,7 @@ const styles = StyleSheet.create({
   cancelButtonText: { color: "#94a3b8", fontSize: 14, fontWeight: "700" },
   manageButton: {
     backgroundColor: "rgba(255,255,255,0.08)",
-    borderRadius: 14,
+    borderRadius: 16,
     paddingHorizontal: 24,
     paddingVertical: 14,
     marginTop: 8,

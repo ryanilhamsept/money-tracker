@@ -15,6 +15,7 @@ import {
 import { formatCurrency } from "../utils/formatters";
 import { categories, incomeCategories, fundSources, danaDipakaiOptions } from "../constants/options";
 import Dropdown from "./Dropdown";
+import { colors } from "../theme";
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
 
@@ -513,8 +514,8 @@ const styles = StyleSheet.create({
   },
   typeToggle: {
     flexDirection: "row",
-    backgroundColor: "#f4f7fb",
-    borderRadius: 14,
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: 16,
     padding: 4,
     gap: 4,
     marginBottom: 18,
@@ -522,7 +523,7 @@ const styles = StyleSheet.create({
   typeToggleButton: {
     flex: 1,
     alignItems: "center",
-    borderRadius: 10,
+    borderRadius: 12,
     paddingVertical: 10,
   },
   typeToggleButtonActiveExpense: {
@@ -564,9 +565,9 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   input: {
-    backgroundColor: "#f4f7fb",
+    backgroundColor: colors.surfaceMuted,
     borderColor: "#e2e8f0",
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 1,
     color: "#0f172a",
     fontSize: 15,
@@ -575,7 +576,7 @@ const styles = StyleSheet.create({
   },
   duplicateBox: {
     backgroundColor: "#fffbeb",
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: "#fde68a",
     marginBottom: 12,
@@ -604,7 +605,7 @@ const styles = StyleSheet.create({
   duplicateKeep: {
     alignItems: "center",
     backgroundColor: "#d97706",
-    borderRadius: 12,
+    borderRadius: 16,
     flex: 1,
     paddingVertical: 10,
   },
@@ -616,7 +617,7 @@ const styles = StyleSheet.create({
   duplicateCancel: {
     alignItems: "center",
     backgroundColor: "#ffffff",
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: "#fcd34d",
     flex: 1,
@@ -629,7 +630,7 @@ const styles = StyleSheet.create({
   },
   errorBox: {
     backgroundColor: "#fee2e2",
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: "#fecdd3",
     marginBottom: 12,
@@ -643,7 +644,7 @@ const styles = StyleSheet.create({
   saveButton: {
     alignItems: "center",
     backgroundColor: "#ec4899",
-    borderRadius: 14,
+    borderRadius: 16,
     justifyContent: "center",
     marginTop: 4,
     paddingVertical: 15,
@@ -657,7 +658,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#fff1f2",
     borderColor: "#fecdd3",
-    borderRadius: 14,
+    borderRadius: 16,
     borderWidth: 1,
     justifyContent: "center",
     marginTop: 10,

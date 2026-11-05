@@ -35,6 +35,7 @@ import {
     danaDipakaiOptions,
     fundSources,
 } from "../constants/options";
+import { sortTimestamp } from "../utils/transactions";
 import {
     currentMonth,
     formatDisplayDate,
@@ -223,13 +224,6 @@ export default function MonthlyReport({ transactions, budget = 0, deleteTransact
             acc[key].push(item);
             return acc;
         }, {});
-
-        const sortTimestamp = (item) => {
-            if (item.time) {
-                return new Date(`${normalizeDate(item.date)}T${item.time}`).getTime();
-            }
-            return new Date(item.createdAt || 0).getTime();
-        };
 
         return Object.entries(grouped)
             .sort((a, b) => b[0].localeCompare(a[0]))

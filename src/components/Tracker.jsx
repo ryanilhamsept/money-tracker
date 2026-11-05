@@ -40,7 +40,10 @@ import {
 
 import { formatCurrency } from "../utils/currency";
 import { findCreditCardForSource } from "../utils/accountBalance";
-import { findDuplicateTransaction } from "../utils/transactions";
+import {
+    findDuplicateTransaction,
+    compareTransactionsNewestFirst,
+} from "../utils/transactions";
 import {
     getFirstInstallmentMonthOffset,
     getStatementDay,
@@ -242,15 +245,7 @@ export default function Tracker({
 
                 return matchesQuery && matchesCategory && matchesSource && matchesDana;
             })
-            .sort((a, b) => {
-                const dateCompare = normalizeDate(b.date).localeCompare(normalizeDate(a.date));
-                if (dateCompare !== 0) return dateCompare;
-
-                const timeCompare = String(b.time || "").localeCompare(String(a.time || ""));
-                if (timeCompare !== 0) return timeCompare;
-
-                return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
-            });
+            .sort(compareTransactionsNewestFirst);
     }, [currentMonthTransactions, query, categoryFilter, sourceFilter, danaFilter]);
 
     // Dikelompokkan per tanggal dulu sebelum dipaginasi, biar transaksi di satu

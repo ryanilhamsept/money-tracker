@@ -15,6 +15,7 @@ import {
   today,
 } from "../utils/date";
 import { colors } from "../theme";
+import { sortTimestamp } from "../utils/transactions";
 
 function StatCard({ label, value, meta, tone }) {
   return (
@@ -224,9 +225,7 @@ export default function MonthlyReportScreen({ transactions, budget = 0, onDelete
       .sort((a, b) => b[0].localeCompare(a[0]))
       .map(([date, list]) => ({
         date,
-        transactions: list.sort(
-          (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
-        ),
+        transactions: list.sort((a, b) => sortTimestamp(b) - sortTimestamp(a)),
         amount: list
           .filter((t) => t.type !== "income")
           .reduce((sum, t) => sum + Number(t.amount), 0),

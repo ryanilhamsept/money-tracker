@@ -1,3 +1,5 @@
+import { normalizeDate } from "./date";
+
 export const deduplicateTransactionsById = (rows) => {
     const seenIds = new Set();
     const uniqueRows = [];
@@ -88,3 +90,26 @@ export const normalizeTransaction = (item) => ({
     installmentTotalLoan: item.installmentTotalLoan ?? null,
     paidAt: item.paidAt ?? null,
 });
+
+// Urutan daftar transaksi: terbaru dulu. Dipakai bareng app web dan mobile --
+// dulu mobile cuma mengurut tanggal lalu createdAt, jadi di dalam satu hari
+// urutannya mengikuti kapan baris itu masuk dari importer Gmail, bukan jam
+// transaksinya. Akibatnya 19:41 bisa nyempil di antara 12:21 dan 12:19.
+export const compareTransactionsNewestFirst = (a, b) => {
+    const dateCompare = normalizeDate(b.date).localeCompare(normalizeDate(a.date));
+    if (dateCompare !== 0) return dateCompare;
+
+    const timeCompare = String(b.time || "").localeCompare(String(a.time || ""));
+    if (timeCompare !== 0) return timeCompare;
+
+    return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+};
+
+// Rincian harian di laporan bulanan memakai acuan sendiri: jam digabung ke
+// tanggal jadi satu angka, dan baris tanpa jam jatuh ke createdAt.
+export const sortTimestamp = (item) => {
+    if (item.time) {
+        return new Date(`${normalizeDate(item.date)}T${item.time}`).getTime();
+    }
+    return new Date(item.createdAt || 0).getTime();
+};

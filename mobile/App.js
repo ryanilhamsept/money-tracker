@@ -54,7 +54,10 @@ import {
   getFirstInstallmentMonthOffset,
   getStatementDay,
 } from "./src/utils/billingCycle";
-import { findDuplicateTransaction } from "./src/utils/transactions";
+import {
+  findDuplicateTransaction,
+  compareTransactionsNewestFirst,
+} from "./src/utils/transactions";
 import {
   categories,
   incomeCategories,
@@ -182,11 +185,7 @@ export default function App() {
       setTransactions(
         nextTransactions
           .filter((item) => item.title)
-          .sort((a, b) => {
-            const dateCompare = String(b.date).localeCompare(String(a.date));
-            if (dateCompare !== 0) return dateCompare;
-            return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
-          })
+          .sort(compareTransactionsNewestFirst)
       );
       setInstallments(nextInstallments);
       setBudget(nextBudget);

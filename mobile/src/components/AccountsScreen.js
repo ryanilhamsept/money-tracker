@@ -128,15 +128,24 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
   const [renamingGroup, setRenamingGroup] = useState(null);
   const [isRenamingBusy, setIsRenamingBusy] = useState(false);
 
-  const saveGroupRename = async (children, installment) => {
+  const saveGroupRename = async (baseTitle, installment) => {
     const nextBase = String(renamingGroup?.value || "").trim();
     if (!nextBase || isRenamingBusy) return;
 
+    // Seluruh angsuran yang sejudul, BUKAN cuma yang tampil di kartu.
+    // Kartu kredit cuma menampilkan angsuran di dalam jendela tagihan, jadi
+    // angsuran awal yang sudah lewat tidak ikut terlihat -- kalau yang diubah
+    // cuma itu, angsuran lama malah tertinggal dengan nama dasar yang berbeda
+    // dan pecah jadi grup sendiri.
+    const semuaAngsuran = transactions
+      .filter((t) => getInstallmentBaseTitle(t.title) === baseTitle)
+      .sort((a, b) => String(a.date).localeCompare(String(b.date)));
+
     setIsRenamingBusy(true);
     try {
-      for (const child of children) {
+      for (const child of semuaAngsuran) {
         const urutan = String(child.title).match(/\s+ke\s+(\d+)\s*$/i);
-        const nomor = urutan ? urutan[1] : children.indexOf(child) + 1;
+        const nomor = urutan ? urutan[1] : semuaAngsuran.indexOf(child) + 1;
         await onUpdateTransaction?.({
           ...child,
           title: formatInstallmentTitle(nextBase, nomor),
@@ -737,7 +746,7 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
                                         <Pressable
                                             style={[styles.groupRenameSave, isRenamingBusy && styles.disabled]}
                                             disabled={isRenamingBusy}
-                                            onPress={() => saveGroupRename(children, installment)}
+                                            onPress={() => saveGroupRename(title, installment)}
                                         >
                                             <Text style={styles.groupRenameSaveText}>
                                                 {isRenamingBusy ? "..." : "Simpan"}

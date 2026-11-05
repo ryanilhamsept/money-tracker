@@ -105,15 +105,24 @@ export default function Accounts({
     const [renamingGroup, setRenamingGroup] = useState(null);
     const [isRenamingBusy, setIsRenamingBusy] = useState(false);
 
-    const saveGroupRename = async (children, installment) => {
+    const saveGroupRename = async (baseTitle, installment) => {
         const nextBase = String(renamingGroup?.value || "").trim();
         if (!nextBase || isRenamingBusy) return;
 
+        // Seluruh angsuran yang sejudul, BUKAN cuma yang tampil di kartu.
+        // Kartu kredit cuma menampilkan angsuran di dalam jendela tagihan, jadi
+        // angsuran awal yang sudah lewat tidak ikut terlihat -- kalau yang
+        // diubah cuma itu, angsuran lama malah tertinggal dengan nama dasar
+        // yang berbeda dan pecah jadi grup sendiri.
+        const semuaAngsuran = transactions
+            .filter((t) => getInstallmentBaseTitle(t.title) === baseTitle)
+            .sort((a, b) => String(a.date).localeCompare(String(b.date)));
+
         setIsRenamingBusy(true);
         try {
-            for (const child of children) {
+            for (const child of semuaAngsuran) {
                 const urutan = String(child.title).match(/\s+ke\s+(\d+)\s*$/i);
-                const nomor = urutan ? urutan[1] : children.indexOf(child) + 1;
+                const nomor = urutan ? urutan[1] : semuaAngsuran.indexOf(child) + 1;
                 await updateTransaction?.(child.id, {
                     ...child,
                     title: formatInstallmentTitle(nextBase, nomor),
@@ -854,7 +863,7 @@ export default function Accounts({
                                                 <button
                                                     type="button"
                                                     disabled={isRenamingBusy}
-                                                    onClick={() => void saveGroupRename(children, installment)}
+                                                    onClick={() => void saveGroupRename(title, installment)}
                                                     className="inline-flex h-7 shrink-0 items-center rounded-lg bg-pink-600 px-2.5 text-xs font-bold text-white hover:bg-pink-700 transition disabled:opacity-50"
                                                 >
                                                     {isRenamingBusy ? "..." : "Simpan"}

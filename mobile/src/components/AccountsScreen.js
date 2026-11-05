@@ -761,11 +761,18 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
                                 <View style={styles.historyGroupChildren}>
                                     {children.map((t) => (
                                         <View key={t.id} style={styles.historyChildItem}>
-                                            <View>
-                                                <Text style={styles.installmentName}>
+                                            <View style={styles.historyChildInfo}>
+                                                <Text
+                                                    style={styles.installmentName}
+                                                    numberOfLines={1}
+                                                    ellipsizeMode="tail"
+                                                >
                                                     {t.title}
                                                 </Text>
-                                                <Text style={styles.historyChildMeta}>
+                                                <Text
+                                                    style={styles.historyChildMeta}
+                                                    numberOfLines={1}
+                                                >
                                                     {t.date}
                                                     {t.time ? ` • ${t.time}` : ""}
                                                 </Text>
@@ -1436,6 +1443,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 8,
   },
+  // Tanpa flex:1 pembungkusnya melebar ngikut panjang judul, jadi nominal dan
+  // kotak centangnya kedorong keluar kartu. Header grup sudah punya ini
+  // (installmentInfo) -- anaknya yang kelewat.
+  historyChildInfo: {
+    flex: 1,
+    paddingRight: 10,
+  },
   historyChildMeta: {
     color: "#64748b",
     fontSize: 11,
@@ -1444,6 +1458,7 @@ const styles = StyleSheet.create({
   historyAmountRow: {
     flexDirection: "row",
     alignItems: "center",
+    flexShrink: 0,
     gap: 8,
   },
   checkbox: {

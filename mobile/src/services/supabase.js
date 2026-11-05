@@ -326,58 +326,6 @@ export const deleteGoal = async (id) => {
   if (error) throw error;
 };
 
-const mapSplitBillFromDB = (b) => ({
-  id: b.id,
-  title: b.title,
-  totalAmount: Number(b.total_amount),
-  date: b.date,
-  participants: Array.isArray(b.participants) ? b.participants : [],
-  items: Array.isArray(b.items) ? b.items : [],
-  createdAt: b.created_at,
-});
-
-const mapSplitBillToDB = (b) => ({
-  id: b.id,
-  title: b.title,
-  total_amount: Number(b.totalAmount) || 0,
-  date: b.date,
-  participants: b.participants || [],
-  items: b.items || [],
-});
-
-export const getSplitBills = async () => {
-  const { data, error } = await supabase
-    .from("split_bills")
-    .select("*")
-    .order("date", { ascending: false })
-    .order("created_at", { ascending: false });
-
-  if (error) {
-    console.error("Error fetching split bills:", error);
-    return [];
-  }
-  return data.map(mapSplitBillFromDB);
-};
-
-export const addSplitBill = async (bill) => {
-  const { error } = await supabase.from("split_bills").insert([mapSplitBillToDB(bill)]);
-  if (error) throw error;
-};
-
-export const updateSplitBill = async (bill) => {
-  const { error } = await supabase
-    .from("split_bills")
-    .update(mapSplitBillToDB(bill))
-    .eq("id", bill.id);
-
-  if (error) throw error;
-};
-
-export const deleteSplitBill = async (id) => {
-  const { error } = await supabase.from("split_bills").delete().eq("id", id);
-  if (error) throw error;
-};
-
 export const getTransactions = async () => {
   // Supabase default limit = 1000 baris. Paginate biar dapet semuanya,
   // sama kayak getTransactionsFromSupabase di app web.

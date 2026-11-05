@@ -33,10 +33,6 @@ import {
   addGoal,
   updateGoal,
   deleteGoal,
-  getSplitBills,
-  addSplitBill,
-  updateSplitBill,
-  deleteSplitBill,
   supabase,
 } from "./src/services/supabase";
 import { formatCurrency, formatDate } from "./src/utils/formatters";
@@ -70,7 +66,6 @@ import TransactionForm from "./src/components/TransactionForm";
 import Dropdown from "./src/components/Dropdown";
 import AccountsScreen from "./src/components/AccountsScreen";
 import PlanScreen from "./src/components/PlanScreen";
-import SplitBillScreen from "./src/components/SplitBillScreen";
 import MonthlyReportScreen from "./src/components/MonthlyReportScreen";
 import PinLockScreen from "./src/components/PinLockScreen";
 import { hasPinSet } from "./src/utils/pinStorage";
@@ -129,7 +124,6 @@ export default function App() {
   const [transactions, setTransactions] = useState([]);
   const [installments, setInstallments] = useState([]);
   const [goals, setGoals] = useState([]);
-  const [splitBills, setSplitBills] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [formVisible, setFormVisible] = useState(false);
@@ -176,13 +170,12 @@ export default function App() {
       setError("");
       setIsLoading(true);
 
-      const [nextAccounts, nextTransactions, nextInstallments, nextBudget, nextGoals, nextSplitBills] = await Promise.all([
+      const [nextAccounts, nextTransactions, nextInstallments, nextBudget, nextGoals] = await Promise.all([
         getAccounts(),
         getTransactions(),
         getInstallments(),
         getBudget(user.id),
         getGoals(),
-        getSplitBills(),
       ]);
 
       setAccounts(nextAccounts);
@@ -198,7 +191,6 @@ export default function App() {
       setInstallments(nextInstallments);
       setBudget(nextBudget);
       setGoals(nextGoals);
-      setSplitBills(nextSplitBills);
     } catch (err) {
       setError(err.message || "Gagal mengambil data tracker.");
     } finally {
@@ -695,21 +687,6 @@ export default function App() {
     await loadDashboard();
   };
 
-  const handleAddSplitBill = async (bill) => {
-    await addSplitBill(bill);
-    await loadDashboard();
-  };
-
-  const handleUpdateSplitBill = async (bill) => {
-    await updateSplitBill(bill);
-    await loadDashboard();
-  };
-
-  const handleDeleteSplitBill = async (id) => {
-    await deleteSplitBill(id);
-    await loadDashboard();
-  };
-
   if (isAuthChecking) {
     return (
       <View style={[styles.screen, { justifyContent: "center", alignItems: "center", backgroundColor: "#0a051b", flex: 1 }]}>
@@ -934,13 +911,6 @@ export default function App() {
                 </Text>
               </View>
             </View>
-
-            <Pressable
-              style={({ pressed }) => [styles.splitBillButton, pressed && styles.pressed]}
-              onPress={() => setActiveTab("splitbill")}
-            >
-              <Text style={styles.splitBillButtonText}>🧾+</Text>
-            </Pressable>
           </View>
 
           <Pressable
@@ -1131,16 +1101,6 @@ export default function App() {
           transactions={transactions}
           budget={budget}
           onDeleteTransaction={handleDeleteTransactionById}
-        />
-      ) : null}
-
-      {activeTab === "splitbill" ? (
-        <SplitBillScreen
-          bills={splitBills}
-          onAdd={handleAddSplitBill}
-          onUpdate={handleUpdateSplitBill}
-          onDelete={handleDeleteSplitBill}
-          onBack={() => setActiveTab("transactions")}
         />
       ) : null}
 
@@ -1709,18 +1669,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "900",
     marginTop: 4,
-  },
-  splitBillButton: {
-    alignItems: "center",
-    backgroundColor: "#0f172a",
-    borderRadius: 16,
-    justifyContent: "center",
-    width: 52,
-  },
-  splitBillButtonText: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "900",
   },
   aiBanner: {
     alignItems: "center",

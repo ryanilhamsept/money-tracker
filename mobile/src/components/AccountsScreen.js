@@ -36,7 +36,10 @@ const NET_WORTH_GROUPS = [
 ];
 import { findCreditCardForSource } from "../utils/accountBalance";
 import { getOutstandingWindowStart, getStatementDay } from "../utils/billingCycle";
-import { getInstallmentBaseTitle } from "../utils/installmentTitle";
+import {
+  getInstallmentBaseTitle,
+  formatInstallmentTitle,
+} from "../utils/installmentTitle";
 import Dropdown from "./Dropdown";
 import { colors } from "../theme";
 
@@ -91,17 +94,95 @@ const emptyNewAccount = {
   color: CARD_COLORS[0],
 };
 
-export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBalance, onUpdateFields, installments = [], onDeleteInstallment, transactions = [], onDeleteTransaction, onMarkPaid }) {
+export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBalance, onUpdateFields, installments = [], onDeleteInstallment, transactions = [], onDeleteTransaction, onMarkPaid, onUpdateTransaction, onUpdateInstallment }) {
+  // Dulu nyentang satu kotak langsung nandai lunas satu baris, jadi melunasi
+  // cicilan 6x berarti enam kali konfirmasi. Sekarang centangnya memilih dulu,
+  // persis app web, dan pelunasannya dilakukan sekali buat semua yang dipilih.
+  const [selectedPaidIds, setSelectedPaidIds] = useState(() => new Set());
+  const [isMarkingPaid, setIsMarkingPaid] = useState(false);
+
+  const toggleSelectedPaid = (id) => {
+    setSelectedPaidIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  // Satu kotak buat seluruh angsuran grup. Kalau semuanya sudah tercentang,
+  // tekan lagi buat melepas -- kotak yang sama dipakai dua arah.
+  const toggleSelectedPaidMany = (ids) => {
+    setSelectedPaidIds((prev) => {
+      const next = new Set(prev);
+      const semuaTercentang = ids.length > 0 && ids.every((id) => next.has(id));
+      ids.forEach((id) => (semuaTercentang ? next.delete(id) : next.add(id)));
+      return next;
+    });
+  };
+
+  // Nama cicilan dipegang bareng-bareng: grouping-nya dicocokkan dari judul
+  // setelah akhiran " ke N" dibuang. Mengubah judul satu angsuran lewat form
+  // transaksi biasa karena itu melempar angsuran itu keluar dari grupnya.
+  // Tombol ini mengubah nama dasarnya untuk seluruh angsuran sekaligus.
+  const [renamingGroup, setRenamingGroup] = useState(null);
+  const [isRenamingBusy, setIsRenamingBusy] = useState(false);
+
+  const saveGroupRename = async (children, installment) => {
+    const nextBase = String(renamingGroup?.value || "").trim();
+    if (!nextBase || isRenamingBusy) return;
+
+    setIsRenamingBusy(true);
+    try {
+      for (const child of children) {
+        const urutan = String(child.title).match(/\s+ke\s+(\d+)\s*$/i);
+        const nomor = urutan ? urutan[1] : children.indexOf(child) + 1;
+        await onUpdateTransaction?.({
+          ...child,
+          title: formatInstallmentTitle(nextBase, nomor),
+        });
+      }
+      if (installment) {
+        await onUpdateInstallment?.({ ...installment, name: nextBase });
+      }
+      setRenamingGroup(null);
+    } finally {
+      setIsRenamingBusy(false);
+    }
+  };
   // Nyentang = nandai lunas, BUKAN hapus. Barisnya tetap ada di daftar
   // transaksi dan tetap kehitung sebagai pengeluaran; yang hilang cuma
   // bebannya di kartu. Dikonfirmasi dulu, mirror dari dialog di app web.
-  const confirmMarkPaid = (t) => {
+  // Sekali konfirmasi buat semua yang dipilih. Dijalankan berurutan dan
+  // ditunggu satu per satu -- kalau diparalelkan, dua penyesuaian saldo bisa
+  // saling menimpa dan angkanya kehitung dobel.
+  const confirmMarkSelectedPaid = (dipilih) => {
+    if (dipilih.length === 0 || isMarkingPaid) return;
+    const total = dipilih.reduce((sum, t) => sum + Number(t.amount || 0), 0);
+
     Alert.alert(
       "Tandai Lunas",
-      `${t.title}\n${formatCurrency(t.amount)} \u2022 ${t.date}\n\nBarisnya tetap ada di daftar transaksi, cuma keluar dari kartu ini.`,
+      `${dipilih.length} transaksi \u2022 ${formatCurrency(total)}\n\nBarisnya tetap ada di daftar transaksi, cuma keluar dari kartu ini.`,
       [
         { text: "Batal", style: "cancel" },
-        { text: "Tandai Lunas", onPress: () => onMarkPaid?.(t.id, true) },
+        {
+          text: "Tandai Lunas",
+          onPress: async () => {
+            setIsMarkingPaid(true);
+            try {
+              for (const t of dipilih) {
+                await onMarkPaid?.(t.id, true);
+              }
+              setSelectedPaidIds((prev) => {
+                const next = new Set(prev);
+                dipilih.forEach((t) => next.delete(t.id));
+                return next;
+              });
+            } finally {
+              setIsMarkingPaid(false);
+            }
+          },
+        },
       ]
     );
   };
@@ -380,9 +461,15 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
       }
     });
 
-    const historyShownCount =
-      historyUngrouped.length +
-      [...historyGroups.values()].reduce((sum, g) => sum + g.children.length, 0);
+    // Yang benar-benar dirender: baris lepas + seluruh angsuran tiap grup.
+    // Jadi acuan buat angka "Riwayat Transaksi (N)" sekaligus buat pilihan
+    // centang -- kalau pilihannya pakai daftar yang tersaring siklus, angsuran
+    // di luar siklus bisa dicentang tapi nggak ikut kehitung.
+    const historyShownTransactions = [
+      ...historyUngrouped,
+      ...[...historyGroups.values()].flatMap((g) => g.children),
+    ];
+    const historyShownCount = historyShownTransactions.length;
 
     return (
       <View key={account.id} style={styles.accountCard}>
@@ -527,6 +614,45 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
                     RIWAYAT TRANSAKSI ({historyShownCount})
                 </Text>
 
+                {(() => {
+                    const dipilih = historyShownTransactions.filter((t) =>
+                        selectedPaidIds.has(t.id)
+                    );
+                    if (dipilih.length === 0) return null;
+                    const total = dipilih.reduce((sum, t) => sum + Number(t.amount || 0), 0);
+                    return (
+                        <View style={styles.bulkBar}>
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.bulkTitle}>
+                                    {dipilih.length} transaksi dipilih
+                                </Text>
+                                <Text style={styles.bulkMeta}>Total {formatCurrency(total)}</Text>
+                            </View>
+                            <Pressable
+                                style={styles.bulkCancel}
+                                onPress={() =>
+                                    setSelectedPaidIds((prev) => {
+                                        const next = new Set(prev);
+                                        dipilih.forEach((t) => next.delete(t.id));
+                                        return next;
+                                    })
+                                }
+                            >
+                                <Text style={styles.bulkCancelText}>Batal</Text>
+                            </Pressable>
+                            <Pressable
+                                style={[styles.bulkPay, isMarkingPaid && styles.disabled]}
+                                disabled={isMarkingPaid}
+                                onPress={() => confirmMarkSelectedPaid(dipilih)}
+                            >
+                                <Text style={styles.bulkPayText}>
+                                    {isMarkingPaid ? "..." : "Tandai Lunas"}
+                                </Text>
+                            </Pressable>
+                        </View>
+                    );
+                })()}
+
                 {Array.from(historyGroups.entries()).map(([title, { parent, children, installment }]) => {
                     const isExpanded = expandedGroups[title];
                     return (
@@ -536,6 +662,24 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
                                     style={styles.installmentItem}
                                     onPress={() => toggleGroup(title)}
                                 >
+                                    <Pressable
+                                        style={[
+                                            styles.checkbox,
+                                            children.length > 0 &&
+                                                children.every((x) => selectedPaidIds.has(x.id)) &&
+                                                styles.checkboxChecked,
+                                        ]}
+                                        onPress={() =>
+                                            toggleSelectedPaidMany(children.map((x) => x.id))
+                                        }
+                                    >
+                                        <Text style={styles.checkboxMark}>
+                                            {children.length > 0 &&
+                                            children.every((x) => selectedPaidIds.has(x.id))
+                                                ? "✓"
+                                                : " "}
+                                        </Text>
+                                    </Pressable>
                                     <View style={styles.installmentInfo}>
                                         <Text style={styles.installmentName} numberOfLines={1}>
                                             {title}
@@ -559,6 +703,14 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
                                         <Text style={styles.historyChevron}>{isExpanded ? "▲" : "▼"}</Text>
                                     </View>
                                 </Pressable>
+                                {onUpdateTransaction && (
+                                    <Pressable
+                                        style={styles.installmentDelete}
+                                        onPress={() => setRenamingGroup({ key: title, value: title })}
+                                    >
+                                        <Text style={styles.iconButtonText}>✎</Text>
+                                    </Pressable>
+                                )}
                                 {installment && (
                                     <Pressable
                                         style={styles.installmentDelete}
@@ -568,6 +720,42 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
                                     </Pressable>
                                 )}
                             </View>
+
+                            {renamingGroup?.key === title && (
+                                <>
+                                    <View style={styles.groupRenameRow}>
+                                        <TextInput
+                                            style={styles.groupRenameInput}
+                                            value={renamingGroup.value}
+                                            onChangeText={(v) =>
+                                                setRenamingGroup((prev) => ({ ...prev, value: v }))
+                                            }
+                                            placeholder="Nama cicilan"
+                                            placeholderTextColor="#94a3b8"
+                                            autoFocus
+                                        />
+                                        <Pressable
+                                            style={[styles.groupRenameSave, isRenamingBusy && styles.disabled]}
+                                            disabled={isRenamingBusy}
+                                            onPress={() => saveGroupRename(children, installment)}
+                                        >
+                                            <Text style={styles.groupRenameSaveText}>
+                                                {isRenamingBusy ? "..." : "Simpan"}
+                                            </Text>
+                                        </Pressable>
+                                        <Pressable
+                                            style={styles.bulkCancel}
+                                            onPress={() => setRenamingGroup(null)}
+                                        >
+                                            <Text style={styles.bulkCancelText}>✕</Text>
+                                        </Pressable>
+                                    </View>
+                                    <Text style={styles.groupRenameHint}>
+                                        Semua {children.length} angsuran ikut berubah jadi "
+                                        {(renamingGroup.value || "nama").trim()} ke 1", "ke 2", dst.
+                                    </Text>
+                                </>
+                            )}
 
                             {isExpanded && (
                                 <View style={styles.historyGroupChildren}>
@@ -587,10 +775,15 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
                                                     {formatCurrency(t.amount)}
                                                 </Text>
                                                 <Pressable
-                                                    style={styles.checkbox}
-                                                    onPress={() => confirmMarkPaid(t)}
+                                                    style={[
+                                                        styles.checkbox,
+                                                        selectedPaidIds.has(t.id) && styles.checkboxChecked,
+                                                    ]}
+                                                    onPress={() => toggleSelectedPaid(t.id)}
                                                 >
-                                                    <Text style={styles.checkboxMark}> </Text>
+                                                    <Text style={styles.checkboxMark}>
+                                                        {selectedPaidIds.has(t.id) ? "✓" : " "}
+                                                    </Text>
                                                 </Pressable>
                                             </View>
                                         </View>
@@ -615,10 +808,15 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
                         <View style={styles.historyAmountRow}>
                             <Text style={styles.installmentName}>{formatCurrency(t.amount)}</Text>
                             <Pressable
-                                style={styles.checkbox}
-                                onPress={() => confirmMarkPaid(t)}
+                                style={[
+                                    styles.checkbox,
+                                    selectedPaidIds.has(t.id) && styles.checkboxChecked,
+                                ]}
+                                onPress={() => toggleSelectedPaid(t.id)}
                             >
-                                <Text style={styles.checkboxMark}> </Text>
+                                <Text style={styles.checkboxMark}>
+                                    {selectedPaidIds.has(t.id) ? "✓" : " "}
+                                </Text>
                             </Pressable>
                         </View>
                     </View>
@@ -1111,6 +1309,18 @@ const styles = StyleSheet.create({
   netWorthChange: { borderTopColor: "#f1f5f9", borderTopWidth: 1, marginTop: 4, paddingTop: 16 },
   netWorthChangeTitle: { color: "#0f172a", fontSize: 15, fontWeight: "900" },
   netWorthChangeMeta: { color: "#64748b", fontSize: 13, fontWeight: "600", marginTop: 2 },
+  bulkBar: { alignItems: "center", backgroundColor: "#fdf2f8", borderColor: "#fbcfe8", borderRadius: 16, borderWidth: 1, flexDirection: "row", gap: 8, marginBottom: 10, padding: 10 },
+  bulkTitle: { color: "#9d174d", fontSize: 12, fontWeight: "900" },
+  bulkMeta: { color: "#be185d", fontSize: 11, fontWeight: "700", marginTop: 1 },
+  bulkCancel: { backgroundColor: "#ffffff", borderColor: "#fbcfe8", borderRadius: 12, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 7 },
+  bulkCancelText: { color: "#be185d", fontSize: 12, fontWeight: "800" },
+  bulkPay: { backgroundColor: "#ec4899", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8 },
+  bulkPayText: { color: "#ffffff", fontSize: 12, fontWeight: "800" },
+  groupRenameRow: { alignItems: "center", backgroundColor: "#fdf2f8", borderColor: "#fbcfe8", borderRadius: 16, borderWidth: 1, flexDirection: "row", gap: 6, marginTop: 6, padding: 8 },
+  groupRenameInput: { backgroundColor: "#ffffff", borderColor: "#fbcfe8", borderRadius: 12, borderWidth: 1, color: "#0f172a", flex: 1, fontSize: 12, fontWeight: "700", paddingHorizontal: 10, paddingVertical: 7 },
+  groupRenameSave: { backgroundColor: "#ec4899", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8 },
+  groupRenameSaveText: { color: "#ffffff", fontSize: 12, fontWeight: "800" },
+  groupRenameHint: { color: "#64748b", fontSize: 10, marginTop: 4, paddingHorizontal: 4 },
   accountGroup: { gap: 10 },
   accountGroupHeader: { alignItems: "baseline", flexDirection: "row", justifyContent: "space-between", gap: 10 },
   accountGroupLabelRow: { alignItems: "center", flexDirection: "row", flexShrink: 1, gap: 6 },

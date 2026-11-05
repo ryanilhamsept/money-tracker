@@ -18,7 +18,10 @@ import {
 import { formatCurrency, formatThousands } from "../utils/currency";
 import { findCreditCardForSource } from "../utils/accountBalance";
 import { getOutstandingWindowStart, getStatementDay } from "../utils/billingCycle";
-import { getInstallmentBaseTitle } from "../utils/installmentTitle";
+import {
+    getInstallmentBaseTitle,
+    formatInstallmentTitle,
+} from "../utils/installmentTitle";
 import { formatMonthLabel } from "../utils/date";
 import {
     summariseNetWorth,
@@ -54,6 +57,8 @@ export default function Accounts({
     transactions = [],
     deleteTransaction,
     markTransactionPaid,
+    updateTransaction,
+    updateInstallment,
 }) {
     const [searchQuery, setSearchQuery] = useState("");
     const [filterType, setFilterType] = useState("all");
@@ -77,6 +82,50 @@ export default function Accounts({
             else next.add(id);
             return next;
         });
+    };
+
+    // Centang satu grup cicilan sekaligus. Kalau semua anggotanya sudah
+    // tercentang, klik berikutnya melepas semuanya -- jadi satu kotak yang
+    // sama dipakai buat memilih dan membatalkan.
+    const toggleSelectedPaidMany = (ids) => {
+        setSelectedPaidIds((prev) => {
+            const next = new Set(prev);
+            const semuaTercentang = ids.length > 0 && ids.every((id) => next.has(id));
+            ids.forEach((id) => (semuaTercentang ? next.delete(id) : next.add(id)));
+            return next;
+        });
+    };
+
+    // Nama cicilan dipegang bareng-bareng: grouping-nya dicocokkan dari judul
+    // setelah akhiran " ke N" dibuang. Mengubah judul satu angsuran lewat form
+    // transaksi biasa karena itu melempar angsuran itu keluar dari grupnya --
+    // persis yang terjadi waktu "... ke 2" diubah jadi "PEEP EYEWEAR 2".
+    // Tombol ini mengubah nama dasarnya untuk seluruh angsuran sekaligus,
+    // plus nama rencana cicilannya, jadi grupnya tetap utuh.
+    const [renamingGroup, setRenamingGroup] = useState(null);
+    const [isRenamingBusy, setIsRenamingBusy] = useState(false);
+
+    const saveGroupRename = async (children, installment) => {
+        const nextBase = String(renamingGroup?.value || "").trim();
+        if (!nextBase || isRenamingBusy) return;
+
+        setIsRenamingBusy(true);
+        try {
+            for (const child of children) {
+                const urutan = String(child.title).match(/\s+ke\s+(\d+)\s*$/i);
+                const nomor = urutan ? urutan[1] : children.indexOf(child) + 1;
+                await updateTransaction?.(child.id, {
+                    ...child,
+                    title: formatInstallmentTitle(nextBase, nomor),
+                });
+            }
+            if (installment) {
+                await updateInstallment?.(installment.id, { name: nextBase });
+            }
+            setRenamingGroup(null);
+        } finally {
+            setIsRenamingBusy(false);
+        }
     };
 
     // Modal form state
@@ -718,6 +767,20 @@ export default function Accounts({
                                 return (
                                     <div key={title}>
                                         <div className="flex items-center gap-1">
+                                            {/* Satu kotak buat seluruh angsuran grup ini --
+                                                sebelumnya tiap angsuran harus dicentang sendiri. */}
+                                            <input
+                                                type="checkbox"
+                                                title="Pilih semua angsuran"
+                                                checked={
+                                                    children.length > 0 &&
+                                                    children.every((t) => selectedPaidIds.has(t.id))
+                                                }
+                                                onChange={() =>
+                                                    toggleSelectedPaidMany(children.map((t) => t.id))
+                                                }
+                                                className="h-4 w-4 shrink-0 cursor-pointer rounded border-slate-300 text-pink-600"
+                                            />
                                             <button
                                                 onClick={() => toggleGroup(title)}
                                                 className="min-w-0 flex-1 flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 hover:bg-slate-100 transition text-left"
@@ -752,6 +815,17 @@ export default function Accounts({
                                                     </svg>
                                                 </div>
                                             </button>
+                                            {updateTransaction && (
+                                                <button
+                                                    onClick={() =>
+                                                        setRenamingGroup({ key: title, value: title })
+                                                    }
+                                                    title="Ubah nama cicilan"
+                                                    className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-400 hover:bg-slate-50 hover:text-slate-600 transition"
+                                                >
+                                                    <Pencil className="h-3.5 w-3.5" />
+                                                </button>
+                                            )}
                                             {installment && (
                                                 <button
                                                     onClick={() => deleteInstallment?.(installment.id)}
@@ -762,6 +836,45 @@ export default function Accounts({
                                                 </button>
                                             )}
                                         </div>
+
+                                        {renamingGroup?.key === title && (
+                                            <div className="mt-1 flex items-center gap-1 rounded-xl border border-pink-200 bg-pink-50 p-2">
+                                                <input
+                                                    value={renamingGroup.value}
+                                                    onChange={(e) =>
+                                                        setRenamingGroup((prev) => ({
+                                                            ...prev,
+                                                            value: e.target.value,
+                                                        }))
+                                                    }
+                                                    autoFocus
+                                                    placeholder="Nama cicilan"
+                                                    className="min-w-0 flex-1 rounded-lg border border-pink-200 bg-white px-2 py-1.5 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-pink-200"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    disabled={isRenamingBusy}
+                                                    onClick={() => void saveGroupRename(children, installment)}
+                                                    className="inline-flex h-7 shrink-0 items-center rounded-lg bg-pink-600 px-2.5 text-xs font-bold text-white hover:bg-pink-700 transition disabled:opacity-50"
+                                                >
+                                                    {isRenamingBusy ? "..." : "Simpan"}
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setRenamingGroup(null)}
+                                                    className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-pink-200 bg-white text-slate-400 hover:bg-pink-100 transition"
+                                                >
+                                                    <X className="h-3.5 w-3.5" />
+                                                </button>
+                                            </div>
+                                        )}
+
+                                        {renamingGroup?.key === title && (
+                                            <p className="mt-1 px-1 text-[11px] font-medium text-slate-500">
+                                                Semua {children.length} angsuran ikut berubah jadi
+                                                "{(renamingGroup.value || "nama").trim()} ke 1", "ke 2", dst.
+                                            </p>
+                                        )}
 
                                         {isExpanded && (
                                             <div className="mt-1 ml-4 space-y-1 border-l-2 border-slate-200 pl-3">

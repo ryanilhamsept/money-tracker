@@ -1083,6 +1083,8 @@ export default function App() {
           transactions={transactions}
           onDeleteTransaction={handleDeleteTransactionById}
           onMarkPaid={handleMarkTransactionPaid}
+          onUpdateTransaction={updateTransaction}
+          onUpdateInstallment={updateInstallment}
         />
       ) : null}
 

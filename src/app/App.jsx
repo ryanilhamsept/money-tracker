@@ -414,6 +414,8 @@ export default function App() {
                         transactions={transactions}
                         deleteTransaction={handleDeleteTransaction}
                         markTransactionPaid={markTransactionPaid}
+                        updateTransaction={updateTransaction}
+                        updateInstallment={updateInstallment}
                     />
                 )}
 

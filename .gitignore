@@ -27,3 +27,9 @@ dist-ssr
 *.sw?
 .expo
 
+
+# App journal punya repo sendiri (github.com/ryanilhamsept/pwa-journal) dan
+# proyek Vercel sendiri. Dia ada di sini cuma sebagai rujukan waktu bikin
+# layar Journal versi mobile; kodenya TIDAK ikut repo ini -- kalau di-commit
+# apa adanya, Git cuma nyimpen pointer dan isinya malah hilang.
+ilham-journal/

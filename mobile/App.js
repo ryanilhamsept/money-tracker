@@ -70,6 +70,7 @@ import Dropdown from "./src/components/Dropdown";
 import AccountsScreen from "./src/components/AccountsScreen";
 import PlanScreen from "./src/components/PlanScreen";
 import MonthlyReportScreen from "./src/components/MonthlyReportScreen";
+import JournalScreen from "./src/components/JournalScreen";
 import PinLockScreen from "./src/components/PinLockScreen";
 import { hasPinSet } from "./src/utils/pinStorage";
 import { colors, radius, shadow } from "./src/theme";
@@ -131,6 +132,9 @@ export default function App() {
   const [error, setError] = useState("");
   const [formVisible, setFormVisible] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState(null);
+  // Layar pemilih di depan: "hub" | "tracker" | "journal". Money Tracker dan
+  // Journal berbagi akun Supabase yang sama, jadi satu login menutupi dua-duanya.
+  const [activeApp, setActiveApp] = useState("hub");
   const [activeTab, setActiveTab] = useState("transactions");
   const [budget, setBudget] = useState(0);
   const [isEditingBudget, setIsEditingBudget] = useState(false);
@@ -737,7 +741,67 @@ export default function App() {
         style={StyleSheet.absoluteFill}
       />
 
-      {activeTab === "transactions" ? (
+      {activeApp === "hub" ? (
+        <ScrollView contentContainerStyle={styles.hubContent} showsVerticalScrollIndicator={false}>
+          <View style={styles.hubHeader}>
+            <LinearGradient
+              colors={colors.accentSoft}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.avatarCircle}
+            >
+              <Text style={styles.avatarText}>
+                {(user?.email || "?").charAt(0).toUpperCase()}
+              </Text>
+            </LinearGradient>
+            <View style={{ flex: 1, paddingHorizontal: 12 }}>
+              <Text style={styles.eyebrow} numberOfLines={1}>
+                {user?.email?.split("@")[0]}
+              </Text>
+              <Text style={styles.hubSubtitle}>Mau buka yang mana?</Text>
+            </View>
+            <Pressable
+              style={styles.logoutButton}
+              onPress={() => supabase.auth.signOut()}
+            >
+              <Text style={styles.logoutText}>Keluar</Text>
+            </Pressable>
+          </View>
+
+          <Pressable style={styles.hubCard} onPress={() => setActiveApp("tracker")}>
+            <Text style={styles.hubCardIcon}>💸</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.hubCardTitle}>Money Tracker</Text>
+              <Text style={styles.hubCardMeta}>Transaksi, akun, cicilan, laporan</Text>
+            </View>
+            <Text style={styles.hubCardChevron}>›</Text>
+          </Pressable>
+
+          <Pressable style={styles.hubCard} onPress={() => setActiveApp("journal")}>
+            <Text style={styles.hubCardIcon}>📓</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.hubCardTitle}>Journalling</Text>
+              <Text style={styles.hubCardMeta}>Catatan harian</Text>
+            </View>
+            <Text style={styles.hubCardChevron}>›</Text>
+          </Pressable>
+
+          {/* Belum ada isinya -- dimatikan supaya tidak jadi tombol buntu. */}
+          <View style={[styles.hubCard, styles.hubCardDisabled]}>
+            <Text style={styles.hubCardIcon}>🧾</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.hubCardTitle}>Split Bill</Text>
+              <Text style={styles.hubCardMeta}>Belum tersedia</Text>
+            </View>
+          </View>
+        </ScrollView>
+      ) : null}
+
+      {activeApp === "journal" ? (
+        <JournalScreen onBack={() => setActiveApp("hub")} />
+      ) : null}
+
+      {activeApp === "tracker" && activeTab === "transactions" ? (
         <ScrollView
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
@@ -760,6 +824,13 @@ export default function App() {
               </Text>
               <Text style={styles.monthPill}>{formatDisplayDate(currentMonth() + "-01").split(" ").slice(1).join(" ")}</Text>
             </View>
+
+            <Pressable
+              style={styles.iconCircleButton}
+              onPress={() => setActiveApp("hub")}
+            >
+              <Text style={styles.iconCircleText}>⌂</Text>
+            </Pressable>
 
             <Pressable
               disabled={isLoading}
@@ -1071,7 +1142,7 @@ export default function App() {
         </ScrollView>
       ) : null}
 
-      {activeTab === "accounts" ? (
+      {activeApp === "tracker" && activeTab === "accounts" ? (
         <AccountsScreen
           accounts={accounts}
           onAdd={handleAddAccount}
@@ -1088,7 +1159,7 @@ export default function App() {
         />
       ) : null}
 
-      {activeTab === "plan" ? (
+      {activeApp === "tracker" && activeTab === "plan" ? (
         <PlanScreen
           goals={goals}
           onAdd={handleAddGoal}
@@ -1097,7 +1168,7 @@ export default function App() {
         />
       ) : null}
 
-      {activeTab === "monthly" ? (
+      {activeApp === "tracker" && activeTab === "monthly" ? (
         <MonthlyReportScreen
           transactions={transactions}
           budget={budget}
@@ -1105,6 +1176,8 @@ export default function App() {
         />
       ) : null}
 
+      {activeApp === "tracker" ? (
+      <>
       <View style={styles.tabBar}>
         {TABS_LEFT.map((tab) => {
           const active = activeTab === tab.key;
@@ -1153,6 +1226,8 @@ export default function App() {
         onSubmit={handleFormSubmit}
         onDelete={editingTransaction ? handleFormDelete : null}
       />
+      </>
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -1167,6 +1242,25 @@ const styles = StyleSheet.create({
     paddingBottom: 110,
     gap: 18,
   },
+  hubContent: { gap: 14, padding: 20, paddingBottom: 40 },
+  hubHeader: { alignItems: "center", flexDirection: "row", marginBottom: 10, marginTop: 12 },
+  hubSubtitle: { color: colors.textMuted, fontSize: 13, fontWeight: "700", marginTop: 2 },
+  hubCard: {
+    alignItems: "center",
+    backgroundColor: colors.surface,
+    borderColor: colors.surfaceBorder,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 14,
+    padding: 18,
+    ...shadow.card,
+  },
+  hubCardDisabled: { opacity: 0.45 },
+  hubCardIcon: { fontSize: 26 },
+  hubCardTitle: { color: colors.text, fontSize: 16, fontWeight: "900" },
+  hubCardMeta: { color: colors.textMuted, fontSize: 12, fontWeight: "600", marginTop: 2 },
+  hubCardChevron: { color: colors.textFaint, fontSize: 22, fontWeight: "900" },
   header: {
     alignItems: "center",
     flexDirection: "row",

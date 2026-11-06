@@ -326,6 +326,73 @@ export const deleteGoal = async (id) => {
   if (error) throw error;
 };
 
+// ===== Journal =====
+// Tabelnya sudah dipakai app ilham-journal (web) dengan Supabase yang sama,
+// jadi entri yang ditulis di sini langsung kelihatan di sana, dan sebaliknya.
+// user_id tidak dikirim: kolomnya punya default auth.uid() di database, sama
+// seperti tabel transactions.
+
+const mapJournalFromDB = (j) => ({
+  id: j.id,
+  title: j.title || "",
+  body: j.body || "",
+  mood: j.mood || "\u{1F60A}",
+  createdAt: j.created_at,
+  updatedAt: j.updated_at,
+});
+
+export const getJournals = async () => {
+  const { data, error } = await supabase
+    .from("journals")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+  // Entri tanpa isi disaring, sama seperti di app web -- sisa percobaan yang
+  // body-nya kosong tidak perlu memenuhi daftar.
+  return (data || []).map(mapJournalFromDB).filter((j) => j.body.trim());
+};
+
+export const addJournal = async (entry) => {
+  const now = new Date().toISOString();
+  const { data, error } = await supabase
+    .from("journals")
+    .insert({
+      title: entry.title,
+      body: entry.body,
+      mood: entry.mood,
+      created_at: now,
+      updated_at: now,
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return mapJournalFromDB(data);
+};
+
+export const updateJournal = async (id, entry) => {
+  const { data, error } = await supabase
+    .from("journals")
+    .update({
+      title: entry.title,
+      body: entry.body,
+      mood: entry.mood,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return mapJournalFromDB(data);
+};
+
+export const deleteJournal = async (id) => {
+  const { error } = await supabase.from("journals").delete().eq("id", id);
+  if (error) throw error;
+};
+
 export const getTransactions = async () => {
   // Supabase default limit = 1000 baris. Paginate biar dapet semuanya,
   // sama kayak getTransactionsFromSupabase di app web.

@@ -21,6 +21,12 @@ const aiRoutes = require("./routes/ai");
 const app = express();
 
 // --- Database ---
+// Catatan region: database ini di Supabase ap-south-1 (Mumbai). vercel.json
+// menyematkan function ke bom1 (Mumbai juga) supaya keduanya bertetangga.
+// Tanpa itu Vercel menaruh function di iad1 (Washington DC) dan tiap query
+// bolak-balik Amerika-India: terukur ~200 ms perjalanan untuk query yang
+// eksekusinya cuma 2 ms. Penjelasan ini ada di sini karena vercel.json
+// menolak key apa pun di luar skemanya -- termasuk key komentar.
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     max: process.env.VERCEL ? 1 : 10,

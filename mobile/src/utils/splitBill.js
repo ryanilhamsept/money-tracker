@@ -135,6 +135,24 @@ export const calculateParticipantTotals = (participants = [], items = []) => {
 export const takerCount = (item) =>
   (item?.splits || []).filter((s) => Number(s.portions) > 0).length;
 
+/**
+ * Boleh menambah bobot untuk orang ini?
+ *
+ * Aturannya satu kalimat: mengikutkan orang baru selalu boleh, tapi jumlah
+ * bagian yang dibagikan tidak boleh melebihi jumlah barangnya.
+ *
+ * Itu menutup dua hal sekaligus. Satu nasi goreng untuk bertiga tetap bisa
+ * dibagi rata -- tiap orang dapat bagian pertamanya. Tapi sesudah itu tidak
+ * ada yang bisa naik ke dua bagian, karena nasi gorengnya memang cuma satu.
+ * Sementara tiga nasi goreng untuk bertiga tetap bisa diatur 2-1-0 kalau
+ * memang seseorang makan lebih banyak.
+ */
+export const canAddPortion = (item, participantId) => {
+  const current = (item?.splits || []).find((s) => s.participantId === participantId);
+  if (!(Number(current?.portions) || 0)) return true;
+  return portionsAssigned(item) < (Number(item?.quantity) || 0);
+};
+
 /** Sudah ada yang ambil bagian. */
 export const isAssigned = (item) => portionsAssigned(item) > 0;
 

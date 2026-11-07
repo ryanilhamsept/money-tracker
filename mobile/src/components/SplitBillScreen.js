@@ -16,6 +16,7 @@ import {
 import { getSplitBills, saveSplitBill, deleteSplitBill } from "../services/supabase";
 import {
   billCharges,
+  canAddPortion,
   calculateBillTotals,
   calculateParticipantTotals,
   itemShares,
@@ -270,6 +271,7 @@ export default function SplitBillScreen({ onBack }) {
     const next = now + delta;
 
     if (next < 0) return;
+    if (delta > 0 && !canAddPortion(item, participantId)) return;
 
     const rebuilt = current
       ? splits
@@ -761,6 +763,7 @@ export default function SplitBillScreen({ onBack }) {
                     draft.participants.map((p) => {
                       const share = (item.splits || []).find((s) => s.participantId === p.id);
                       const n = Number(share?.portions) || 0;
+                      const canAdd = canAddPortion(item, p.id);
                       return (
                         <View key={p.id} style={[styles.stepRow, n > 0 && styles.stepRowOn]}>
                           <Avatar name={p.name} size={30} />
@@ -788,8 +791,13 @@ export default function SplitBillScreen({ onBack }) {
                           </Pressable>
                           <Text style={styles.stepCount}>{n}</Text>
                           <Pressable
-                            style={[styles.stepButton, styles.stepButtonAdd]}
+                            style={[
+                              styles.stepButton,
+                              styles.stepButtonAdd,
+                              !canAdd && styles.disabled,
+                            ]}
                             onPress={() => bumpPortion(item, p.id, 1)}
+                            disabled={!canAdd}
                           >
                             <Text style={styles.stepButtonAddText}>＋</Text>
                           </Pressable>
@@ -800,7 +808,12 @@ export default function SplitBillScreen({ onBack }) {
 
                   <View style={styles.itemFooter}>
                     {done ? (
-                      <Text style={styles.portionOk}>Dibagi ke {takers} orang</Text>
+                      <Text style={styles.portionOk}>
+                        Dibagi ke {takers} orang
+                        {portionsAssigned(item) >= item.quantity
+                          ? ` \u00b7 ${item.quantity} porsi sudah habis`
+                          : ""}
+                      </Text>
                     ) : (
                       <Text style={styles.portionWarn}>
                         ⚠ Belum ada yang ambil — kalau dibiarkan, dibagi rata ke semua

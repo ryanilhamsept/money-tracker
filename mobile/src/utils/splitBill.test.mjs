@@ -1,7 +1,7 @@
 import {
   distributeEvenly, distributeByWeight, calculateItemTotal, calculateBillTotals,
   calculateParticipantTotals, calculateSimplifiedDebts, splitEvenly, itemShares,
-  portionsAssigned, takerCount, isAssigned, describeParticipantItems, billCharges,
+  portionsAssigned, takerCount, isAssigned, canAddPortion, describeParticipantItems, billCharges,
 } from "./splitBill.js";
 
 let pass = 0, fail = 0;
@@ -105,6 +105,24 @@ for (const harga of [100000, 33333, 7, 999999]) {
   }
 }
 eq(`sapuan ${kombinasi} kombinasi, semua pas`, melenceng, 0);
+
+// --- batas penambahan bobot ---
+const satu = { quantity: 1, splits: [{ participantId: "a", portions: 1 },
+                                      { participantId: "b", portions: 1 },
+                                      { participantId: "c", portions: 1 }] };
+eq("qty 1 sudah dibagi rata, tidak bisa nambah", canAddPortion(satu, "a"), false);
+eq("orang baru tetap boleh ikut", canAddPortion(satu, "d"), true);
+
+const kosong = { quantity: 1, splits: [] };
+eq("belum ada yang ambil, boleh", canAddPortion(kosong, "a"), true);
+
+const empat = { quantity: 3, splits: [{ participantId: "a", portions: 1 }] };
+eq("qty 3 baru terpakai 1, boleh nambah", canAddPortion(empat, "a"), true);
+
+const penuh = { quantity: 3, splits: [{ participantId: "a", portions: 2 },
+                                      { participantId: "b", portions: 1 }] };
+eq("qty 3 sudah habis, tidak bisa nambah", canAddPortion(penuh, "a"), false);
+eq("qty 3 habis, orang baru masih boleh ikut", canAddPortion(penuh, "c"), true);
 
 console.log(`\n${pass} lolos, ${fail} gagal`);
 process.exit(fail ? 1 : 0);

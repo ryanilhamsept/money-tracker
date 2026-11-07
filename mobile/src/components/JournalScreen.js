@@ -296,7 +296,7 @@ export default function JournalScreen({ onBack }) {
               <ScrollView
                 style={{ flexShrink: 1 }}
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={{ paddingBottom: 80 }}
+                contentContainerStyle={{ paddingBottom: 8 }}
                 keyboardShouldPersistTaps="handled"
               >
                 <Text style={styles.sheetTitle}>
@@ -369,7 +369,7 @@ export default function JournalScreen({ onBack }) {
 }
 
 const styles = StyleSheet.create({
-  content: { padding: 20, paddingBottom: 100, gap: 16 },
+  content: { padding: 20, paddingBottom: 32, gap: 16 },
   header: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", marginTop: 12 },
   title: { color: colors.text, fontSize: 28, fontWeight: "900" },
   backButton: { alignItems: "center", backgroundColor: colors.surface, borderColor: colors.surfaceBorder, borderRadius: 18, borderWidth: 1, height: 36, justifyContent: "center", width: 36 },
@@ -394,7 +394,7 @@ const styles = StyleSheet.create({
   loadingPanel: { alignItems: "center", padding: 30 },
   emptyPanel: { backgroundColor: colors.surface, borderColor: colors.surfaceBorder, borderRadius: radius.lg, borderWidth: 1, padding: 24 },
   emptyText: { color: colors.textMuted, fontSize: 13, textAlign: "center" },
-  errorPanel: { backgroundColor: "#fee2e2", borderRadius: radius.md, padding: 12 },
+  errorPanel: { backgroundColor: "rgba(251,113,133,0.16)", borderRadius: radius.md, padding: 12 },
   errorText: { color: colors.negative, fontSize: 13, fontWeight: "700" },
 
   backdrop: { backgroundColor: "rgba(15, 23, 42, 0.55)", flex: 1, justifyContent: "flex-end" },
@@ -412,12 +412,12 @@ const styles = StyleSheet.create({
 
   moodRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   moodButton: { alignItems: "center", backgroundColor: colors.surfaceMuted, borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, height: 44, justifyContent: "center", width: 44 },
-  moodButtonActive: { backgroundColor: "#fce7f3", borderColor: colors.accent[0] },
+  moodButtonActive: { backgroundColor: "rgba(244,114,182,0.16)", borderColor: colors.accent[0] },
   moodButtonText: { fontSize: 20 },
 
   primaryButton: { alignItems: "center", backgroundColor: colors.accent[0], borderRadius: radius.md, flex: 1, marginTop: 18, paddingVertical: 14 },
   primaryButtonText: { color: "#ffffff", fontSize: 14, fontWeight: "900" },
-  dangerButton: { alignItems: "center", backgroundColor: "#fff1f2", borderColor: "#fecdd3", borderRadius: radius.md, borderWidth: 1, flex: 1, marginTop: 18, paddingVertical: 14 },
+  dangerButton: { alignItems: "center", backgroundColor: "rgba(251,113,133,0.16)", borderColor: "rgba(251,113,133,0.22)", borderRadius: radius.md, borderWidth: 1, flex: 1, marginTop: 18, paddingVertical: 14 },
   dangerButtonText: { color: colors.negative, fontSize: 14, fontWeight: "900" },
   cancelButton: { alignItems: "center", paddingVertical: 14 },
   cancelButtonText: { color: colors.textMuted, fontSize: 14, fontWeight: "800" },

@@ -37,6 +37,9 @@ pool.query("SELECT 1")
 const allowedOrigins = [
     "http://localhost:5173",
     "http://localhost:3000",
+    // Preview app mobile lewat react-native-web. APK aslinya bukan browser,
+    // jadi dia nggak kena CORS sama sekali -- ini murni buat pratinjau.
+    "http://localhost:8092",
     ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(",") : []),
 ];
 

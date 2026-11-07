@@ -127,6 +127,15 @@ export const adjustAccountBalance = async (id, delta) => {
     });
 };
 
+// Bayar tagihan kartu kredit. Harus lewat apiFetch seperti endpoint lain --
+// server menolak request tanpa Authorization: Bearer <token>.
+export const payCreditCard = async (id, { amount, date }) => {
+    return apiFetch(`/api/accounts/${id}/pay-cc`, {
+        method: "POST",
+        body: JSON.stringify({ amount, date }),
+    });
+};
+
 // --- Budget API ---
 
 export const getBudget = async () => {

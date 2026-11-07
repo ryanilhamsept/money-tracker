@@ -3,9 +3,11 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   SafeAreaView,
   ScrollView,
+  StatusBar as RNStatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -71,6 +73,7 @@ import AccountsScreen from "./src/components/AccountsScreen";
 import PlanScreen from "./src/components/PlanScreen";
 import MonthlyReportScreen from "./src/components/MonthlyReportScreen";
 import JournalScreen from "./src/components/JournalScreen";
+import CreditCalculator from "./src/components/CreditCalculator";
 import PinLockScreen from "./src/components/PinLockScreen";
 import { hasPinSet } from "./src/utils/pinStorage";
 import { colors, radius, shadow } from "./src/theme";
@@ -87,6 +90,53 @@ const generateId = () => {
   });
 };
 
+// Android menggambar app-nya edge-to-edge, jadi header nempel ke status bar
+// kalau nggak dikasih jarak sendiri. SafeAreaView bawaan RN cuma jalan di iOS.
+const TOP_INSET =
+  Platform.OS === "android" ? (RNStatusBar.currentHeight || 24) + 6 : 0;
+
+// Isi layar hub. Tiap app dapat warnanya sendiri biar kebaca sekali lihat,
+// tapi semuanya masih di keluarga pink-ungu yang sama kayak sisa app-nya.
+const HUB_APPS = [
+  {
+    key: "tracker",
+    label: "Keuangan",
+    icon: "\u{1F4B8}",
+    art: "\u{1F4B3}",
+    headline: "Catat pengeluaran kamu\nhari ini, yuk",
+    meta: "Transaksi, akun, cicilan, laporan",
+    colors: ["#0b5f8d", "#1288c4"],
+  },
+  {
+    key: "journal",
+    label: "Journal",
+    icon: "\u{1F4D3}",
+    art: "\u{1F58A}\uFE0F",
+    headline: "Tulis apa yang kamu\nrasain hari ini",
+    meta: "Catatan harian",
+    colors: ["#1e4f8a", "#3b7fc4"],
+  },
+  {
+    key: "split",
+    label: "Split Bill",
+    icon: "\u{1F9FE}",
+    art: "\u{1F465}",
+    headline: "Bagi tagihan bareng\nteman-teman",
+    meta: "Belum tersedia",
+    colors: ["#2b4a5e", "#3d5f75"],
+    disabled: true,
+  },
+  {
+    key: "kredit",
+    label: "Simulasi KTA",
+    icon: "\u{1F9EE}",
+    art: "\u{1F3E0}",
+    headline: "Hitung cicilan KPR\natau kendaraan",
+    meta: "Kalkulator kredit",
+    colors: ["#0b5a63", "#0e8a8a"],
+  },
+];
+
 const TABS_LEFT = [
   { key: "transactions", label: "Home" },
   { key: "accounts", label: "Akun" },
@@ -97,17 +147,17 @@ const TABS_RIGHT = [
 ];
 
 const CATEGORY_ICONS = {
-  "Account Transfer": { emoji: "🔁", bg: "#dcfce7", color: "#15803d" },
-  Food: { emoji: "🍔", bg: "#ffedd5", color: "#c2410c" },
-  Transportation: { emoji: "🚗", bg: "#dbeafe", color: "#1d4ed8" },
-  Groceries: { emoji: "🛒", bg: "#fef9c3", color: "#a16207" },
-  Utilities: { emoji: "💡", bg: "#fef3c7", color: "#b45309" },
-  Entertainment: { emoji: "🎮", bg: "#fce7f3", color: "#be185d" },
-  Internet: { emoji: "🌐", bg: "#cffafe", color: "#0e7490" },
-  Shopping: { emoji: "🛍️", bg: "#ede9fe", color: "#6d28d9" },
-  Health: { emoji: "❤️", bg: "#ffe4e6", color: "#be123c" },
-  Education: { emoji: "📚", bg: "#e0e7ff", color: "#4338ca" },
-  Miscellaneous: { emoji: "✨", bg: "#f1f5f9", color: "#475569" },
+  "Account Transfer": { emoji: "🔁", bg: "rgba(52,211,153,0.16)", color: "#6ee7b7" },
+  Food: { emoji: "🍔", bg: "rgba(251,146,60,0.18)", color: "#fdba74" },
+  Transportation: { emoji: "🚗", bg: "rgba(96,165,250,0.18)", color: "#93c5fd" },
+  Groceries: { emoji: "🛒", bg: "rgba(251,191,36,0.16)", color: "#fcd34d" },
+  Utilities: { emoji: "💡", bg: "rgba(251,191,36,0.16)", color: "#fcd34d" },
+  Entertainment: { emoji: "🎮", bg: "rgba(244,114,182,0.16)", color: "#f9a8d4" },
+  Internet: { emoji: "🌐", bg: "rgba(34,211,238,0.18)", color: "#67e8f9" },
+  Shopping: { emoji: "🛍️", bg: "rgba(167,139,250,0.18)", color: "#c4b5fd" },
+  Health: { emoji: "❤️", bg: "rgba(251,113,133,0.16)", color: "#fda4af" },
+  Education: { emoji: "📚", bg: "rgba(129,140,248,0.18)", color: "#a5b4fc" },
+  Miscellaneous: { emoji: "✨", bg: "#06324c", color: "#9cbed4" },
 };
 const getCategoryIcon = (category) => CATEGORY_ICONS[category] || CATEGORY_ICONS.Miscellaneous;
 
@@ -224,9 +274,12 @@ export default function App() {
     });
   }, [currentMonthTransactions, searchQuery, categoryFilter, sourceFilter, danaFilter]);
 
+  // Balik ke halaman 1 setiap kali daftarnya "dibuka ulang": filter berubah,
+  // pindah tab, atau keluar-masuk lewat hub. Tanpa ini nomor halaman nyangkut
+  // -- buka Home lagi setelah mampir ke Plan dan kamu masih di halaman 6.
   useEffect(() => {
     setTransactionPage(1);
-  }, [searchQuery, categoryFilter, sourceFilter, danaFilter]);
+  }, [searchQuery, categoryFilter, sourceFilter, danaFilter, activeTab, activeApp]);
 
   // Dikelompokkan per tanggal dulu sebelum dipaginasi, biar transaksi di satu
   // tanggal nggak pernah kepotong jadi dua grup terpisah di dua halaman.
@@ -692,7 +745,7 @@ export default function App() {
 
   if (isAuthChecking) {
     return (
-      <View style={[styles.screen, { justifyContent: "center", alignItems: "center", backgroundColor: "#0a051b", flex: 1 }]}>
+      <View style={[styles.screen, { justifyContent: "center", alignItems: "center", backgroundColor: "#0b5f8d", flex: 1 }]}>
         <ActivityIndicator size="large" color="#ec4899" />
         <Text style={{ color: "#ffffff", marginTop: 12, fontWeight: "600" }}>Memeriksa sesi...</Text>
       </View>
@@ -705,7 +758,7 @@ export default function App() {
 
   if (pinRequired === null) {
     return (
-      <View style={[styles.screen, { justifyContent: "center", alignItems: "center", backgroundColor: "#0a051b", flex: 1 }]}>
+      <View style={[styles.screen, { justifyContent: "center", alignItems: "center", backgroundColor: "#0b5f8d", flex: 1 }]}>
         <ActivityIndicator size="large" color="#ec4899" />
       </View>
     );
@@ -730,7 +783,7 @@ export default function App() {
 
   return (
     <SafeAreaView style={styles.screen}>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
 
       {/* Latarnya gradien, bukan warna rata -- ini tanda visual paling kuat
           yang bikin app ini kelihatan satu keluarga sama app web. */}
@@ -741,59 +794,81 @@ export default function App() {
         style={StyleSheet.absoluteFill}
       />
 
+      {TOP_INSET ? <View style={{ height: TOP_INSET }} /> : null}
+
       {activeApp === "hub" ? (
         <ScrollView contentContainerStyle={styles.hubContent} showsVerticalScrollIndicator={false}>
+          {/* Sapaan dulu, baru kartu-kartunya -- ini yang bikin layar hub
+              kerasa kayak halaman "buat kamu", bukan sekadar menu. */}
+          {/* Tombol aksi ditaruh di baris sendiri. Sebelumnya dia berebut
+              lebar dengan sapaan, dan nama yang kepotong jadi "ryanil...". */}
+          <View style={styles.hubActions}>
+            <Pressable
+              style={styles.hubIconButton}
+              onPress={() => setShowPinManager(true)}
+            >
+              <Text style={styles.hubIconText}>🔒</Text>
+            </Pressable>
+
+            <Pressable style={styles.logoutButton} onPress={() => supabase.auth.signOut()}>
+              <Text style={styles.logoutText}>Keluar</Text>
+            </Pressable>
+          </View>
+
           <View style={styles.hubHeader}>
+            <View style={{ flex: 1, minWidth: 0, paddingRight: 12 }}>
+              <Text style={styles.hubGreeting} numberOfLines={1} adjustsFontSizeToFit>
+                Halo, {user?.email?.split("@")[0] || "kamu"}
+              </Text>
+              <Text style={styles.hubSubtitle} numberOfLines={1}>
+                Highlight buat kamu ✨
+              </Text>
+            </View>
+
             <LinearGradient
               colors={colors.accentSoft}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
-              style={styles.avatarCircle}
+              style={styles.hubAvatar}
             >
               <Text style={styles.avatarText}>
                 {(user?.email || "?").charAt(0).toUpperCase()}
               </Text>
             </LinearGradient>
-            <View style={{ flex: 1, paddingHorizontal: 12 }}>
-              <Text style={styles.eyebrow} numberOfLines={1}>
-                {user?.email?.split("@")[0]}
-              </Text>
-              <Text style={styles.hubSubtitle}>Mau buka yang mana?</Text>
-            </View>
-            <Pressable
-              style={styles.logoutButton}
-              onPress={() => supabase.auth.signOut()}
-            >
-              <Text style={styles.logoutText}>Keluar</Text>
-            </Pressable>
           </View>
 
-          <Pressable style={styles.hubCard} onPress={() => setActiveApp("tracker")}>
-            <Text style={styles.hubCardIcon}>💸</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.hubCardTitle}>Money Tracker</Text>
-              <Text style={styles.hubCardMeta}>Transaksi, akun, cicilan, laporan</Text>
-            </View>
-            <Text style={styles.hubCardChevron}>›</Text>
-          </Pressable>
+          {HUB_APPS.map((app) => {
+            const card = (
+              <LinearGradient
+                colors={app.colors}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[styles.hubCard, app.disabled ? styles.hubCardDisabled : null]}
+              >
+                <Text style={styles.hubCardArt}>{app.art}</Text>
 
-          <Pressable style={styles.hubCard} onPress={() => setActiveApp("journal")}>
-            <Text style={styles.hubCardIcon}>📓</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.hubCardTitle}>Journalling</Text>
-              <Text style={styles.hubCardMeta}>Catatan harian</Text>
-            </View>
-            <Text style={styles.hubCardChevron}>›</Text>
-          </Pressable>
+                <View style={styles.hubCardChip}>
+                  <Text style={styles.hubCardChipIcon}>{app.icon}</Text>
+                  <Text style={styles.hubCardChipText}>{app.label}</Text>
+                </View>
 
-          {/* Belum ada isinya -- dimatikan supaya tidak jadi tombol buntu. */}
-          <View style={[styles.hubCard, styles.hubCardDisabled]}>
-            <Text style={styles.hubCardIcon}>🧾</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.hubCardTitle}>Split Bill</Text>
-              <Text style={styles.hubCardMeta}>Belum tersedia</Text>
-            </View>
-          </View>
+                <Text style={styles.hubCardHeadline}>{app.headline}</Text>
+                <Text style={styles.hubCardMeta}>{app.meta}</Text>
+              </LinearGradient>
+            );
+
+            if (app.disabled) return <View key={app.key}>{card}</View>;
+
+            return (
+              <Pressable
+                key={app.key}
+                onPress={() => setActiveApp(app.key)}
+                style={({ pressed }) => (pressed ? { opacity: 0.85 } : null)}
+              >
+                {card}
+              </Pressable>
+            );
+          })}
         </ScrollView>
       ) : null}
 
@@ -801,11 +876,37 @@ export default function App() {
         <JournalScreen onBack={() => setActiveApp("hub")} />
       ) : null}
 
+      {activeApp === "kredit" ? (
+        <CreditCalculator onBack={() => setActiveApp("hub")} />
+      ) : null}
+
       {activeApp === "tracker" && activeTab === "transactions" ? (
         <ScrollView
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
         >
+          {/* Formatnya disamakan persis dengan JournalScreen: kembali di kiri,
+              judul besar di tengah, refresh di kanan. */}
+          <View style={styles.backRow}>
+            <Pressable style={styles.backButton} onPress={() => setActiveApp("hub")}>
+              <Text style={styles.backButtonText}>‹</Text>
+            </Pressable>
+
+            <Text style={styles.backRowTitle}>Money Tracker</Text>
+
+            <Pressable
+              disabled={isLoading}
+              onPress={loadDashboard}
+              style={({ pressed }) => [
+                styles.backButton,
+                pressed && styles.pressed,
+                isLoading && styles.disabled,
+              ]}
+            >
+              <Text style={styles.backButtonText}>{isLoading ? "…" : "⟳"}</Text>
+            </Pressable>
+          </View>
+
           <View style={styles.header}>
             <LinearGradient
               colors={colors.accentSoft}
@@ -818,49 +919,25 @@ export default function App() {
               </Text>
             </LinearGradient>
 
-            <View style={{ flex: 1, paddingHorizontal: 12 }}>
+            {/* minWidth 0 wajib: tanpa itu blok teks nolak menyusut dan
+                judulnya yang patah jadi dua-tiga baris. */}
+            <View style={{ flex: 1, minWidth: 0, paddingHorizontal: 10 }}>
               <Text style={styles.eyebrow} numberOfLines={1} ellipsizeMode="tail">
                 {user?.email?.split("@")[0]}
               </Text>
-              <Text style={styles.monthPill}>{formatDisplayDate(currentMonth() + "-01").split(" ").slice(1).join(" ")}</Text>
+              <Text
+                style={styles.monthPill}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.7}
+              >
+                {formatDisplayDate(currentMonth() + "-01").split(" ").slice(1).join(" ")}
+              </Text>
             </View>
-
-            <Pressable
-              style={styles.iconCircleButton}
-              onPress={() => setActiveApp("hub")}
-            >
-              <Text style={styles.iconCircleText}>⌂</Text>
-            </Pressable>
-
-            <Pressable
-              disabled={isLoading}
-              onPress={loadDashboard}
-              style={({ pressed }) => [
-                styles.iconCircleButton,
-                pressed && styles.pressed,
-                isLoading && styles.disabled,
-              ]}
-            >
-              <Text style={styles.iconCircleText}>{isLoading ? "…" : "↻"}</Text>
-            </Pressable>
-
-            <Pressable
-              onPress={() => setShowPinManager(true)}
-              style={({ pressed }) => [styles.iconCircleButton, pressed && styles.pressed]}
-            >
-              <Text style={styles.iconCircleText}>🔒</Text>
-            </Pressable>
-
-            <Pressable
-              onPress={() => supabase.auth.signOut()}
-              style={({ pressed }) => [styles.iconCircleButton, pressed && styles.pressed]}
-            >
-              <Text style={styles.iconCircleText}>⎋</Text>
-            </Pressable>
           </View>
 
           <LinearGradient
-            colors={["#6366f1", "#a855f7", "#ec4899"]}
+            colors={["#073f63", "#0d6a9c", "#1a93cf"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.lifetimeCard}
@@ -872,7 +949,7 @@ export default function App() {
           </LinearGradient>
 
           <LinearGradient
-            colors={["#ec4899", "#8b5cf6"]}
+            colors={["#0d5c8a", "#1683c0"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.heroCard}
@@ -938,7 +1015,12 @@ export default function App() {
                   ) : null}
                 </View>
                 {!isEditingBudget ? (
-                  <Text style={styles.moneyValue} numberOfLines={1}>
+                  <Text
+                    style={styles.moneyValue}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.75}
+                  >
                     {formatCurrency(budget)}
                   </Text>
                 ) : (
@@ -975,6 +1057,9 @@ export default function App() {
                 <Text style={styles.moneyLabel}>Sisa Budget</Text>
                 <Text
                   style={[styles.moneyValue, leftBudget <= 0 && styles.statCardValueDanger]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.75}
                   numberOfLines={1}
                 >
                   {formatCurrency(leftBudget)}
@@ -1239,47 +1324,109 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
-    paddingBottom: 110,
+    paddingBottom: 60,
     gap: 18,
   },
-  hubContent: { gap: 14, padding: 20, paddingBottom: 40 },
-  hubHeader: { alignItems: "center", flexDirection: "row", marginBottom: 10, marginTop: 12 },
-  hubSubtitle: { color: colors.textMuted, fontSize: 13, fontWeight: "700", marginTop: 2 },
-  hubCard: {
+  hubContent: { gap: 16, padding: 20, paddingBottom: 40 },
+  hubActions: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 8,
+    justifyContent: "flex-end",
+    marginTop: 12,
+  },
+  hubHeader: { alignItems: "center", flexDirection: "row", marginBottom: 6 },
+  hubGreeting: { color: colors.text, fontSize: 22, fontWeight: "900" },
+  hubIconButton: {
     alignItems: "center",
     backgroundColor: colors.surface,
     borderColor: colors.surfaceBorder,
-    borderRadius: radius.lg,
+    borderRadius: 18,
     borderWidth: 1,
-    flexDirection: "row",
-    gap: 14,
+    height: 36,
+    justifyContent: "center",
+    width: 36,
+  },
+  hubIconText: { fontSize: 15 },
+  hubSubtitle: { color: colors.textMuted, fontSize: 13, fontWeight: "700", marginTop: 2 },
+  hubAvatar: {
+    alignItems: "center",
+    borderRadius: radius.pill,
+    height: 44,
+    justifyContent: "center",
+    marginLeft: 10,
+    width: 44,
+    ...shadow.card,
+  },
+  hubCard: {
+    borderRadius: radius.lg,
+    justifyContent: "flex-end",
+    minHeight: 136,
+    overflow: "hidden",
     padding: 18,
     ...shadow.card,
   },
-  hubCardDisabled: { opacity: 0.45 },
-  hubCardIcon: { fontSize: 26 },
-  hubCardTitle: { color: colors.text, fontSize: 16, fontWeight: "900" },
-  hubCardMeta: { color: colors.textMuted, fontSize: 12, fontWeight: "600", marginTop: 2 },
-  hubCardChevron: { color: colors.textFaint, fontSize: 22, fontWeight: "900" },
-  header: {
+  hubCardDisabled: { opacity: 0.6 },
+  // Ilustrasinya cuma hiasan di pojok, jadi sengaja ditaruh di belakang teks.
+  hubCardArt: {
+    bottom: 6,
+    fontSize: 86,
+    opacity: 0.28,
+    position: "absolute",
+    right: 10,
+  },
+  hubCardChip: {
+    alignItems: "center",
+    alignSelf: "flex-start",
+    backgroundColor: "rgba(255,255,255,0.22)",
+    borderRadius: radius.pill,
+    flexDirection: "row",
+    gap: 6,
+    marginBottom: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  hubCardChipIcon: { fontSize: 13 },
+  hubCardChipText: { color: "#ffffff", fontSize: 11, fontWeight: "800" },
+  hubCardHeadline: { color: "#ffffff", fontSize: 18, fontWeight: "900", lineHeight: 24 },
+  hubCardMeta: { color: "rgba(255,255,255,0.8)", fontSize: 12, fontWeight: "700", marginTop: 6 },
+  backRow: {
     alignItems: "center",
     flexDirection: "row",
     justifyContent: "space-between",
     marginTop: 12,
   },
+  backButton: {
+    alignItems: "center",
+    backgroundColor: colors.surface,
+    borderColor: colors.surfaceBorder,
+    borderRadius: 18,
+    borderWidth: 1,
+    height: 36,
+    justifyContent: "center",
+    width: 36,
+  },
+  backButtonText: { color: colors.text, fontSize: 20, fontWeight: "900" },
+  backRowTitle: { color: colors.text, fontSize: 28, fontWeight: "900" },
+  header: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 4,
+  },
   eyebrow: {
-    color: "#64748b",
+    color: "#9cbed4",
     fontSize: 14,
     fontWeight: "700",
   },
   title: {
-    color: "#0f172a",
+    color: "#e8f3fb",
     fontSize: 34,
     fontWeight: "800",
     marginTop: 2,
   },
   refreshButton: {
-    backgroundColor: "#0f766e",
+    backgroundColor: "#0e7490",
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 10,
@@ -1296,7 +1443,7 @@ const styles = StyleSheet.create({
     opacity: 0.55,
   },
   balancePanel: {
-    backgroundColor: "#0f172a",
+    backgroundColor: "#0b5f8d",
     borderRadius: 28,
     padding: 20,
   },
@@ -1322,19 +1469,19 @@ const styles = StyleSheet.create({
     padding: 18,
   },
   muted: {
-    color: "#64748b",
+    color: "#9cbed4",
     fontSize: 14,
     fontWeight: "600",
   },
   errorPanel: {
-    backgroundColor: "#fff1f2",
-    borderColor: "#fecdd3",
+    backgroundColor: "rgba(251,113,133,0.16)",
+    borderColor: "rgba(251,113,133,0.22)",
     borderRadius: 24,
     borderWidth: 1,
     padding: 14,
   },
   errorText: {
-    color: "#be123c",
+    color: "#fda4af",
     fontSize: 14,
     fontWeight: "700",
   },
@@ -1345,12 +1492,12 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   sectionTitle: {
-    color: "#0f172a",
+    color: "#e8f3fb",
     fontSize: 20,
     fontWeight: "900",
   },
   sectionMeta: {
-    color: "#64748b",
+    color: "#9cbed4",
     fontSize: 13,
     fontWeight: "700",
   },
@@ -1358,12 +1505,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderColor: colors.surfaceBorder,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#0f5479",
     borderWidth: 1,
     borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    color: "#0f172a",
+    color: "#e8f3fb",
   },
   filterRow: {
     flexDirection: "row",
@@ -1389,36 +1536,36 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   statCardLabel: {
-    color: "#64748b",
+    color: "#9cbed4",
     fontSize: 12,
     fontWeight: "700",
   },
   statCardValue: {
-    color: "#0f172a",
+    color: "#e8f3fb",
     fontSize: 22,
     fontWeight: "900",
     marginTop: 8,
   },
   statCardValueSmall: {
-    color: "#0f172a",
+    color: "#e8f3fb",
     fontSize: 16,
     fontWeight: "900",
   },
   statCardValueDanger: {
-    color: "#e11d48",
+    color: "#fb7185",
   },
   editIconButton: {
     width: 30,
     height: 30,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
-    backgroundColor: "#ffffff",
+    borderColor: "#0f5479",
+    backgroundColor: "#083c5a",
     alignItems: "center",
     justifyContent: "center",
   },
   editIconText: {
-    color: "#475569",
+    color: "#9cbed4",
     fontSize: 13,
   },
   budgetEditRow: {
@@ -1429,19 +1576,19 @@ const styles = StyleSheet.create({
   },
   budgetInput: {
     flex: 1,
-    backgroundColor: "#f4f7fb",
-    borderColor: "#e2e8f0",
+    backgroundColor: "#06324c",
+    borderColor: "#0f5479",
     borderWidth: 1,
     borderRadius: 12,
     paddingHorizontal: 10,
     paddingVertical: 8,
-    color: "#0f172a",
+    color: "#e8f3fb",
   },
   iconButtonDark: {
     width: 34,
     height: 34,
     borderRadius: 12,
-    backgroundColor: "#0f172a",
+    backgroundColor: "#0b5f8d",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1455,14 +1602,14 @@ const styles = StyleSheet.create({
     height: 34,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
-    backgroundColor: "#ffffff",
+    borderColor: "#0f5479",
+    backgroundColor: "#083c5a",
     alignItems: "center",
     justifyContent: "center",
   },
   budgetDivider: {
     height: 1,
-    backgroundColor: "#f1f5f9",
+    backgroundColor: "#06324c",
     marginVertical: 12,
   },
   pagerRow: {
@@ -1472,20 +1619,20 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   pagerButton: {
-    backgroundColor: "#ffffff",
-    borderColor: "#e2e8f0",
+    backgroundColor: "#083c5a",
+    borderColor: "#0f5479",
     borderWidth: 1,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 10,
   },
   pagerButtonText: {
-    color: "#0f172a",
+    color: "#e8f3fb",
     fontSize: 13,
     fontWeight: "800",
   },
   pagerLabel: {
-    color: "#64748b",
+    color: "#9cbed4",
     fontSize: 12,
     fontWeight: "700",
   },
@@ -1507,35 +1654,35 @@ const styles = StyleSheet.create({
     paddingRight: 12,
   },
   transactionTitle: {
-    color: "#0f172a",
+    color: "#e8f3fb",
     fontSize: 15,
     fontWeight: "900",
   },
   transactionMeta: {
-    color: "#64748b",
+    color: "#9cbed4",
     fontSize: 12,
     fontWeight: "700",
     marginTop: 5,
   },
   transactionAmount: {
-    color: "#e11d48",
+    color: "#fb7185",
     flexShrink: 0,
     fontSize: 15,
     fontWeight: "900",
   },
   transactionAmountIncome: {
-    color: "#16a34a",
+    color: "#6ee7b7",
   },
   logoutButton: {
-    backgroundColor: "#fff1f2",
-    borderColor: "#fecdd3",
+    backgroundColor: "rgba(251,113,133,0.16)",
+    borderColor: "rgba(251,113,133,0.22)",
     borderWidth: 1,
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
   logoutText: {
-    color: "#be123c",
+    color: "#fda4af",
     fontSize: 13,
     fontWeight: "700",
   },
@@ -1600,27 +1747,11 @@ const styles = StyleSheet.create({
     fontWeight: "900",
   },
   monthPill: {
-    color: "#0f172a",
+    color: "#e8f3fb",
     fontSize: 18,
     fontWeight: "900",
     marginTop: 2,
     textTransform: "capitalize",
-  },
-  iconCircleButton: {
-    alignItems: "center",
-    backgroundColor: "#ffffff",
-    borderColor: "#e2e8f0",
-    borderRadius: 16,
-    borderWidth: 1,
-    height: 40,
-    justifyContent: "center",
-    marginLeft: 8,
-    width: 40,
-  },
-  iconCircleText: {
-    color: "#0f172a",
-    fontSize: 16,
-    fontWeight: "800",
   },
   heroCard: {
     borderRadius: 28,
@@ -1722,7 +1853,6 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   moneyRow: {
-    flexDirection: "row",
     gap: 10,
   },
   moneyCard: {
@@ -1732,21 +1862,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     ...shadow.card,
     borderRadius: 24,
-    flex: 1,
     flexDirection: "row",
-    gap: 10,
+    gap: 12,
     padding: 14,
   },
   moneyIconWrap: {
     alignItems: "center",
-    backgroundColor: "#fef3c7",
+    backgroundColor: "rgba(251,191,36,0.16)",
     borderRadius: 16,
     height: 36,
     justifyContent: "center",
     width: 36,
   },
   moneyIconWrapRose: {
-    backgroundColor: "#ffe4e6",
+    backgroundColor: "rgba(251,113,133,0.16)",
   },
   moneyIconText: {
     fontSize: 16,
@@ -1755,19 +1884,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   moneyLabel: {
-    color: "#64748b",
+    color: "#9cbed4",
     fontSize: 11,
     fontWeight: "700",
   },
   moneyValue: {
-    color: "#0f172a",
-    fontSize: 15,
+    color: "#e8f3fb",
+    fontSize: 20,
     fontWeight: "900",
     marginTop: 4,
   },
   aiBanner: {
     alignItems: "center",
-    backgroundColor: "#0f172a",
+    backgroundColor: "#0b5f8d",
     borderRadius: 24,
     flexDirection: "row",
     justifyContent: "space-between",
@@ -1794,12 +1923,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
   dayGroupTitle: {
-    color: "#0f172a",
+    color: "#e8f3fb",
     fontSize: 13,
     fontWeight: "900",
   },
   dayGroupTotal: {
-    color: "#64748b",
+    color: "#9cbed4",
     fontSize: 11,
     fontWeight: "700",
   },

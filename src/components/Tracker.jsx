@@ -34,6 +34,7 @@ import {
     currentMonth,
     getTransactionMonth,
     normalizeDate,
+    shiftMonth,
     today,
     addMonthsToDate,
 } from "../utils/date";
@@ -215,6 +216,27 @@ export default function Tracker({
             currentMonthTransactionCount: currentMonthTransactions.length,
         };
     }, [currentMonthTransactions, leftBudget]);
+
+    // Dibanding bulan lalu -- angka bulan ini sendirian tidak memberi tahu
+    // apakah pengeluarannya sedang naik atau turun.
+    const spendingComparison = useMemo(() => {
+        const prevMonth = shiftMonth(currentMonth(), -1);
+        const prevTotal = transactions
+            .filter(
+                (item) =>
+                    getTransactionMonth(item.date) === prevMonth && item.type !== "income"
+            )
+            .reduce((sum, item) => sum + Number(item.amount), 0);
+
+        if (prevTotal === 0) return null;
+
+        const diff = totals.totalSpending - prevTotal;
+
+        return {
+            percent: Math.abs(Math.round((diff / prevTotal) * 100)),
+            isIncrease: diff > 0,
+        };
+    }, [transactions, totals.totalSpending]);
 
     const incomeShare =
         totals.totalIncome + totals.totalSpending > 0
@@ -455,8 +477,8 @@ export default function Tracker({
             {(isNearDailyLimit || isOverDailyLimit) && (
                 <div
                     className={`rounded-[1.5rem] border p-4 text-sm font-semibold shadow-sm ${isOverDailyLimit
-                            ? "border-rose-200 bg-rose-100 text-rose-700"
-                            : "border-yellow-200 bg-yellow-100 text-yellow-700"
+                            ? "border-rose-500/30 bg-rose-500/15 text-rose-300"
+                            : "border-yellow-500/30 bg-yellow-500/15 text-yellow-300"
                         }`}
                 >
                     <div className="flex items-start gap-3">
@@ -479,12 +501,14 @@ export default function Tracker({
             )}
 
             <section className="grid gap-4 xl:grid-cols-3">
-                <Card className="h-full overflow-hidden rounded-[1.75rem] border-white/70 bg-white/85 shadow-xl backdrop-blur">
+                {/* Warnanya sengaja dibikin sama persis dengan kartu yang sama
+                    di app mobile -- pink ke ungu, teksnya putih. */}
+                <Card className="h-full overflow-hidden rounded-[1.75rem] border-0 bg-gradient-to-br from-[#0d5c8a] to-[#1683c0] shadow-xl">
                     <CardContent className="flex h-full flex-col justify-center p-6">
-                        <p className="text-sm font-semibold text-slate-500">Selisih bulan ini</p>
+                        <p className="text-sm font-bold text-fuchsia-200">Selisih bulan ini</p>
                         <p
-                            className={`mt-1 text-3xl font-black tracking-tight ${
-                                totals.net >= 0 ? "text-emerald-600" : "text-rose-600"
+                            className={`mt-2.5 text-3xl font-black tracking-tight ${
+                                totals.net >= 0 ? "text-emerald-200" : "text-rose-200"
                             }`}
                         >
                             {totals.net >= 0 ? "+" : "-"}
@@ -493,44 +517,51 @@ export default function Tracker({
 
                         {/* Proporsi masuk vs keluar -- angka saja tidak langsung
                             memberi tahu mana yang lebih besar. */}
-                        <div className="mt-4 flex h-2 overflow-hidden rounded-full bg-slate-100">
+                        <div className="mt-4 flex h-2 overflow-hidden rounded-full bg-white/25">
                             <div
-                                className="bg-emerald-500"
+                                className="bg-emerald-400"
                                 style={{ width: `${incomeShare * 100}%` }}
                             />
                             <div
-                                className="bg-rose-500"
+                                className="bg-rose-400"
                                 style={{ width: `${(1 - incomeShare) * 100}%` }}
                             />
                         </div>
 
-                        <div className="mt-4 grid grid-cols-2 divide-x divide-slate-100">
+                        <div className="mt-4 grid grid-cols-2 divide-x divide-white/25">
                             <div className="pr-4">
-                                <p className="flex items-center gap-1.5 text-xs font-semibold text-slate-500">
-                                    <ArrowDownLeft className="h-3.5 w-3.5 text-emerald-500" />
+                                <p className="flex items-center gap-1.5 text-xs font-bold text-fuchsia-200">
+                                    <ArrowDownLeft className="h-3.5 w-3.5" />
                                     Pemasukan
                                 </p>
-                                <p className="mt-0.5 text-lg font-black text-emerald-600">
+                                <p className="mt-0.5 text-lg font-black text-white">
                                     {formatCurrency(totals.totalIncome)}
                                 </p>
                             </div>
                             <div className="pl-4">
-                                <p className="flex items-center gap-1.5 text-xs font-semibold text-slate-500">
-                                    <ArrowUpRight className="h-3.5 w-3.5 text-rose-500" />
+                                <p className="flex items-center gap-1.5 text-xs font-bold text-fuchsia-200">
+                                    <ArrowUpRight className="h-3.5 w-3.5" />
                                     Pengeluaran
                                 </p>
-                                <p className="mt-0.5 text-lg font-black text-rose-600">
+                                <p className="mt-0.5 text-lg font-black text-white">
                                     {formatCurrency(totals.totalSpending)}
                                 </p>
                             </div>
                         </div>
+
+                        {spendingComparison && (
+                            <p className="mt-3.5 inline-flex self-start rounded-full bg-white/20 px-3 py-1.5 text-xs font-extrabold text-white">
+                                {spendingComparison.isIncrease ? "\u25B2" : "\u25BC"}{" "}
+                                {spendingComparison.percent}% pengeluaran dari bulan lalu
+                            </p>
+                        )}
                     </CardContent>
                 </Card>
 
-                <Card className="overflow-hidden rounded-[1.75rem] border-white/70 bg-white/85 shadow-xl backdrop-blur">
+                <Card className="overflow-hidden rounded-[1.75rem] border-white/10 bg-surface/85 shadow-xl backdrop-blur">
                     <CardContent className="space-y-5 p-5">
                         <div className="flex min-w-0 items-start gap-4">
-                            <div className="shrink-0 rounded-2xl bg-pink-100 p-3 text-pink-600">
+                            <div className="shrink-0 rounded-2xl bg-sky-500/15 p-3 text-sky-400">
                                 <PiggyBank className="h-6 w-6" />
                             </div>
 
@@ -544,7 +575,7 @@ export default function Tracker({
                                         <button
                                             type="button"
                                             onClick={handleBudgetEditOpen}
-                                            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white transition hover:bg-slate-50"
+                                            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-surface transition hover:bg-slate-50"
                                         >
                                             <Pencil className="h-5 w-5 text-slate-600" />
                                         </button>
@@ -560,7 +591,7 @@ export default function Tracker({
                                         onSubmit={handleBudgetSave}
                                         className="grid min-w-0 gap-2 sm:grid-cols-[1fr_auto_auto]"
                                     >
-                                        <div className="flex min-w-0 w-full items-center overflow-hidden rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                                        <div className="flex min-w-0 w-full items-center overflow-hidden rounded-2xl border border-slate-200 bg-surface px-4 py-3">
                                             <span className="mr-2 shrink-0 text-xl font-semibold">
                                                 Rp
                                             </span>
@@ -587,7 +618,7 @@ export default function Tracker({
                                         <button
                                             type="button"
                                             onClick={handleBudgetCancel}
-                                            className="inline-flex h-11 w-full items-center justify-center rounded-full border border-slate-200 bg-white sm:w-11"
+                                            className="inline-flex h-11 w-full items-center justify-center rounded-full border border-slate-200 bg-surface sm:w-11"
                                         >
                                             <X className="h-4 w-4" />
                                         </button>
@@ -604,7 +635,7 @@ export default function Tracker({
 
                                 <p
                                     className={`shrink-0 text-2xl font-black tracking-tight md:text-3xl ${totals.remainingBudget < 0
-                                            ? "text-rose-600"
+                                            ? "text-rose-400"
                                             : "text-slate-950"
                                         }`}
                                 >
@@ -623,7 +654,7 @@ export default function Tracker({
             </section>
 
             <section className="grid gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
-                <Card className="w-full min-w-0 overflow-hidden rounded-[1.75rem] border-white/70 bg-white/85 shadow-xl backdrop-blur">
+                <Card className="w-full min-w-0 overflow-hidden rounded-[1.75rem] border-white/10 bg-surface/85 shadow-xl backdrop-blur">
                     <CardContent className="p-5">
                         <h2 className="mb-4 text-xl font-black text-slate-950">
                             Add transaction
@@ -637,7 +668,7 @@ export default function Tracker({
                                     className={`rounded-xl px-4 py-2.5 text-sm font-bold transition ${
                                         isIncome
                                             ? "text-slate-500 hover:text-slate-700"
-                                            : "bg-pink-500 text-white shadow"
+                                            : "bg-sky-500 text-white shadow"
                                     }`}
                                 >
                                     Pengeluaran
@@ -657,7 +688,7 @@ export default function Tracker({
 
                             <label className="block min-w-0 space-y-2">
                                 <span className="flex items-center gap-2 text-sm font-semibold text-slate-600">
-                                    <Pencil className="h-4 w-4 text-pink-500" />
+                                    <Pencil className="h-4 w-4 text-sky-400" />
                                     Title
                                 </span>
 
@@ -670,13 +701,13 @@ export default function Tracker({
                                         }))
                                     }
                                     placeholder="e.g. Groceries"
-                                    className="w-full min-w-0 rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none focus:ring-2 focus:ring-pink-200"
+                                    className="w-full min-w-0 rounded-2xl border border-slate-200 bg-surface px-4 py-3 outline-none focus:ring-2 focus:ring-sky-500/30"
                                 />
                             </label>
 
                             <label className="block min-w-0 space-y-2">
                                 <span className="flex items-center gap-2 text-sm font-semibold text-slate-600">
-                                    <Banknote className="h-4 w-4 text-indigo-500" />
+                                    <Banknote className="h-4 w-4 text-blue-400" />
                                     Amount
                                 </span>
 
@@ -690,14 +721,14 @@ export default function Tracker({
                                     }
                                     inputMode="numeric"
                                     placeholder="50000"
-                                    className="w-full min-w-0 rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none focus:ring-2 focus:ring-pink-200"
+                                    className="w-full min-w-0 rounded-2xl border border-slate-200 bg-surface px-4 py-3 outline-none focus:ring-2 focus:ring-sky-500/30"
                                 />
                             </label>
 
                             <div className="grid min-w-0 gap-3 md:grid-cols-3 xl:grid-cols-1">
                                 <div className="space-y-2">
                                     <span className="flex items-center gap-2 text-sm font-semibold text-slate-600">
-                                        <Tag className="h-4 w-4 text-purple-500" />
+                                        <Tag className="h-4 w-4 text-violet-300" />
                                         Category
                                     </span>
 
@@ -716,7 +747,7 @@ export default function Tracker({
 
                                 <div className="space-y-2">
                                     <span className="flex items-center gap-2 text-sm font-semibold text-slate-600">
-                                        <CreditCard className="h-4 w-4 text-blue-500" />
+                                        <CreditCard className="h-4 w-4 text-blue-400" />
                                         {isIncome ? "Masuk Ke" : "Sumber Dana"}
                                     </span>
 
@@ -735,7 +766,7 @@ export default function Tracker({
 
                                 <div className={`space-y-2 ${isIncome ? "hidden" : ""}`}>
                                     <span className="flex items-center gap-2 text-sm font-semibold text-slate-600">
-                                        <Wallet className="h-4 w-4 text-pink-500" />
+                                        <Wallet className="h-4 w-4 text-sky-400" />
                                         Dana Dipakai
                                     </span>
 
@@ -763,7 +794,7 @@ export default function Tracker({
                                             type="checkbox"
                                             checked={isInstallment}
                                             onChange={(event) => setIsInstallment(event.target.checked)}
-                                            className="h-4 w-4 rounded border-slate-300 text-pink-500 focus:ring-pink-200"
+                                            className="h-4 w-4 rounded border-slate-300 text-sky-400 focus:ring-sky-500/30"
                                         />
                                         Ini cicilan?
                                     </label>
@@ -785,7 +816,7 @@ export default function Tracker({
                                                         }))
                                                     }
                                                     placeholder="Home Credit"
-                                                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-pink-200"
+                                                    className="w-full rounded-xl border border-slate-200 bg-surface px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-sky-500/30"
                                                 />
                                             </div>
 
@@ -803,7 +834,7 @@ export default function Tracker({
                                                     }}
                                                     inputMode="numeric"
                                                     placeholder="3000000"
-                                                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-pink-200"
+                                                    className="w-full rounded-xl border border-slate-200 bg-surface px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-sky-500/30"
                                                 />
                                             </div>
 
@@ -822,7 +853,7 @@ export default function Tracker({
                                                         }}
                                                         inputMode="numeric"
                                                         placeholder="6"
-                                                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-pink-200"
+                                                        className="w-full rounded-xl border border-slate-200 bg-surface px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-sky-500/30"
                                                     />
                                                 </div>
                                                 <div className="space-y-2">
@@ -837,7 +868,7 @@ export default function Tracker({
                                                         }
                                                         inputMode="numeric"
                                                         placeholder="10"
-                                                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-pink-200"
+                                                        className="w-full rounded-xl border border-slate-200 bg-surface px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-sky-500/30"
                                                     />
                                                 </div>
                                             </div>
@@ -849,7 +880,7 @@ export default function Tracker({
                             <div className="grid min-w-0 grid-cols-[1fr_120px] gap-3">
                                 <label className="block min-w-0 space-y-2">
                                     <span className="flex items-center gap-2 text-sm font-semibold text-slate-600">
-                                        <CalendarDays className="h-4 w-4 text-indigo-500" />
+                                        <CalendarDays className="h-4 w-4 text-blue-400" />
                                         Tanggal
                                     </span>
 
@@ -863,7 +894,7 @@ export default function Tracker({
                                         }
                                         type="date"
                                         style={{ WebkitAppearance: "none" }}
-                                        className="w-full min-w-0 max-w-full appearance-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base outline-none focus:ring-2 focus:ring-pink-200"
+                                        className="w-full min-w-0 max-w-full appearance-none rounded-2xl border border-slate-200 bg-surface px-4 py-3 text-base outline-none focus:ring-2 focus:ring-sky-500/30"
                                     />
                                 </label>
 
@@ -882,17 +913,17 @@ export default function Tracker({
                                         }
                                         type="time"
                                         style={{ WebkitAppearance: "none" }}
-                                        className="w-full min-w-0 max-w-full appearance-none rounded-2xl border border-slate-200 bg-white px-3 py-3 text-base outline-none focus:ring-2 focus:ring-pink-200"
+                                        className="w-full min-w-0 max-w-full appearance-none rounded-2xl border border-slate-200 bg-surface px-3 py-3 text-base outline-none focus:ring-2 focus:ring-sky-500/30"
                                     />
                                 </label>
                             </div>
 
                             {duplicateWarning && (
-                                <div className="space-y-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
-                                    <p className="text-sm font-bold text-amber-900">
+                                <div className="space-y-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4">
+                                    <p className="text-sm font-bold text-amber-200">
                                         Transaksi serupa sudah ada
                                     </p>
-                                    <p className="text-sm text-amber-800">
+                                    <p className="text-sm text-amber-200">
                                         <span className="font-semibold">{duplicateWarning.title}</span>
                                         {" • "}
                                         {formatCurrency(duplicateWarning.amount)}
@@ -902,7 +933,7 @@ export default function Tracker({
                                         {" • "}
                                         {duplicateWarning.source}
                                     </p>
-                                    <p className="text-xs text-amber-700">
+                                    <p className="text-xs text-amber-300">
                                         Kalau ini memang pembelian yang berbeda, tetap simpan.
                                     </p>
                                     <div className="flex gap-2">
@@ -916,7 +947,7 @@ export default function Tracker({
                                         <button
                                             type="button"
                                             onClick={() => setDuplicateWarning(null)}
-                                            className="flex-1 rounded-xl border border-amber-300 bg-white px-3 py-2 text-sm font-bold text-amber-900 hover:bg-amber-100 transition"
+                                            className="flex-1 rounded-xl border border-amber-500/40 bg-surface px-3 py-2 text-sm font-bold text-amber-200 hover:bg-amber-500/15 transition"
                                         >
                                             Batal
                                         </button>
@@ -927,7 +958,7 @@ export default function Tracker({
                             <Button
                                 type="submit"
                                 disabled={isSubmitting}
-                                className="flex w-full items-center justify-center rounded-2xl bg-gradient-to-r from-pink-500 to-indigo-500 py-6 text-base font-bold text-white shadow-lg hover:opacity-95"
+                                className="flex w-full items-center justify-center rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 py-6 text-base font-bold text-white shadow-lg hover:opacity-95"
                             >
                                 <PlusCircle className="mr-2 h-5 w-5" />
                                 {isSubmitting ? "Adding..." : "Add transaction"}
@@ -936,7 +967,7 @@ export default function Tracker({
                     </CardContent>
                 </Card>
 
-                <Card className="w-full min-w-0 min-h-[750px] overflow-hidden rounded-[1.75rem] border-white/70 bg-white/85 shadow-xl backdrop-blur">
+                <Card className="w-full min-w-0 min-h-[750px] overflow-hidden rounded-[1.75rem] border-white/10 bg-surface/85 shadow-xl backdrop-blur">
                     <CardContent className="p-5">
                         <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                             <h2 className="text-xl font-black text-slate-950">
@@ -954,7 +985,7 @@ export default function Tracker({
                                             setHistoryPage(1);
                                         }}
                                         placeholder="Search"
-                                        className="w-full min-w-0 rounded-2xl border border-slate-200 bg-white py-2 pl-9 pr-3 outline-none focus:ring-2 focus:ring-pink-200"
+                                        className="w-full min-w-0 rounded-2xl border border-slate-200 bg-surface py-2 pl-9 pr-3 outline-none focus:ring-2 focus:ring-sky-500/30"
                                     />
                                 </div>
 
@@ -964,7 +995,7 @@ export default function Tracker({
                                         setCategoryFilter(event.target.value);
                                         setHistoryPage(1);
                                     }}
-                                    className="rounded-2xl border border-slate-200 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-pink-200"
+                                    className="rounded-2xl border border-slate-200 bg-surface px-3 py-2 outline-none focus:ring-2 focus:ring-sky-500/30"
                                 >
                                     <option value="all">All categories</option>
 
@@ -981,7 +1012,7 @@ export default function Tracker({
                                         setSourceFilter(event.target.value);
                                         setHistoryPage(1);
                                     }}
-                                    className="rounded-2xl border border-slate-200 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-pink-200"
+                                    className="rounded-2xl border border-slate-200 bg-surface px-3 py-2 outline-none focus:ring-2 focus:ring-sky-500/30"
                                 >
                                     <option value="all">All sources</option>
 
@@ -998,7 +1029,7 @@ export default function Tracker({
                                         setDanaFilter(event.target.value);
                                         setHistoryPage(1);
                                     }}
-                                    className="rounded-2xl border border-slate-200 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-pink-200"
+                                    className="rounded-2xl border border-slate-200 bg-surface px-3 py-2 outline-none focus:ring-2 focus:ring-sky-500/30"
                                 >
                                     <option value="all">Semua dana</option>
 
@@ -1020,7 +1051,7 @@ export default function Tracker({
                             addTransaction={addTransaction}
                         />
 
-                        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white/70 p-3 text-sm">
+                        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-surface/70 p-3 text-sm">
                             <p className="font-medium text-slate-500">
                                 Showing {paginatedTransactions.length} of{" "}
                                 {filteredTransactions.length} transactions bulan ini

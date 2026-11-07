@@ -14,7 +14,6 @@ import {
 import { formatCurrency } from "../utils/formatters";
 import { formatDisplayDate } from "../utils/date";
 import { goalIcons, goalColors } from "../constants/options";
-import CreditCalculator from "./CreditCalculator";
 import { colors } from "../theme";
 
 const generateId = () =>
@@ -55,7 +54,6 @@ export default function PlanScreen({ goals, onAdd, onUpdate, onDelete }) {
   const [isSaving, setIsSaving] = useState(false);
   const [sortIndex, setSortIndex] = useState(0);
   const [filterIndex, setFilterIndex] = useState(0);
-  const [showCalculator, setShowCalculator] = useState(false);
 
   const sortedGoals = useMemo(() => {
     const sortKey = SORT_OPTIONS[sortIndex].key;
@@ -139,19 +137,10 @@ export default function PlanScreen({ goals, onAdd, onUpdate, onDelete }) {
     }
   };
 
-  if (showCalculator) {
-    return <CreditCalculator onBack={() => setShowCalculator(false)} />;
-  }
-
   return (
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <Text style={styles.title}>Plan</Text>
       <Text style={styles.subtitle}>Target nabung & rencana keuanganmu.</Text>
-
-      <Pressable style={styles.calculatorBanner} onPress={() => setShowCalculator(true)}>
-        <Text style={styles.calculatorBannerText}>🧮 Kalkulator Kredit (KPR / Kendaraan)</Text>
-        <Text style={styles.calculatorBannerArrow}>→</Text>
-      </Pressable>
 
       <View style={styles.toolbarRow}>
         <Pressable
@@ -366,34 +355,23 @@ export default function PlanScreen({ goals, onAdd, onUpdate, onDelete }) {
 }
 
 const styles = StyleSheet.create({
-  content: { padding: 20, paddingBottom: 100, gap: 16 },
-  title: { color: "#0f172a", fontSize: 28, fontWeight: "900" },
-  subtitle: { color: "#64748b", fontSize: 13, fontWeight: "600", marginTop: -12 },
-  calculatorBanner: {
-    alignItems: "center",
-    backgroundColor: "#0f172a",
-    borderRadius: 16,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: 18,
-    paddingVertical: 16,
-  },
-  calculatorBannerText: { color: "#ffffff", fontSize: 13, fontWeight: "800" },
-  calculatorBannerArrow: { color: "#ffffff", fontSize: 16, fontWeight: "900" },
+  content: { padding: 20, paddingBottom: 60, gap: 16 },
+  title: { color: "#e8f3fb", fontSize: 28, fontWeight: "900" },
+  subtitle: { color: "#9cbed4", fontSize: 13, fontWeight: "600", marginTop: -12 },
   toolbarRow: { flexDirection: "row", gap: 8 },
   toolbarButton: {
-    backgroundColor: "#ffffff",
-    borderColor: "#e2e8f0",
+    backgroundColor: "#083c5a",
+    borderColor: "#0f5479",
     borderWidth: 1,
     borderRadius: 16,
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
-  toolbarButtonText: { color: "#334155", fontSize: 12, fontWeight: "800" },
-  addButton: { backgroundColor: "#0f172a", borderColor: "#0f172a", marginLeft: "auto" },
+  toolbarButtonText: { color: "#cfe3f0", fontSize: 12, fontWeight: "800" },
+  addButton: { backgroundColor: "#0b5f8d", borderColor: "#0b5f8d", marginLeft: "auto" },
   addButtonText: { color: "#ffffff", fontSize: 12, fontWeight: "800" },
   emptyPanel: { backgroundColor: colors.surface, borderColor: colors.surfaceBorder, borderWidth: 1, borderRadius: 16, padding: 24, alignItems: "center" },
-  emptyText: { color: "#64748b", fontSize: 13, fontWeight: "600", textAlign: "center" },
+  emptyText: { color: "#9cbed4", fontSize: 13, fontWeight: "600", textAlign: "center" },
   list: { gap: 12 },
   goalCard: { backgroundColor: colors.surface, borderColor: colors.surfaceBorder, borderWidth: 1, borderRadius: 24, padding: 16, gap: 10 },
   goalHeader: { flexDirection: "row", alignItems: "center", gap: 12 },
@@ -406,32 +384,32 @@ const styles = StyleSheet.create({
   },
   goalIconText: { fontSize: 20 },
   goalHeaderCopy: { flex: 1 },
-  goalTitle: { color: "#0f172a", fontSize: 15, fontWeight: "900" },
-  goalDeadline: { color: "#94a3b8", fontSize: 11, fontWeight: "600", marginTop: 2 },
-  goalTarget: { color: "#0f172a", fontSize: 14, fontWeight: "900" },
-  barTrack: { height: 8, backgroundColor: "#f1f5f9", borderRadius: 4, overflow: "hidden" },
+  goalTitle: { color: "#e8f3fb", fontSize: 15, fontWeight: "900" },
+  goalDeadline: { color: "#7aa0b8", fontSize: 11, fontWeight: "600", marginTop: 2 },
+  goalTarget: { color: "#e8f3fb", fontSize: 14, fontWeight: "900" },
+  barTrack: { height: 8, backgroundColor: "#06324c", borderRadius: 4, overflow: "hidden" },
   barFill: { height: "100%", borderRadius: 4 },
   goalFooterRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  goalSaved: { color: "#0f172a", fontSize: 13, fontWeight: "800" },
+  goalSaved: { color: "#e8f3fb", fontSize: 13, fontWeight: "800" },
   goalFooterRight: { flexDirection: "row", alignItems: "center", gap: 8 },
-  goalRemaining: { color: "#94a3b8", fontSize: 12, fontWeight: "700" },
+  goalRemaining: { color: "#7aa0b8", fontSize: 12, fontWeight: "700" },
   iconButton: {
     width: 30,
     height: 30,
     borderRadius: 15,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
-    backgroundColor: "#ffffff",
+    borderColor: "#0f5479",
+    backgroundColor: "#083c5a",
     alignItems: "center",
     justifyContent: "center",
   },
   iconButtonSpaced: { marginRight: 0 },
-  iconButtonText: { color: "#475569", fontSize: 13 },
+  iconButtonText: { color: "#9cbed4", fontSize: 13 },
   iconButtonDark: {
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: "#0f172a",
+    backgroundColor: "#0b5f8d",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -441,8 +419,8 @@ const styles = StyleSheet.create({
     height: 30,
     borderRadius: 15,
     borderWidth: 1,
-    borderColor: "#fecdd3",
-    backgroundColor: "#fff1f2",
+    borderColor: "rgba(251,113,133,0.22)",
+    backgroundColor: "rgba(251,113,133,0.16)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -451,27 +429,27 @@ const styles = StyleSheet.create({
   disabled: { opacity: 0.6 },
   backdrop: { flex: 1, backgroundColor: "rgba(15, 23, 42, 0.55)", justifyContent: "flex-end" },
   sheet: {
-    backgroundColor: "#ffffff",
+    backgroundColor: "#083c5a",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 20,
     paddingBottom: 32,
     maxHeight: "88%",
   },
-  sheetTitle: { color: "#0f172a", fontSize: 20, fontWeight: "900", marginBottom: 16 },
+  sheetTitle: { color: "#e8f3fb", fontSize: 20, fontWeight: "900", marginBottom: 16 },
   inputGroup: { gap: 8, marginBottom: 16 },
   label: {
-    color: "#64748b",
+    color: "#9cbed4",
     fontSize: 12,
     fontWeight: "700",
     textTransform: "uppercase",
   },
   input: {
     backgroundColor: colors.surfaceMuted,
-    borderColor: "#e2e8f0",
+    borderColor: "#0f5479",
     borderWidth: 1,
     borderRadius: 16,
-    color: "#0f172a",
+    color: "#e8f3fb",
     fontSize: 15,
     paddingHorizontal: 14,
     paddingVertical: 12,
@@ -483,15 +461,15 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: colors.surfaceMuted,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#0f5479",
     alignItems: "center",
     justifyContent: "center",
   },
-  iconPickerItemActive: { borderColor: "#0f172a", backgroundColor: "#e2e8f0" },
+  iconPickerItemActive: { borderColor: "#0b5f8d", backgroundColor: "#0f5479" },
   iconPickerText: { fontSize: 18 },
   saveButton: {
     alignItems: "center",
-    backgroundColor: "#ec4899",
+    backgroundColor: "#0ea5e9",
     borderRadius: 16,
     justifyContent: "center",
     paddingVertical: 15,
@@ -499,15 +477,15 @@ const styles = StyleSheet.create({
   saveButtonText: { color: "#ffffff", fontSize: 15, fontWeight: "900" },
   deleteButton: {
     alignItems: "center",
-    backgroundColor: "#fff1f2",
-    borderColor: "#fecdd3",
+    backgroundColor: "rgba(251,113,133,0.16)",
+    borderColor: "rgba(251,113,133,0.22)",
     borderRadius: 16,
     borderWidth: 1,
     justifyContent: "center",
     marginTop: 10,
     paddingVertical: 15,
   },
-  deleteButtonText: { color: "#be123c", fontSize: 15, fontWeight: "800" },
+  deleteButtonText: { color: "#fda4af", fontSize: 15, fontWeight: "800" },
   cancelButton: { alignItems: "center", justifyContent: "center", marginTop: 10, paddingVertical: 12 },
-  cancelButtonText: { color: "#64748b", fontSize: 14, fontWeight: "700" },
+  cancelButtonText: { color: "#9cbed4", fontSize: 14, fontWeight: "700" },
 });

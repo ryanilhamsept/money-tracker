@@ -48,58 +48,58 @@ import { reviewSpending, replyToReview } from "../services/api";
 const categoryIcons = {
     "Account Transfer": {
         icon: ArrowLeftRight,
-        bg: "bg-green-100",
-        color: "text-green-700",
+        bg: "bg-green-500/15",
+        color: "text-green-300",
     },
     Food: {
         icon: Utensils,
-        bg: "bg-orange-100",
-        color: "text-orange-600",
+        bg: "bg-orange-500/15",
+        color: "text-orange-300",
     },
     Transportation: {
         icon: Car,
-        bg: "bg-blue-100",
-        color: "text-blue-600",
+        bg: "bg-blue-500/15",
+        color: "text-blue-400",
     },
     Groceries: {
         icon: Store,
-        bg: "bg-yellow-100",
-        color: "text-yellow-700",
+        bg: "bg-yellow-500/15",
+        color: "text-yellow-300",
     },
     Utilities: {
         icon: Lightbulb,
-        bg: "bg-amber-100",
-        color: "text-amber-600",
+        bg: "bg-amber-500/15",
+        color: "text-amber-300",
     },
     Entertainment: {
         icon: Gamepad2,
-        bg: "bg-pink-100",
-        color: "text-pink-600",
+        bg: "bg-sky-500/15",
+        color: "text-sky-400",
     },
     Internet: {
         icon: Globe,
-        bg: "bg-cyan-100",
-        color: "text-cyan-600",
+        bg: "bg-cyan-500/15",
+        color: "text-cyan-300",
     },
     Shopping: {
         icon: ShoppingBag,
-        bg: "bg-violet-100",
-        color: "text-violet-600",
+        bg: "bg-violet-500/15",
+        color: "text-violet-300",
     },
     Health: {
         icon: Heart,
-        bg: "bg-rose-100",
-        color: "text-rose-600",
+        bg: "bg-rose-500/15",
+        color: "text-rose-400",
     },
     Education: {
         icon: BookOpen,
-        bg: "bg-indigo-100",
-        color: "text-indigo-600",
+        bg: "bg-blue-500/15",
+        color: "text-blue-400",
     },
     Miscellaneous: {
         icon: Coins,
-        bg: "bg-gray-100",
-        color: "text-gray-600",
+        bg: "bg-slate-100",
+        color: "text-slate-500",
     },
 };
 const colors = [
@@ -493,7 +493,7 @@ export default function MonthlyReport({ transactions, budget = 0, deleteTransact
     }, [categoryReport, monthlyTotal]);
     return (
         <section className="grid min-w-0 gap-6 overflow-hidden lg:grid-cols-[380px_1fr]">
-            <Card className="overflow-hidden rounded-3xl border-0 bg-white shadow-xl">
+            <Card className="overflow-hidden rounded-3xl border-0 bg-surface shadow-xl">
                 <CardContent className="space-y-5 p-6">
                     <div className="min-w-0">
                         <h2 className="text-2xl font-black text-slate-900">
@@ -515,7 +515,7 @@ export default function MonthlyReport({ transactions, budget = 0, deleteTransact
                                     setSelectedMonth(event.target.value)
                                 }
                                 style={{ WebkitAppearance: "none" }}
-                                className="w-full min-w-0 max-w-full appearance-none rounded-2xl border-2 border-slate-100 bg-slate-50 px-4 py-3 outline-none focus:border-pink-400"
+                                className="w-full min-w-0 max-w-full appearance-none rounded-2xl border-2 border-slate-100 bg-slate-50 px-4 py-3 outline-none focus:border-sky-400"
                             />
                         </label>
                     </div>
@@ -573,7 +573,7 @@ export default function MonthlyReport({ transactions, budget = 0, deleteTransact
                                                 <p className="text-base font-black text-slate-900 mt-0.5 leading-none">
                                                     {formatCurrency(hoveredSlice.total)}
                                                 </p>
-                                                <p className="text-[11px] font-extrabold text-pink-500 mt-1 leading-none">
+                                                <p className="text-[11px] font-extrabold text-sky-400 mt-1 leading-none">
                                                     {hoveredSlice.percentage}%
                                                 </p>
                                             </>
@@ -598,7 +598,7 @@ export default function MonthlyReport({ transactions, budget = 0, deleteTransact
                     <div className="rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-5 text-white shadow-xl">
                         <div className="flex items-start gap-4">
                             <div className="rounded-2xl bg-white/10 p-3">
-                                <FileText className="h-6 w-6 text-pink-300" />
+                                <FileText className="h-6 w-6 text-sky-200" />
                             </div>
                             <div className="min-w-0">
                                 <p className="text-sm text-slate-300">
@@ -622,18 +622,18 @@ export default function MonthlyReport({ transactions, budget = 0, deleteTransact
                     initial={{ opacity: 0, y: 15 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3 }}
-                    className="rounded-3xl border border-pink-100 bg-pink-50/70 p-5 shadow-lg"
+                    className="rounded-3xl border border-sky-500/20 bg-sky-500/10 p-5 shadow-lg"
                 >
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                            <Sparkles className="h-5 w-5 text-pink-500" />
-                            <h3 className="text-base font-black text-pink-700">AI Review</h3>
+                            <Sparkles className="h-5 w-5 text-sky-400" />
+                            <h3 className="text-base font-black text-sky-300">AI Review</h3>
                         </div>
                         <button
                             type="button"
                             onClick={() => generateReview(true)}
                             disabled={isReviewLoading}
-                            className="flex items-center gap-1.5 rounded-full border border-pink-200 bg-white px-3 py-1.5 text-xs font-bold text-pink-600 shadow-sm transition hover:bg-pink-50 disabled:opacity-60"
+                            className="flex items-center gap-1.5 rounded-full border border-sky-500/30 bg-surface px-3 py-1.5 text-xs font-bold text-sky-400 shadow-sm transition hover:bg-sky-500/10 disabled:opacity-60"
                         >
                             <RotateCw className={`h-3.5 w-3.5 ${isReviewLoading ? "animate-spin" : ""}`} />
                             {aiReview || reviewError ? "Ulangi" : "Jalankan"}
@@ -642,33 +642,33 @@ export default function MonthlyReport({ transactions, budget = 0, deleteTransact
 
                     <div className="mt-3">
                         {isReviewLoading ? (
-                            <p className="text-sm font-semibold text-pink-400">
+                            <p className="text-sm font-semibold text-sky-300">
                                 Lagi nganalisa pengeluaran kamu...
                             </p>
                         ) : reviewError ? (
-                            <p className="text-sm font-bold text-rose-600">{reviewError}</p>
+                            <p className="text-sm font-bold text-rose-400">{reviewError}</p>
                         ) : aiReview ? (
-                            <p className="text-sm font-medium leading-relaxed text-pink-900">
+                            <p className="text-sm font-medium leading-relaxed text-sky-200">
                                 {aiReview}
                             </p>
                         ) : (
-                            <p className="text-sm font-semibold text-pink-400">
+                            <p className="text-sm font-semibold text-sky-300">
                                 Klik "Jalankan" buat lihat AI Review bulan ini.
                             </p>
                         )}
                     </div>
 
                     {aiReview && !isReviewLoading ? (
-                        <div className="mt-4 space-y-3 border-t border-pink-200/70 pt-3">
+                        <div className="mt-4 space-y-3 border-t border-sky-500/30 pt-3">
                             {reviewThread.length > 0 ? (
                                 <div className="flex items-center justify-between">
-                                    <span className="text-xs font-bold uppercase tracking-wide text-pink-400">
+                                    <span className="text-xs font-bold uppercase tracking-wide text-sky-300">
                                         Diskusi
                                     </span>
                                     <button
                                         type="button"
                                         onClick={handleClearThread}
-                                        className="flex items-center gap-1 rounded-full px-2 py-1 text-xs font-bold text-pink-400 transition hover:bg-pink-100 hover:text-pink-600"
+                                        className="flex items-center gap-1 rounded-full px-2 py-1 text-xs font-bold text-sky-300 transition hover:bg-sky-500/15 hover:text-sky-400"
                                     >
                                         <X className="h-3.5 w-3.5" />
                                         Tutup
@@ -677,20 +677,20 @@ export default function MonthlyReport({ transactions, budget = 0, deleteTransact
                             ) : null}
                             {reviewThread.map((entry, idx) =>
                                 entry.role === "user" ? (
-                                    <div key={idx} className="ml-auto max-w-[85%] rounded-2xl rounded-tr-sm bg-pink-600 px-3.5 py-2 text-sm font-medium text-white shadow-sm">
+                                    <div key={idx} className="ml-auto max-w-[85%] rounded-2xl rounded-tr-sm bg-sky-600 px-3.5 py-2 text-sm font-medium text-white shadow-sm">
                                         {entry.text}
                                     </div>
                                 ) : (
-                                    <div key={idx} className="mr-auto max-w-[85%] rounded-2xl rounded-tl-sm bg-white px-3.5 py-2 text-sm font-medium leading-relaxed text-pink-900 shadow-sm">
+                                    <div key={idx} className="mr-auto max-w-[85%] rounded-2xl rounded-tl-sm bg-surface px-3.5 py-2 text-sm font-medium leading-relaxed text-sky-200 shadow-sm">
                                         {entry.text}
                                     </div>
                                 )
                             )}
                             {isReplyLoading ? (
-                                <p className="text-xs font-semibold text-pink-400">AI lagi mikir...</p>
+                                <p className="text-xs font-semibold text-sky-300">AI lagi mikir...</p>
                             ) : null}
                             {replyError ? (
-                                <p className="text-xs font-bold text-rose-600">{replyError}</p>
+                                <p className="text-xs font-bold text-rose-400">{replyError}</p>
                             ) : null}
 
                             <div className="flex items-center gap-2">
@@ -708,13 +708,13 @@ export default function MonthlyReport({ transactions, budget = 0, deleteTransact
                                     }}
                                     disabled={isReplyLoading}
                                     placeholder="Bantah atau tanya balik AI-nya..."
-                                    className="flex-1 rounded-full border border-pink-200 bg-white px-3.5 py-2 text-sm font-medium text-pink-900 placeholder:text-pink-300 focus:outline-none focus:ring-2 focus:ring-pink-300 disabled:opacity-60"
+                                    className="flex-1 rounded-full border border-sky-500/30 bg-surface px-3.5 py-2 text-sm font-medium text-sky-200 placeholder:text-sky-200 focus:outline-none focus:ring-2 focus:ring-sky-400/40 disabled:opacity-60"
                                 />
                                 <button
                                     type="button"
                                     onClick={handleSendComment}
                                     disabled={isReplyLoading || !commentInput.trim()}
-                                    className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-pink-600 text-white shadow-sm transition hover:bg-pink-700 disabled:opacity-40"
+                                    className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-sky-600 text-white shadow-sm transition hover:bg-sky-700 disabled:opacity-40"
                                 >
                                     <Send className="h-4 w-4" />
                                 </button>
@@ -733,10 +733,10 @@ export default function MonthlyReport({ transactions, budget = 0, deleteTransact
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.3 }}
                         whileHover={{ y: -4, scale: 1.01 }}
-                        className="overflow-hidden rounded-3xl border border-white bg-white/80 p-5 shadow-lg backdrop-blur transition-all duration-300"
+                        className="overflow-hidden rounded-3xl border border-surface bg-surface/80 p-5 shadow-lg backdrop-blur transition-all duration-300"
                     >
                         <div className="flex items-center gap-3">
-                            <div className="rounded-2xl bg-blue-100 p-2.5 text-blue-600">
+                            <div className="rounded-2xl bg-blue-500/15 p-2.5 text-blue-400">
                                 <LineChart className="h-5 w-5" />
                             </div>
                             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
@@ -759,15 +759,15 @@ export default function MonthlyReport({ transactions, budget = 0, deleteTransact
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.3, delay: 0.05 }}
                         whileHover={{ y: -4, scale: 1.01 }}
-                        className="overflow-hidden rounded-3xl border border-white bg-white/80 p-5 shadow-lg backdrop-blur transition-all duration-300"
+                        className="overflow-hidden rounded-3xl border border-surface bg-surface/80 p-5 shadow-lg backdrop-blur transition-all duration-300"
                     >
                         <div className="flex items-center gap-3">
                             <div className={`rounded-2xl p-2.5 ${
                                 !comparisonPercentage 
                                     ? "bg-slate-100 text-slate-500" 
                                     : comparisonPercentage.isIncrease 
-                                        ? "bg-rose-100 text-rose-600" 
-                                        : "bg-emerald-100 text-emerald-600"
+                                        ? "bg-rose-500/15 text-rose-400" 
+                                        : "bg-emerald-500/15 text-emerald-400"
                             }`}>
                                 {!comparisonPercentage ? (
                                     <Percent className="h-5 w-5" />
@@ -786,8 +786,8 @@ export default function MonthlyReport({ transactions, budget = 0, deleteTransact
                                 !comparisonPercentage 
                                     ? "text-slate-950" 
                                     : comparisonPercentage.isIncrease 
-                                        ? "text-rose-600" 
-                                        : "text-emerald-600"
+                                        ? "text-rose-400" 
+                                        : "text-emerald-400"
                             }`}>
                                 {comparisonPercentage ? (
                                     <>
@@ -821,10 +821,10 @@ export default function MonthlyReport({ transactions, budget = 0, deleteTransact
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.3, delay: 0.1 }}
                         whileHover={{ y: -4, scale: 1.01 }}
-                        className="overflow-hidden rounded-3xl border border-white bg-white/80 p-5 shadow-lg backdrop-blur transition-all duration-300"
+                        className="overflow-hidden rounded-3xl border border-surface bg-surface/80 p-5 shadow-lg backdrop-blur transition-all duration-300"
                     >
                         <div className="flex items-center gap-3">
-                            <div className="rounded-2xl bg-amber-100 p-2.5 text-amber-600">
+                            <div className="rounded-2xl bg-amber-500/15 p-2.5 text-amber-300">
                                 <Crown className="h-5 w-5" />
                             </div>
                             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
@@ -850,10 +850,10 @@ export default function MonthlyReport({ transactions, budget = 0, deleteTransact
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.3, delay: 0.15 }}
                         whileHover={{ y: -4, scale: 1.01 }}
-                        className="overflow-hidden rounded-3xl border border-white bg-white/80 p-5 shadow-lg backdrop-blur transition-all duration-300"
+                        className="overflow-hidden rounded-3xl border border-surface bg-surface/80 p-5 shadow-lg backdrop-blur transition-all duration-300"
                     >
                         <div className="flex items-center gap-3">
-                            <div className="rounded-2xl bg-rose-100 p-2.5 text-rose-600">
+                            <div className="rounded-2xl bg-rose-500/15 p-2.5 text-rose-400">
                                 <CalendarDays className="h-5 w-5" />
                             </div>
                             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
@@ -903,7 +903,7 @@ export default function MonthlyReport({ transactions, budget = 0, deleteTransact
                     </div>
                 </div>
 
-                <Card className="overflow-hidden rounded-3xl border-0 bg-white shadow-xl">
+                <Card className="overflow-hidden rounded-3xl border-0 bg-surface shadow-xl">
                     <CardContent className="p-6">
                         <h3 className="mb-5 text-2xl font-black text-slate-900">
                             Rincian Harian
@@ -938,13 +938,13 @@ export default function MonthlyReport({ transactions, budget = 0, deleteTransact
                                                     {item.transactions.filter((t) => t.type !== "income").length}{" "}
                                                     pengeluaran
                                                     {item.incomeCount > 0 && (
-                                                        <span className="text-emerald-600">
+                                                        <span className="text-emerald-400">
                                                             {" "}· {item.incomeCount} pemasukan +{formatCurrency(item.incomeAmount)}
                                                         </span>
                                                     )}
                                                 </p>
                                             </div>
-                                            <p className="shrink-0 text-lg font-black text-rose-500">
+                                            <p className="shrink-0 text-lg font-black text-rose-400">
                                                 -{formatCurrency(item.amount)}
                                             </p>
                                         </button>
@@ -959,7 +959,7 @@ export default function MonthlyReport({ transactions, budget = 0, deleteTransact
                                                     return (
                                                         <div
                                                             key={t.id}
-                                                            className="flex min-w-0 items-center justify-between gap-3 rounded-2xl bg-white p-3 shadow-sm"
+                                                            className="flex min-w-0 items-center justify-between gap-3 rounded-2xl bg-surface p-3 shadow-sm"
                                                         >
                                                             <div className="flex min-w-0 items-center gap-3">
                                                                 <div className={`shrink-0 rounded-2xl p-2 ${categoryData.bg}`}>
@@ -979,7 +979,7 @@ export default function MonthlyReport({ transactions, budget = 0, deleteTransact
                                                             <div className="flex shrink-0 items-center gap-2">
                                                                 <p
                                                                     className={`font-black ${
-                                                                        isIncome ? "text-emerald-500" : "text-rose-500"
+                                                                        isIncome ? "text-emerald-400" : "text-rose-400"
                                                                     }`}
                                                                 >
                                                                     {isIncome ? "+" : "-"}
@@ -995,14 +995,14 @@ export default function MonthlyReport({ transactions, budget = 0, deleteTransact
                                                                                     setPendingDeleteId("");
                                                                                     void deleteTransaction(t.id);
                                                                                 }}
-                                                                                className="rounded-xl bg-rose-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-rose-700 active:scale-95"
+                                                                                className="rounded-xl bg-rose-500 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-rose-600 active:scale-95"
                                                                             >
                                                                                 Hapus
                                                                             </button>
                                                                             <button
                                                                                 type="button"
                                                                                 onClick={() => setPendingDeleteId("")}
-                                                                                className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-400 transition hover:bg-slate-50"
+                                                                                className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-surface text-slate-400 transition hover:bg-slate-50"
                                                                                 aria-label="Batal hapus"
                                                                             >
                                                                                 <X className="h-4 w-4" />
@@ -1012,7 +1012,7 @@ export default function MonthlyReport({ transactions, budget = 0, deleteTransact
                                                                         <button
                                                                             type="button"
                                                                             onClick={() => setPendingDeleteId(t.id)}
-                                                                            className="flex h-8 w-8 items-center justify-center rounded-xl border border-rose-100 bg-rose-50 text-rose-400 transition hover:bg-rose-100 hover:text-rose-600 active:scale-95"
+                                                                            className="flex h-8 w-8 items-center justify-center rounded-xl border border-rose-500/20 bg-rose-500/10 text-rose-400 transition hover:bg-rose-500/15 hover:text-rose-400 active:scale-95"
                                                                             aria-label="Hapus transaksi"
                                                                         >
                                                                             <Trash2 className="h-4 w-4" />
@@ -1032,7 +1032,7 @@ export default function MonthlyReport({ transactions, budget = 0, deleteTransact
                     </CardContent>
                 </Card>
 
-                <Card className="overflow-hidden rounded-3xl border-0 bg-white shadow-xl">
+                <Card className="overflow-hidden rounded-3xl border-0 bg-surface shadow-xl">
                     <CardContent className="p-6">
                         <h3 className="mb-5 text-2xl font-black text-slate-900">
                             Spending by Category
@@ -1097,9 +1097,9 @@ export default function MonthlyReport({ transactions, budget = 0, deleteTransact
                                                         {formatCurrency(item.total)}
                                                     </p>
                                                 </div>
-                                                <div className="mt-3 h-2 overflow-hidden rounded-full bg-white">
+                                                <div className="mt-3 h-2 overflow-hidden rounded-full bg-surface">
                                                     <div
-                                                        className="h-full rounded-full bg-gradient-to-r from-pink-500 to-violet-500"
+                                                        className="h-full rounded-full bg-gradient-to-r from-sky-500 to-blue-500"
                                                         style={{
                                                             width: `${item.percentage}%`,
                                                         }}
@@ -1123,7 +1123,7 @@ export default function MonthlyReport({ transactions, budget = 0, deleteTransact
                                                             return (
                                                                 <div
                                                                     key={transaction.id}
-                                                                    className="flex min-w-0 items-center justify-between gap-3 rounded-2xl bg-white p-3 shadow-sm"
+                                                                    className="flex min-w-0 items-center justify-between gap-3 rounded-2xl bg-surface p-3 shadow-sm"
                                                                 >
                                                                     <div className="flex min-w-0 items-center gap-3">
                                                                         <div
@@ -1146,7 +1146,7 @@ export default function MonthlyReport({ transactions, budget = 0, deleteTransact
                                                                             </p>
                                                                         </div>
                                                                     </div>
-                                                                    <p className="shrink-0 font-black text-rose-500">
+                                                                    <p className="shrink-0 font-black text-rose-400">
                                                                         -
                                                                         {formatCurrency(
                                                                             transaction.amount
@@ -1165,7 +1165,7 @@ export default function MonthlyReport({ transactions, budget = 0, deleteTransact
                         )}
                     </CardContent>
                 </Card>
-                <Card className="overflow-hidden rounded-3xl border-0 bg-white shadow-xl">
+                <Card className="overflow-hidden rounded-3xl border-0 bg-surface shadow-xl">
                     <CardContent className="p-6">
                         <h3 className="mb-5 text-2xl font-black text-slate-900">
                             Spending by Sumber Dana
@@ -1193,11 +1193,11 @@ export default function MonthlyReport({ transactions, budget = 0, deleteTransact
                         )}
                     </CardContent>
                 </Card>
-                <Card className="overflow-hidden rounded-3xl border-0 bg-white shadow-xl">
+                <Card className="overflow-hidden rounded-3xl border-0 bg-surface shadow-xl">
                     <CardContent className="p-6">
                         <div className="mb-5 flex items-center gap-3">
-                            <div className="rounded-2xl bg-pink-100 p-3">
-                                <Wallet className="h-5 w-5 text-pink-600" />
+                            <div className="rounded-2xl bg-sky-500/15 p-3">
+                                <Wallet className="h-5 w-5 text-sky-400" />
                             </div>
                             <h3 className="text-2xl font-black text-slate-900">
                                 Ambil Dari Mana
@@ -1264,7 +1264,7 @@ export default function MonthlyReport({ transactions, budget = 0, deleteTransact
                                                         return (
                                                             <div
                                                                 key={transaction.id}
-                                                                className="flex min-w-0 items-center justify-between gap-3 rounded-2xl bg-white p-3 shadow-sm"
+                                                                className="flex min-w-0 items-center justify-between gap-3 rounded-2xl bg-surface p-3 shadow-sm"
                                                             >
                                                                 <div className="flex min-w-0 items-center gap-3">
                                                                     <div
@@ -1286,7 +1286,7 @@ export default function MonthlyReport({ transactions, budget = 0, deleteTransact
                                                                         </p>
                                                                     </div>
                                                                 </div>
-                                                                <p className="shrink-0 font-black text-rose-500">
+                                                                <p className="shrink-0 font-black text-rose-400">
                                                                     -{formatCurrency(transaction.amount)}
                                                                 </p>
                                                             </div>

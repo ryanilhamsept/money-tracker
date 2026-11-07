@@ -244,7 +244,7 @@ export default function Login() {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: "#0a051b",
+    backgroundColor: "#0b5f8d",
     flex: 1,
   },
   scrollContainer: {
@@ -267,7 +267,7 @@ const styles = StyleSheet.create({
   },
   logoOrb: {
     alignItems: "center",
-    backgroundColor: "#ec4899",
+    backgroundColor: "#0ea5e9",
     borderRadius: 16,
     height: 56,
     justifyContent: "center",
@@ -286,7 +286,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   subtitle: {
-    color: "#94a3b8",
+    color: "#7aa0b8",
     fontSize: 13,
     fontWeight: "500",
     marginTop: 8,
@@ -299,7 +299,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   label: {
-    color: "#cbd5e1",
+    color: "#9cbed4",
     fontSize: 12,
     fontWeight: "700",
     textTransform: "uppercase",
@@ -316,7 +316,7 @@ const styles = StyleSheet.create({
   },
   button: {
     alignItems: "center",
-    backgroundColor: "#ec4899",
+    backgroundColor: "#0ea5e9",
     borderRadius: 16,
     justifyContent: "center",
     marginTop: 8,
@@ -335,7 +335,7 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   errorText: {
-    color: "#f43f5e",
+    color: "#fb7185",
     fontSize: 13,
     fontWeight: "600",
     textAlign: "center",
@@ -348,7 +348,7 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   successText: {
-    color: "#10b981",
+    color: "#34d399",
     fontSize: 13,
     fontWeight: "600",
     textAlign: "center",
@@ -359,12 +359,12 @@ const styles = StyleSheet.create({
     marginTop: 28,
   },
   footerText: {
-    color: "#94a3b8",
+    color: "#7aa0b8",
     fontSize: 14,
     fontWeight: "500",
   },
   footerLink: {
-    color: "#ec4899",
+    color: "#f472b6",
     fontSize: 14,
     fontWeight: "700",
   },

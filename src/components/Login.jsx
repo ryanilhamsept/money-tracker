@@ -79,7 +79,7 @@ export default function Login() {
     };
 
     return (
-        <div className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-[#0a051b] px-4 py-12 font-sans">
+        <div className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-[#0b5f8d] px-4 py-12 font-sans">
             {/* Background Glow Orbs */}
             <div className="absolute top-[-10%] left-[-10%] h-[500px] w-[500px] rounded-full bg-purple-900/20 blur-[120px]" />
             <div className="absolute bottom-[-10%] right-[-10%] h-[500px] w-[500px] rounded-full bg-pink-900/20 blur-[120px]" />
@@ -95,7 +95,7 @@ export default function Login() {
                         initial={{ scale: 0.8 }}
                         animate={{ scale: 1 }}
                         transition={{ delay: 0.2, type: "spring" }}
-                        className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-tr from-pink-500 to-indigo-500 shadow-lg shadow-pink-500/20"
+                        className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-tr from-sky-500 to-blue-600 shadow-lg shadow-pink-500/20"
                     >
                         <span className="text-2xl font-black text-white">M</span>
                     </motion.div>
@@ -116,7 +116,7 @@ export default function Login() {
                                 placeholder="Masukkan username"
                                 value={username}
                                 onChange={(e) => setUsername(e.target.value)}
-                                className="w-full rounded-2xl border border-white/10 bg-white/[0.05] py-3.5 pl-12 pr-4 text-white placeholder-slate-500 outline-none transition focus:border-pink-500/50 focus:ring-2 focus:ring-pink-500/10 focus:bg-white/[0.08]"
+                                className="w-full rounded-2xl border border-white/10 bg-white/[0.05] py-3.5 pl-12 pr-4 text-white placeholder-slate-500 outline-none transition focus:border-sky-500/50 focus:ring-2 focus:ring-sky-500/10 focus:bg-white/[0.08]"
                             />
                         </div>
                     </label>
@@ -131,7 +131,7 @@ export default function Login() {
                                 placeholder="••••••••"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
-                                className="w-full rounded-2xl border border-white/10 bg-white/[0.05] py-3.5 pl-12 pr-4 text-white placeholder-slate-500 outline-none transition focus:border-pink-500/50 focus:ring-2 focus:ring-pink-500/10 focus:bg-white/[0.08]"
+                                className="w-full rounded-2xl border border-white/10 bg-white/[0.05] py-3.5 pl-12 pr-4 text-white placeholder-slate-500 outline-none transition focus:border-sky-500/50 focus:ring-2 focus:ring-sky-500/10 focus:bg-white/[0.08]"
                             />
                         </div>
                     </label>
@@ -163,7 +163,7 @@ export default function Login() {
                     <button
                         type="submit"
                         disabled={isLoading}
-                        className="group flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-pink-500 to-indigo-500 py-4 text-base font-bold text-white shadow-lg shadow-pink-500/25 transition active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 hover:opacity-95"
+                        className="group flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 py-4 text-base font-bold text-white shadow-lg shadow-pink-500/25 transition active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 hover:opacity-95"
                     >
                         {isLoading ? (
                             <Loader2 className="h-5 w-5 animate-spin" />
@@ -186,7 +186,7 @@ export default function Login() {
                                 setErrorMessage("");
                                 setSuccessMessage("");
                             }}
-                            className="font-bold text-pink-400 hover:text-pink-300 transition outline-none"
+                            className="font-bold text-sky-300 hover:text-sky-200 transition outline-none"
                         >
                             {isSignUp ? "Masuk" : "Buat Akun Baru"}
                         </button>

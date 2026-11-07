@@ -178,7 +178,7 @@ export default function PinLockScreen({ mode, onSuccess, onCancel }) {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: "#0a051b" },
+  screen: { flex: 1, backgroundColor: "#0b5f8d" },
   content: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, gap: 12 },
   lockEmoji: { fontSize: 40 },
   title: { color: "#ffffff", fontSize: 18, fontWeight: "900", marginTop: 4 },
@@ -189,9 +189,9 @@ const styles = StyleSheet.create({
     height: 14,
     borderRadius: 7,
     borderWidth: 2,
-    borderColor: "#94a3b8",
+    borderColor: "#0f5479",
   },
-  dotFilled: { backgroundColor: "#ec4899", borderColor: "#ec4899" },
+  dotFilled: { backgroundColor: "#0ea5e9", borderColor: "#0ea5e9" },
   keypad: { gap: 16 },
   keypadRow: { flexDirection: "row", gap: 24 },
   keypadKey: {
@@ -204,7 +204,7 @@ const styles = StyleSheet.create({
   },
   keypadKeyText: { color: "#ffffff", fontSize: 26, fontWeight: "700" },
   cancelButton: { marginTop: 24, paddingVertical: 10 },
-  cancelButtonText: { color: "#94a3b8", fontSize: 14, fontWeight: "700" },
+  cancelButtonText: { color: "#7aa0b8", fontSize: 14, fontWeight: "700" },
   manageButton: {
     backgroundColor: "rgba(255,255,255,0.08)",
     borderRadius: 16,

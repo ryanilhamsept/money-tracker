@@ -484,8 +484,12 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
       <View key={account.id} style={styles.accountCard}>
         <View style={styles.accountRow}>
           <View style={styles.accountInfo}>
-            <Text style={styles.accountName}>{account.name}</Text>
-            <Text style={styles.accountType}>{account.type} · IDR</Text>
+            <Text style={styles.accountName} numberOfLines={1}>
+              {account.name}
+            </Text>
+            <Text style={styles.accountType} numberOfLines={1}>
+              {account.type} · IDR
+            </Text>
           </View>
 
           {isCardEditing ? (
@@ -693,7 +697,7 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
                                         <Text style={styles.installmentName} numberOfLines={1}>
                                             {title}
                                         </Text>
-                                        <Text style={styles.installmentTerm}>
+                                        <Text style={styles.installmentTerm} numberOfLines={2}>
                                             {installment
                                                 ? `Sisa ${formatCurrency(installment.remainingBalance)} dari ${formatCurrency(installment.totalLoan)}`
                                                 : `Cicilan • ${children.length}x pembayaran`}
@@ -702,7 +706,12 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
                                         </Text>
                                     </View>
                                     <View style={styles.historyGroupRight}>
-                                        <Text style={styles.installmentName}>
+                                        <Text
+                                            style={styles.installmentName}
+                                            numberOfLines={1}
+                                            adjustsFontSizeToFit
+                                            minimumFontScale={0.8}
+                                        >
                                             {formatCurrency(
                                                 parent?.installmentTotalLoan ??
                                                     installment?.totalLoan ??
@@ -1307,66 +1316,66 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
 }
 
 const styles = StyleSheet.create({
-  content: { padding: 20, paddingBottom: 100, gap: 16 },
-  title: { color: "#0f172a", fontSize: 28, fontWeight: "900" },
+  content: { padding: 20, paddingBottom: 60, gap: 16 },
+  title: { color: "#e8f3fb", fontSize: 28, fontWeight: "900" },
   netWorthPanel: { backgroundColor: colors.surface, borderColor: colors.surfaceBorder, borderWidth: 1, borderRadius: 24, padding: 20 },
-  netWorthLabel: { color: "#64748b", fontSize: 13, fontWeight: "700" },
-  netWorthValue: { color: "#0f172a", fontSize: 30, fontWeight: "900", marginTop: 4 },
+  netWorthLabel: { color: "#9cbed4", fontSize: 13, fontWeight: "700" },
+  netWorthValue: { color: "#e8f3fb", fontSize: 30, fontWeight: "900", marginTop: 4 },
   netWorthChartWrap: { marginTop: 18 },
   netWorthChartHeader: { alignItems: "baseline", flexDirection: "row", justifyContent: "space-between" },
-  netWorthChartTitle: { color: "#0f172a", fontSize: 15, fontWeight: "900" },
-  netWorthChartMeta: { color: "#94a3b8", fontSize: 11, fontWeight: "700" },
-  netWorthGrid: { borderTopColor: "#f1f5f9", borderTopWidth: 1, flexDirection: "row", flexWrap: "wrap", marginTop: 16, paddingTop: 16 },
+  netWorthChartTitle: { color: "#e8f3fb", fontSize: 15, fontWeight: "900" },
+  netWorthChartMeta: { color: "#7aa0b8", fontSize: 11, fontWeight: "700" },
+  netWorthGrid: { borderTopColor: "#06324c", borderTopWidth: 1, flexDirection: "row", flexWrap: "wrap", marginTop: 16, paddingTop: 16 },
   netWorthGridItem: { marginBottom: 12, paddingRight: 10, width: "50%" },
   netWorthLegendRow: { alignItems: "center", flexDirection: "row", gap: 6 },
   netWorthDot: { borderRadius: 5, height: 9, width: 9 },
-  netWorthGroupLabel: { color: "#64748b", fontSize: 12, fontWeight: "700" },
-  netWorthGroupValue: { color: "#0f172a", fontSize: 16, fontWeight: "900", marginTop: 2 },
-  netWorthChange: { borderTopColor: "#f1f5f9", borderTopWidth: 1, marginTop: 4, paddingTop: 16 },
-  netWorthChangeTitle: { color: "#0f172a", fontSize: 15, fontWeight: "900" },
-  netWorthChangeMeta: { color: "#64748b", fontSize: 13, fontWeight: "600", marginTop: 2 },
-  bulkBar: { alignItems: "center", backgroundColor: "#fdf2f8", borderColor: "#fbcfe8", borderRadius: 16, borderWidth: 1, flexDirection: "row", gap: 8, marginBottom: 10, padding: 10 },
-  bulkTitle: { color: "#9d174d", fontSize: 12, fontWeight: "900" },
-  bulkMeta: { color: "#be185d", fontSize: 11, fontWeight: "700", marginTop: 1 },
-  bulkCancel: { backgroundColor: "#ffffff", borderColor: "#fbcfe8", borderRadius: 12, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 7 },
-  bulkCancelText: { color: "#be185d", fontSize: 12, fontWeight: "800" },
-  bulkPay: { backgroundColor: "#ec4899", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8 },
+  netWorthGroupLabel: { color: "#9cbed4", fontSize: 12, fontWeight: "700" },
+  netWorthGroupValue: { color: "#e8f3fb", fontSize: 16, fontWeight: "900", marginTop: 2 },
+  netWorthChange: { borderTopColor: "#06324c", borderTopWidth: 1, marginTop: 4, paddingTop: 16 },
+  netWorthChangeTitle: { color: "#e8f3fb", fontSize: 15, fontWeight: "900" },
+  netWorthChangeMeta: { color: "#9cbed4", fontSize: 13, fontWeight: "600", marginTop: 2 },
+  bulkBar: { alignItems: "center", backgroundColor: "rgba(244,114,182,0.14)", borderColor: "rgba(244,114,182,0.22)", borderRadius: 16, borderWidth: 1, flexDirection: "row", gap: 8, marginBottom: 10, padding: 10 },
+  bulkTitle: { color: "#f9a8d4", fontSize: 12, fontWeight: "900" },
+  bulkMeta: { color: "#f9a8d4", fontSize: 11, fontWeight: "700", marginTop: 1 },
+  bulkCancel: { backgroundColor: "#083c5a", borderColor: "rgba(244,114,182,0.22)", borderRadius: 12, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 7 },
+  bulkCancelText: { color: "#f9a8d4", fontSize: 12, fontWeight: "800" },
+  bulkPay: { backgroundColor: "#0ea5e9", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8 },
   bulkPayText: { color: "#ffffff", fontSize: 12, fontWeight: "800" },
-  groupRenameRow: { alignItems: "center", backgroundColor: "#fdf2f8", borderColor: "#fbcfe8", borderRadius: 16, borderWidth: 1, flexDirection: "row", gap: 6, marginTop: 6, padding: 8 },
-  groupRenameInput: { backgroundColor: "#ffffff", borderColor: "#fbcfe8", borderRadius: 12, borderWidth: 1, color: "#0f172a", flex: 1, fontSize: 12, fontWeight: "700", paddingHorizontal: 10, paddingVertical: 7 },
-  groupRenameSave: { backgroundColor: "#ec4899", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8 },
+  groupRenameRow: { alignItems: "center", backgroundColor: "rgba(244,114,182,0.14)", borderColor: "rgba(244,114,182,0.22)", borderRadius: 16, borderWidth: 1, flexDirection: "row", gap: 6, marginTop: 6, padding: 8 },
+  groupRenameInput: { backgroundColor: "#083c5a", borderColor: "rgba(244,114,182,0.22)", borderRadius: 12, borderWidth: 1, color: "#e8f3fb", flex: 1, fontSize: 12, fontWeight: "700", paddingHorizontal: 10, paddingVertical: 7 },
+  groupRenameSave: { backgroundColor: "#0ea5e9", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8 },
   groupRenameSaveText: { color: "#ffffff", fontSize: 12, fontWeight: "800" },
-  groupRenameHint: { color: "#64748b", fontSize: 10, marginTop: 4, paddingHorizontal: 4 },
+  groupRenameHint: { color: "#9cbed4", fontSize: 10, marginTop: 4, paddingHorizontal: 4 },
   accountGroup: { gap: 10 },
   accountGroupHeader: { alignItems: "baseline", flexDirection: "row", justifyContent: "space-between", gap: 10 },
   accountGroupLabelRow: { alignItems: "center", flexDirection: "row", flexShrink: 1, gap: 6 },
-  accountGroupLabel: { color: "#64748b", fontSize: 12, fontWeight: "900", letterSpacing: 0.4, textTransform: "uppercase" },
-  accountGroupBadge: { backgroundColor: "#f1f5f9", borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
-  accountGroupBadgeText: { color: "#64748b", fontSize: 10, fontWeight: "800" },
-  accountGroupTotal: { color: "#0f172a", fontSize: 13, fontWeight: "900" },
-  netWorthNote: { color: "#94a3b8", fontSize: 11, lineHeight: 16, marginTop: 14 },
+  accountGroupLabel: { color: "#9cbed4", fontSize: 12, fontWeight: "900", letterSpacing: 0.4, textTransform: "uppercase" },
+  accountGroupBadge: { backgroundColor: "#06324c", borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
+  accountGroupBadgeText: { color: "#9cbed4", fontSize: 10, fontWeight: "800" },
+  accountGroupTotal: { color: "#e8f3fb", fontSize: 13, fontWeight: "900" },
+  netWorthNote: { color: "#7aa0b8", fontSize: 11, lineHeight: 16, marginTop: 14 },
   headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  sectionTitle: { color: "#0f172a", fontSize: 18, fontWeight: "900" },
-  addButton: { backgroundColor: "#ffffff", borderColor: "#e2e8f0", borderWidth: 1, borderRadius: 16, paddingHorizontal: 14, paddingVertical: 10 },
-  addButtonText: { color: "#334155", fontSize: 13, fontWeight: "800" },
-  searchInput: { backgroundColor: "#ffffff", borderColor: "#e2e8f0", borderWidth: 1, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 12, color: "#0f172a" },
+  sectionTitle: { color: "#e8f3fb", fontSize: 18, fontWeight: "900" },
+  addButton: { backgroundColor: "#083c5a", borderColor: "#0f5479", borderWidth: 1, borderRadius: 16, paddingHorizontal: 14, paddingVertical: 10 },
+  addButtonText: { color: "#cfe3f0", fontSize: 13, fontWeight: "800" },
+  searchInput: { backgroundColor: "#083c5a", borderColor: "#0f5479", borderWidth: 1, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 12, color: "#e8f3fb" },
   list: { gap: 10 },
-  emptyText: { color: "#64748b", fontSize: 13, textAlign: "center", padding: 20 },
+  emptyText: { color: "#9cbed4", fontSize: 13, textAlign: "center", padding: 20 },
   accountCard: { backgroundColor: colors.surface, borderColor: colors.surfaceBorder, borderWidth: 1, borderRadius: 16, padding: 14, gap: 10 },
   accountRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
-  accountInfo: { flex: 1 },
-  accountName: { color: "#0f172a", fontSize: 15, fontWeight: "900" },
-  accountType: { color: "#64748b", fontSize: 12, fontWeight: "700", marginTop: 2 },
-  balanceRow: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 10 },
-  accountBalance: { color: "#0f172a", fontSize: 15, fontWeight: "900" },
+  accountInfo: { flex: 1, minWidth: 0 },
+  accountName: { color: "#e8f3fb", fontSize: 15, fontWeight: "900" },
+  accountType: { color: "#9cbed4", fontSize: 12, fontWeight: "700", marginTop: 2 },
+  balanceRow: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", flexShrink: 0, gap: 10 },
+  accountBalance: { color: "#e8f3fb", fontSize: 15, fontWeight: "900" },
   editRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-  editInput: { flex: 1, backgroundColor: colors.surfaceMuted, borderColor: "#e2e8f0", borderWidth: 1, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 8, color: "#0f172a" },
-  iconButton: { width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: "#e2e8f0", backgroundColor: "#ffffff", alignItems: "center", justifyContent: "center" },
+  editInput: { flex: 1, backgroundColor: colors.surfaceMuted, borderColor: "#0f5479", borderWidth: 1, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 8, color: "#e8f3fb" },
+  iconButton: { width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: "#0f5479", backgroundColor: "#083c5a", alignItems: "center", justifyContent: "center" },
   iconButtonSpaced: { marginRight: 4 },
-  iconButtonText: { color: "#475569", fontSize: 14 },
-  iconButtonDark: { width: 34, height: 34, borderRadius: 17, backgroundColor: "#0f172a", alignItems: "center", justifyContent: "center" },
+  iconButtonText: { color: "#9cbed4", fontSize: 14 },
+  iconButtonDark: { width: 34, height: 34, borderRadius: 17, backgroundColor: "#0b5f8d", alignItems: "center", justifyContent: "center" },
   iconButtonDarkText: { color: "#ffffff", fontSize: 14, fontWeight: "900" },
-  iconButtonDanger: { width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: "#fecdd3", backgroundColor: "#fff1f2", alignItems: "center", justifyContent: "center" },
+  iconButtonDanger: { width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: "rgba(251,113,133,0.22)", backgroundColor: "rgba(251,113,133,0.16)", alignItems: "center", justifyContent: "center" },
   iconButtonDangerText: { fontSize: 13 },
   pressed: { opacity: 0.75 },
   disabled: { opacity: 0.6 },
@@ -1375,7 +1384,7 @@ const styles = StyleSheet.create({
   remainingLabel: { color: "rgba(255,255,255,0.7)", fontSize: 12, fontWeight: "700" },
   remainingValue: { color: "#ffffff", fontSize: 16, fontWeight: "900" },
   progressTrack: { height: 6, borderRadius: 3, backgroundColor: "rgba(255,255,255,0.2)", marginTop: 8, overflow: "hidden" },
-  progressFill: { height: "100%", borderRadius: 3, backgroundColor: "#ffffff" },
+  progressFill: { height: "100%", borderRadius: 3, backgroundColor: "#083c5a" },
   remainingMetaRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 8 },
   remainingMetaText: { color: "rgba(255,255,255,0.7)", fontSize: 11, fontWeight: "700" },
   paymentButton: { backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 12, paddingVertical: 10, marginTop: 12 },
@@ -1383,35 +1392,35 @@ const styles = StyleSheet.create({
   editCardPanel: { backgroundColor: colors.surfaceMuted, borderRadius: 16, padding: 14, gap: 10 },
   editCardRow: { flexDirection: "row", gap: 10 },
   editCardField: { flex: 1, gap: 6 },
-  editCardLabel: { fontSize: 11, fontWeight: "700", color: "#64748b", textTransform: "uppercase" },
-  editCardInput: { backgroundColor: "#ffffff", borderColor: "#e2e8f0", borderWidth: 1, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 8, color: "#0f172a", fontSize: 13, fontWeight: "700" },
-  cardsPanel: { backgroundColor: "#18181b", borderRadius: 24, padding: 20 },
+  editCardLabel: { fontSize: 11, fontWeight: "700", color: "#9cbed4", textTransform: "uppercase" },
+  editCardInput: { backgroundColor: "#083c5a", borderColor: "#0f5479", borderWidth: 1, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 8, color: "#e8f3fb", fontSize: 13, fontWeight: "700" },
+  cardsPanel: { backgroundColor: "#0b5f8d", borderRadius: 24, padding: 20 },
   cardsPanelTitle: { color: "#ffffff", fontSize: 18, fontWeight: "900" },
   cardsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 14 },
   cardsTile: { flexBasis: "47%", flexGrow: 1, backgroundColor: "rgba(255,255,255,0.1)", borderRadius: 16, padding: 12 },
   cardsTileLabel: { color: "rgba(255,255,255,0.5)", fontSize: 10, fontWeight: "700", textTransform: "uppercase" },
   cardsTileValue: { color: "#ffffff", fontSize: 16, fontWeight: "900", marginTop: 4 },
   checkboxRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-  checkbox: { width: 20, height: 20, borderRadius: 6, borderWidth: 1.5, borderColor: "#cbd5e1", alignItems: "center", justifyContent: "center" },
-  checkboxChecked: { backgroundColor: "#ec4899", borderColor: "#ec4899" },
+  checkbox: { width: 20, height: 20, borderRadius: 6, borderWidth: 1.5, borderColor: "#0f5479", alignItems: "center", justifyContent: "center" },
+  checkboxChecked: { backgroundColor: "#0ea5e9", borderColor: "#0ea5e9" },
   checkboxMark: { color: "#ffffff", fontSize: 12, fontWeight: "900" },
-  checkboxLabel: { fontSize: 13, fontWeight: "600", color: "#334155", flex: 1 },
+  checkboxLabel: { fontSize: 13, fontWeight: "600", color: "#cfe3f0", flex: 1 },
   colorRow: { flexDirection: "row", gap: 10 },
-  colorSwatch: { width: 32, height: 32, borderRadius: 16, borderWidth: 2, borderColor: "#ffffff" },
-  colorSwatchSelected: { borderColor: "#ec4899" },
+  colorSwatch: { width: 32, height: 32, borderRadius: 16, borderWidth: 2, borderColor: "#083c5a" },
+  colorSwatchSelected: { borderColor: "#0ea5e9" },
   backdrop: { flex: 1, backgroundColor: "rgba(15, 23, 42, 0.55)", justifyContent: "flex-end" },
   sheetScroll: { maxHeight: "88%" },
-  sheet: { backgroundColor: "#ffffff", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 32, gap: 16 },
-  sheetTitle: { color: "#0f172a", fontSize: 20, fontWeight: "900" },
+  sheet: { backgroundColor: "#083c5a", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 32, gap: 16 },
+  sheetTitle: { color: "#e8f3fb", fontSize: 20, fontWeight: "900" },
   inputGroup: { gap: 8 },
-  label: { color: "#64748b", fontSize: 12, fontWeight: "700", textTransform: "uppercase" },
-  input: { backgroundColor: colors.surfaceMuted, borderColor: "#e2e8f0", borderWidth: 1, borderRadius: 16, color: "#0f172a", fontSize: 15, paddingHorizontal: 14, paddingVertical: 12 },
+  label: { color: "#9cbed4", fontSize: 12, fontWeight: "700", textTransform: "uppercase" },
+  input: { backgroundColor: colors.surfaceMuted, borderColor: "#0f5479", borderWidth: 1, borderRadius: 16, color: "#e8f3fb", fontSize: 15, paddingHorizontal: 14, paddingVertical: 12 },
   colorButton: { alignItems: "center", borderRadius: 16, height: 48, justifyContent: "center", width: 48 },
   installmentsWrap: {
     marginTop: 12,
   },
   historyTitle: {
-    color: "#94a3b8",
+    color: "#7aa0b8",
     fontSize: 11,
     fontWeight: "800",
     letterSpacing: 0.5,
@@ -1424,12 +1433,14 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   historyGroupRight: {
-    alignItems: "flex-end",
+    alignItems: "center",
     flexDirection: "row",
-    gap: 8,
+    flexShrink: 0,
+    gap: 6,
+    maxWidth: "46%",
   },
   historyChevron: {
-    color: "#94a3b8",
+    color: "#7aa0b8",
     fontSize: 10,
   },
   historyGroupChildren: {
@@ -1438,15 +1449,15 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     paddingLeft: 12,
     borderLeftWidth: 2,
-    borderLeftColor: "#e2e8f0",
+    borderLeftColor: "#0f5479",
     gap: 6,
   },
   historyChildItem: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "#ffffff",
-    borderColor: "#f1f5f9",
+    backgroundColor: "#083c5a",
+    borderColor: "#06324c",
     borderRadius: 12,
     borderWidth: 1,
     paddingHorizontal: 10,
@@ -1460,7 +1471,7 @@ const styles = StyleSheet.create({
     paddingRight: 10,
   },
   historyChildMeta: {
-    color: "#64748b",
+    color: "#9cbed4",
     fontSize: 11,
     fontWeight: "600",
   },
@@ -1477,8 +1488,8 @@ const styles = StyleSheet.create({
     width: 18,
     borderRadius: 4,
     borderWidth: 1.5,
-    borderColor: "#cbd5e1",
-    backgroundColor: "#ffffff",
+    borderColor: "#0f5479",
+    backgroundColor: "#083c5a",
   },
   checkboxMark: {
     fontSize: 11,
@@ -1488,41 +1499,43 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "#f8fafc",
+    backgroundColor: "#06324c",
+    gap: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: 16,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: "#f1f5f9",
+    borderColor: "#06324c",
   },
   installmentInfo: {
     flex: 1,
-    paddingRight: 12,
+    // Tanpa ini kolom teks menolak menyusut dan malah mematah per kata.
+    minWidth: 0,
   },
   installmentName: {
-    color: "#334155",
+    color: "#cfe3f0",
     fontSize: 13,
     fontWeight: "800",
     marginBottom: 2,
   },
   installmentTerm: {
-    color: "#64748b",
+    color: "#9cbed4",
     fontSize: 11,
     fontWeight: "600",
   },
   installmentDelete: {
     alignItems: "center",
-    backgroundColor: "#ffffff",
-    borderColor: "#e2e8f0",
+    backgroundColor: "#083c5a",
+    borderColor: "#0f5479",
     borderRadius: 24,
     borderWidth: 1,
     height: 32,
     justifyContent: "center",
     width: 32,
   },
-  saveButton: { alignItems: "center", backgroundColor: "#ec4899", borderRadius: 16, justifyContent: "center", paddingVertical: 15 },
+  saveButton: { alignItems: "center", backgroundColor: "#0ea5e9", borderRadius: 16, justifyContent: "center", paddingVertical: 15 },
   saveButtonText: { color: "#ffffff", fontSize: 15, fontWeight: "900" },
   cancelButton: { alignItems: "center", justifyContent: "center", paddingVertical: 10 },
-  cancelButtonText: { color: "#64748b", fontSize: 14, fontWeight: "700" },
+  cancelButtonText: { color: "#9cbed4", fontSize: 14, fontWeight: "700" },
 });

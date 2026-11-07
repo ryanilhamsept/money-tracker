@@ -1,51 +1,51 @@
-// Palet ini dicocokkan ke app web (Tailwind), supaya dua app kelihatan satu
-// keluarga. Nilainya diambil langsung dari kelas yang dipakai di
-// src/app/App.jsx -- kalau web berubah, ubah di sini juga.
+// Palet gelap. Warna dasarnya #053E62 -- biru laut gelap yang diminta.
+// Aturannya: latar paling gelap, kartu selalu selangkah lebih terang dari
+// latar, teks dibalik jadi terang. Kalau nambah warna baru, taruh di sini
+// jangan hardcode di komponen.
 export const colors = {
-  // bg-gradient-to-br from-pink-100 via-[#f8f6ff] to-indigo-100
-  bgGradient: ["#fce7f3", "#f8f6ff", "#e0e7ff"],
+  // Latar app. Lebih gelap dari warna dasar supaya kartu bisa "naik".
+  bgGradient: ["#02202f", "#04324c", "#021a28"],
 
-  // Kartu: border-white/70 bg-white/85 -- di RN alpha-nya ditulis eksplisit.
-  surface: "rgba(255,255,255,0.85)",
-  surfaceSolid: "#ffffff",
-  surfaceBorder: "rgba(255,255,255,0.7)",
-  surfaceMuted: "#f8fafc",
+  // Permukaan kartu -- satu tingkat di atas latar.
+  surface: "rgba(8, 62, 94, 0.88)",
+  surfaceSolid: "#083c5a",
+  surfaceBorder: "rgba(125, 211, 252, 0.14)",
+  surfaceMuted: "#06324c",
 
-  // from-pink-500 to-indigo-500 (tombol utama, tab aktif)
-  accent: ["#ec4899", "#6366f1"],
-  // from-pink-400 to-indigo-500 (lencana kecil, avatar)
-  accentSoft: ["#f472b6", "#6366f1"],
-  // from-indigo-500 to-pink-400 (kartu hero)
-  hero: ["#6366f1", "#f472b6"],
+  // Aksen: tombol utama, tab aktif, FAB.
+  accent: ["#0ea5e9", "#2563eb"],
+  // Lencana kecil, avatar.
+  accentSoft: ["#38bdf8", "#3b82f6"],
+  // Kartu hero.
+  hero: ["#0b4f78", "#1276ac"],
 
-  text: "#0f172a",        // slate-900
-  textMuted: "#64748b",   // slate-500
-  textFaint: "#94a3b8",   // slate-400
-  divider: "#f1f5f9",     // slate-100
-  border: "#e2e8f0",      // slate-200
+  text: "#e8f3fb",
+  textMuted: "#9cbed4",
+  textFaint: "#7aa0b8",
+  divider: "#0b4467",
+  border: "#0f5479",
 
-  positive: "#10b981",
+  positive: "#34d399",
   positiveSoft: "#a7f3d0",
-  negative: "#e11d48",
+  negative: "#fb7185",
   negativeSoft: "#fecdd3",
 };
 
-// rounded-[2rem] / rounded-[1.75rem] / rounded-2xl / rounded-xl
 export const radius = { xl: 32, lg: 28, md: 16, sm: 12, pill: 999 };
 
-// shadow-xl, diterjemahkan ke shadow RN.
+// Di latar gelap bayangan ungu nggak kelihatan -- pakai hitam yang lebih tegas.
 export const shadow = {
   card: {
-    shadowColor: "#4c1d95",
+    shadowColor: "#000000",
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.35,
     shadowRadius: 20,
     elevation: 4,
   },
   raised: {
-    shadowColor: "#4c1d95",
+    shadowColor: "#000000",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.16,
+    shadowOpacity: 0.45,
     shadowRadius: 12,
     elevation: 6,
   },

@@ -15,6 +15,7 @@ import {
     Banknote,
 } from "lucide-react";
 
+import { payCreditCard } from "../services/api";
 import { formatCurrency, formatThousands } from "../utils/currency";
 import { findCreditCardForSource } from "../utils/accountBalance";
 import { getOutstandingWindowStart, getStatementDay } from "../utils/billingCycle";
@@ -39,7 +40,7 @@ import {
 const NET_WORTH_GROUPS = [
     { key: GROUP_WALLET, label: "E-wallet & lainnya", fill: "#2563eb", dot: "bg-blue-600" },
     { key: GROUP_CASH, label: "Bank & tunai", fill: "#34d399", dot: "bg-emerald-400" },
-    { key: GROUP_INVESTMENT, label: "Investasi", fill: "#8b5cf6", dot: "bg-violet-500" },
+    { key: GROUP_INVESTMENT, label: "Investasi", fill: "#8b5cf6", dot: "bg-blue-500" },
     { key: GROUP_DEBT, label: "Hutang & tagihan", fill: "#f59e0b", dot: "bg-amber-500" },
 ];
 
@@ -206,7 +207,7 @@ export default function Accounts({
     const accountGroups = useMemo(() => {
         const definitions = [
             { key: GROUP_CASH, label: "Bank & tunai", dot: "bg-emerald-400" },
-            { key: GROUP_INVESTMENT, label: "Investasi", dot: "bg-violet-500" },
+            { key: GROUP_INVESTMENT, label: "Investasi", dot: "bg-blue-500" },
             { key: GROUP_WALLET, label: "E-wallet & lainnya", dot: "bg-blue-600" },
         ];
 
@@ -327,29 +328,15 @@ export default function Accounts({
 
         setPaymentLoading(true);
         try {
-            const response = await fetch(`/api/accounts/${paymentAccountId}/pay-cc`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ amount, date: paymentForm.date }),
-            });
+            // Lewat payCreditCard, bukan fetch() telanjang: fetch langsung tidak
+            // membawa Authorization header, jadi server membalas 401.
+            await payCreditCard(paymentAccountId, { amount, date: paymentForm.date });
 
-            if (response.ok) {
-                // Refresh account list
-                const refreshResp = await fetch("/api/accounts");
-                if (refreshResp.ok) {
-                    const data = await refreshResp.json();
-                    // Trigger parent to re-fetch accounts (via callback)
-                    // For now, just close modal and let parent handle refresh
-                }
-                setShowPaymentModal(false);
-                setPaymentForm({ amount: "", date: new Date().toISOString().split("T")[0] });
-                setPaymentAccountId(null);
-            } else {
-                const err = await response.json();
-                alert("Error: " + (err.error || "Payment failed"));
-            }
+            setShowPaymentModal(false);
+            setPaymentForm({ amount: "", date: new Date().toISOString().split("T")[0] });
+            setPaymentAccountId(null);
         } catch (err) {
-            alert("Error: " + err.message);
+            alert("Error: " + (err.message || "Payment failed"));
         } finally {
             setPaymentLoading(false);
         }
@@ -381,25 +368,25 @@ export default function Accounts({
         const lowerType = type.toLowerCase();
 
         if (lowerName.includes("bca")) {
-            return "bg-blue-100 text-blue-600";
+            return "bg-blue-500/15 text-blue-400";
         }
         if (lowerName.includes("mandiri")) {
-            return "bg-amber-100 text-amber-600";
+            return "bg-amber-500/15 text-amber-300";
         }
         if (lowerName.includes("blu")) {
-            return "bg-cyan-100 text-cyan-600";
+            return "bg-cyan-500/15 text-cyan-300";
         }
         if (lowerName.includes("superbank")) {
-            return "bg-indigo-100 text-indigo-600";
+            return "bg-blue-500/15 text-blue-400";
         }
         if (lowerType === "savings" || lowerType === "tabungan") {
-            return "bg-emerald-100 text-emerald-600";
+            return "bg-emerald-500/15 text-emerald-400";
         }
         if (lowerType === "credit card") {
-            return "bg-rose-100 text-rose-600";
+            return "bg-rose-500/15 text-rose-400";
         }
         if (lowerType === "cash" || lowerType === "tunai") {
-            return "bg-green-100 text-green-600";
+            return "bg-green-500/15 text-green-400";
         }
         return "bg-slate-100 text-slate-600";
     };
@@ -421,7 +408,7 @@ export default function Accounts({
                 layout
                 initial={{ opacity: 0, y: 5 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="overflow-hidden rounded-2xl border border-white/70 bg-white/85 p-4 shadow-md backdrop-blur transition hover:shadow-lg"
+                className="overflow-hidden rounded-2xl border border-white/10 bg-surface/85 p-4 shadow-md backdrop-blur transition hover:shadow-lg"
             >
                 <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3 min-w-0">
@@ -450,14 +437,14 @@ export default function Accounts({
                                 </button>
                                 <button
                                     onClick={handleEditCancel}
-                                    className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition"
+                                    className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-surface text-slate-600 hover:bg-slate-50 transition"
                                 >
                                     <X className="h-4 w-4" />
                                 </button>
                             </div>
                         ) : isEditing ? (
                             <div className="flex items-center gap-2">
-                                <div className="flex items-center overflow-hidden rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-sm font-bold">
+                                <div className="flex items-center overflow-hidden rounded-xl border border-slate-200 bg-surface px-3 py-1.5 text-sm font-bold">
                                     <span className="mr-1 text-slate-500">Rp</span>
                                     <input
                                         value={editBalanceVal}
@@ -474,7 +461,7 @@ export default function Accounts({
                                 </button>
                                 <button
                                     onClick={handleEditCancel}
-                                    className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition"
+                                    className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-surface text-slate-600 hover:bg-slate-50 transition"
                                 >
                                     <X className="h-4 w-4" />
                                 </button>
@@ -492,14 +479,14 @@ export default function Accounts({
                                 <button
                                     onClick={() => handleEditClick(account)}
                                     title="Ubah Saldo Awal"
-                                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-100 bg-white text-slate-500 hover:bg-slate-50 transition"
+                                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-100 bg-surface text-slate-500 hover:bg-slate-50 transition"
                                 >
                                     <Pencil className="h-4 w-4" />
                                 </button>
                                 <button
                                     onClick={() => deleteAccount(account.id)}
                                     title="Hapus Akun"
-                                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-100 bg-white text-slate-400 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-100 transition"
+                                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-100 bg-surface text-slate-400 hover:bg-rose-500/10 hover:text-rose-400 hover:border-rose-500/20 transition"
                                 >
                                     <Trash2 className="h-4 w-4" />
                                 </button>
@@ -515,7 +502,7 @@ export default function Accounts({
                                 <label className="text-xs font-bold text-slate-600">
                                     Total Limit (Rp)
                                 </label>
-                                <div className="flex items-center overflow-hidden rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold">
+                                <div className="flex items-center overflow-hidden rounded-xl border border-slate-200 bg-surface px-3 py-2 text-sm font-bold">
                                     <span className="mr-1 text-slate-500">Rp</span>
                                     <input
                                         value={editCardVal.totalLimit}
@@ -532,7 +519,7 @@ export default function Accounts({
                                 <label className="text-xs font-bold text-slate-600">
                                     Saldo Terpakai (Rp)
                                 </label>
-                                <div className="flex items-center overflow-hidden rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold">
+                                <div className="flex items-center overflow-hidden rounded-xl border border-slate-200 bg-surface px-3 py-2 text-sm font-bold">
                                     <span className="mr-1 text-slate-500">Rp</span>
                                     <input
                                         value={editCardVal.startingBalance}
@@ -560,7 +547,7 @@ export default function Accounts({
                                 }
                                 inputMode="numeric"
                                 placeholder="25"
-                                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold outline-none"
+                                className="w-full rounded-xl border border-slate-200 bg-surface px-3 py-2 text-sm font-bold outline-none"
                             />
                         </div>
                     </div>
@@ -590,7 +577,7 @@ export default function Accounts({
                                         </div>
                                         <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/20">
                                             <div
-                                                className="h-full rounded-full bg-white"
+                                                className="h-full rounded-full bg-surface"
                                                 style={{ width: `${usedPct}%` }}
                                             />
                                         </div>
@@ -735,12 +722,12 @@ export default function Accounts({
                             </p>
 
                             {selectedInThisCard.length > 0 && (
-                                <div className="flex items-center justify-between gap-3 rounded-xl border border-pink-200 bg-pink-50 px-3 py-2">
+                                <div className="flex items-center justify-between gap-3 rounded-xl border border-sky-500/30 bg-sky-500/10 px-3 py-2">
                                     <div className="min-w-0">
-                                        <p className="text-xs font-bold text-pink-900">
+                                        <p className="text-xs font-bold text-sky-200">
                                             {selectedInThisCard.length} transaksi dipilih
                                         </p>
-                                        <p className="text-[11px] font-semibold text-pink-700">
+                                        <p className="text-[11px] font-semibold text-sky-300">
                                             Total {formatCurrency(selectedTotal)}
                                         </p>
                                     </div>
@@ -754,14 +741,14 @@ export default function Accounts({
                                                     return next;
                                                 })
                                             }
-                                            className="rounded-xl border border-pink-200 bg-white px-3 py-1.5 text-xs font-bold text-pink-700 hover:bg-pink-100 transition"
+                                            className="rounded-xl border border-sky-500/30 bg-surface px-3 py-1.5 text-xs font-bold text-sky-300 hover:bg-sky-500/15 transition"
                                         >
                                             Batal
                                         </button>
                                         <button
                                             type="button"
                                             onClick={() => setConfirmingPaidIds(selectedInThisCard)}
-                                            className="rounded-xl bg-gradient-to-r from-pink-500 to-indigo-500 px-3 py-1.5 text-xs font-bold text-white shadow hover:opacity-95 transition"
+                                            className="rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 px-3 py-1.5 text-xs font-bold text-white shadow hover:opacity-95 transition"
                                         >
                                             Tandai Lunas
                                         </button>
@@ -788,7 +775,7 @@ export default function Accounts({
                                                 onChange={() =>
                                                     toggleSelectedPaidMany(children.map((t) => t.id))
                                                 }
-                                                className="h-4 w-4 shrink-0 cursor-pointer rounded border-slate-300 text-pink-600"
+                                                className="h-4 w-4 shrink-0 cursor-pointer rounded border-slate-300 text-sky-400"
                                             />
                                             <button
                                                 onClick={() => toggleGroup(title)}
@@ -830,7 +817,7 @@ export default function Accounts({
                                                         setRenamingGroup({ key: title, value: title })
                                                     }
                                                     title="Ubah nama cicilan"
-                                                    className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-400 hover:bg-slate-50 hover:text-slate-600 transition"
+                                                    className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-surface text-slate-400 hover:bg-slate-50 hover:text-slate-600 transition"
                                                 >
                                                     <Pencil className="h-3.5 w-3.5" />
                                                 </button>
@@ -839,7 +826,7 @@ export default function Accounts({
                                                 <button
                                                     onClick={() => deleteInstallment?.(installment.id)}
                                                     title="Hapus Cicilan"
-                                                    className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition"
+                                                    className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-surface text-slate-400 hover:bg-rose-500/10 hover:text-rose-400 transition"
                                                 >
                                                     <Trash2 className="h-3.5 w-3.5" />
                                                 </button>
@@ -847,7 +834,7 @@ export default function Accounts({
                                         </div>
 
                                         {renamingGroup?.key === title && (
-                                            <div className="mt-1 flex items-center gap-1 rounded-xl border border-pink-200 bg-pink-50 p-2">
+                                            <div className="mt-1 flex items-center gap-1 rounded-xl border border-sky-500/30 bg-sky-500/10 p-2">
                                                 <input
                                                     value={renamingGroup.value}
                                                     onChange={(e) =>
@@ -858,20 +845,20 @@ export default function Accounts({
                                                     }
                                                     autoFocus
                                                     placeholder="Nama cicilan"
-                                                    className="min-w-0 flex-1 rounded-lg border border-pink-200 bg-white px-2 py-1.5 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-pink-200"
+                                                    className="min-w-0 flex-1 rounded-lg border border-sky-500/30 bg-surface px-2 py-1.5 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-sky-500/30"
                                                 />
                                                 <button
                                                     type="button"
                                                     disabled={isRenamingBusy}
                                                     onClick={() => void saveGroupRename(title, installment)}
-                                                    className="inline-flex h-7 shrink-0 items-center rounded-lg bg-pink-600 px-2.5 text-xs font-bold text-white hover:bg-pink-700 transition disabled:opacity-50"
+                                                    className="inline-flex h-7 shrink-0 items-center rounded-lg bg-sky-600 px-2.5 text-xs font-bold text-white hover:bg-sky-700 transition disabled:opacity-50"
                                                 >
                                                     {isRenamingBusy ? "..." : "Simpan"}
                                                 </button>
                                                 <button
                                                     type="button"
                                                     onClick={() => setRenamingGroup(null)}
-                                                    className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-pink-200 bg-white text-slate-400 hover:bg-pink-100 transition"
+                                                    className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-sky-500/30 bg-surface text-slate-400 hover:bg-sky-500/15 transition"
                                                 >
                                                     <X className="h-3.5 w-3.5" />
                                                 </button>
@@ -890,7 +877,7 @@ export default function Accounts({
                                                 {children.map((t) => (
                                                     <div
                                                         key={t.id}
-                                                        className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-white px-3 py-2"
+                                                        className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-surface px-3 py-2"
                                                     >
                                                         <div className="min-w-0 flex-1">
                                                             <p className="truncate text-xs font-bold text-slate-700">
@@ -910,7 +897,7 @@ export default function Accounts({
                                                                 title="Tandai sudah dibayar"
                                                                 checked={selectedPaidIds.has(t.id)}
                                                                 onChange={() => toggleSelectedPaid(t.id)}
-                                                                className="h-4 w-4 rounded border-slate-300 text-pink-600"
+                                                                className="h-4 w-4 rounded border-slate-300 text-sky-400"
                                                             />
                                                         </div>
                                                     </div>
@@ -945,7 +932,7 @@ export default function Accounts({
                                             title="Tandai sudah dibayar"
                                             checked={selectedPaidIds.has(t.id)}
                                             onChange={() => toggleSelectedPaid(t.id)}
-                                            className="h-4 w-4 rounded border-slate-300 text-pink-600"
+                                            className="h-4 w-4 rounded border-slate-300 text-sky-400"
                                         />
                                     </div>
                                 </div>
@@ -969,7 +956,7 @@ export default function Accounts({
             <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="overflow-hidden rounded-[2rem] border border-white/70 bg-white/85 p-6 shadow-xl backdrop-blur md:p-8"
+                className="overflow-hidden rounded-[2rem] border border-white/10 bg-surface/85 p-6 shadow-xl backdrop-blur md:p-8"
             >
                 <p className="text-sm font-semibold text-slate-500">Kekayaan bersih</p>
                 <p className="mt-1 text-4xl font-black tracking-tight text-slate-900 md:text-5xl">
@@ -1166,7 +1153,7 @@ export default function Accounts({
 
                 <button
                     onClick={() => setShowAddModal(true)}
-                    className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50 transition active:scale-95 shrink-0"
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-surface px-5 py-3 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50 transition active:scale-95 shrink-0"
                 >
                     <Plus className="h-4 w-4 text-slate-600" />
                     Tambah
@@ -1182,7 +1169,7 @@ export default function Accounts({
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         placeholder="Cari akun..."
-                        className="w-full min-w-0 rounded-2xl border border-slate-200 bg-white py-3 pl-11 pr-4 outline-none focus:ring-2 focus:ring-pink-200"
+                        className="w-full min-w-0 rounded-2xl border border-slate-200 bg-surface py-3 pl-11 pr-4 outline-none focus:ring-2 focus:ring-sky-500/30"
                     />
                 </div>
 
@@ -1191,7 +1178,7 @@ export default function Accounts({
                     <select
                         value={filterType}
                         onChange={(e) => setFilterType(e.target.value)}
-                        className="w-full pl-11 pr-4 py-3 rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-pink-200 appearance-none"
+                        className="w-full pl-11 pr-4 py-3 rounded-2xl border border-slate-200 bg-surface outline-none focus:ring-2 focus:ring-sky-500/30 appearance-none"
                     >
                         <option value="all">Semua Tipe</option>
                         <option value="bank">Bank</option>
@@ -1246,7 +1233,7 @@ export default function Accounts({
                         Credit Card
                     </h2>
 
-                    <div className="overflow-hidden rounded-[2rem] border border-white/70 bg-gradient-to-br from-zinc-800 to-zinc-900 p-6 text-white shadow-xl backdrop-blur md:p-8">
+                    <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-gradient-to-br from-sky-700 to-blue-800 p-6 text-white shadow-xl backdrop-blur md:p-8">
                         <p className="text-xl font-black">Cards</p>
 
                         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -1299,7 +1286,7 @@ export default function Accounts({
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}
-                            className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-[2rem] border border-slate-100 bg-white p-6 shadow-2xl"
+                            className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-[2rem] border border-slate-100 bg-surface p-6 shadow-2xl"
                         >
                             <div className="flex items-center justify-between mb-6">
                                 <h3 className="text-xl font-black text-slate-950">
@@ -1307,7 +1294,7 @@ export default function Accounts({
                                 </h3>
                                 <button
                                     onClick={() => setShowAddModal(false)}
-                                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-100 bg-white text-slate-400 hover:bg-slate-50 transition"
+                                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-100 bg-surface text-slate-400 hover:bg-slate-50 transition"
                                 >
                                     <X className="h-5 w-5" />
                                 </button>
@@ -1327,7 +1314,7 @@ export default function Accounts({
                                             }))
                                         }
                                         placeholder="e.g. BCA, Tabungan Haji, OVO"
-                                        className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none focus:ring-2 focus:ring-pink-200 font-medium text-slate-900"
+                                        className="w-full rounded-2xl border border-slate-200 bg-surface px-4 py-3 outline-none focus:ring-2 focus:ring-sky-500/30 font-medium text-slate-900"
                                         required
                                     />
                                 </div>
@@ -1344,7 +1331,7 @@ export default function Accounts({
                                                 type: e.target.value,
                                             }))
                                         }
-                                        className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none focus:ring-2 focus:ring-pink-200 font-medium text-slate-900"
+                                        className="w-full rounded-2xl border border-slate-200 bg-surface px-4 py-3 outline-none focus:ring-2 focus:ring-sky-500/30 font-medium text-slate-900"
                                     >
                                         <option value="Bank">Bank</option>
                                         <option value="Tabungan">Tabungan (Savings)</option>
@@ -1370,7 +1357,7 @@ export default function Accounts({
                                                         }))
                                                     }
                                                     placeholder="Chase"
-                                                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none focus:ring-2 focus:ring-pink-200 font-medium text-slate-900"
+                                                    className="w-full rounded-2xl border border-slate-200 bg-surface px-4 py-3 outline-none focus:ring-2 focus:ring-sky-500/30 font-medium text-slate-900"
                                                 />
                                             </div>
                                             <div className="space-y-2">
@@ -1386,7 +1373,7 @@ export default function Accounts({
                                                         }))
                                                     }
                                                     placeholder="Everyday Card"
-                                                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none focus:ring-2 focus:ring-pink-200 font-medium text-slate-900"
+                                                    className="w-full rounded-2xl border border-slate-200 bg-surface px-4 py-3 outline-none focus:ring-2 focus:ring-sky-500/30 font-medium text-slate-900"
                                                 />
                                             </div>
                                         </div>
@@ -1401,7 +1388,7 @@ export default function Accounts({
                                                         sharesLimit: e.target.checked,
                                                     }))
                                                 }
-                                                className="h-4 w-4 rounded border-slate-300 text-pink-500 focus:ring-pink-200"
+                                                className="h-4 w-4 rounded border-slate-300 text-sky-400 focus:ring-sky-500/30"
                                             />
                                             Kartu ini berbagi limit dengan kartu lain
                                         </label>
@@ -1410,7 +1397,7 @@ export default function Accounts({
                                             <label className="text-sm font-bold text-slate-700">
                                                 Total Limit (Rp)
                                             </label>
-                                            <div className="flex items-center overflow-hidden rounded-2xl border border-slate-200 bg-white px-4 py-3 focus-within:ring-2 focus-within:ring-pink-200">
+                                            <div className="flex items-center overflow-hidden rounded-2xl border border-slate-200 bg-surface px-4 py-3 focus-within:ring-2 focus-within:ring-sky-500/30">
                                                 <span className="mr-2 text-lg font-bold text-slate-500">Rp</span>
                                                 <input
                                                     value={newAccount.totalLimit}
@@ -1435,7 +1422,7 @@ export default function Accounts({
                                             <label className="text-sm font-bold text-slate-700">
                                                 Saldo Terpakai Saat Ini (Rp)
                                             </label>
-                                            <div className="flex items-center overflow-hidden rounded-2xl border border-slate-200 bg-white px-4 py-3 focus-within:ring-2 focus-within:ring-pink-200">
+                                            <div className="flex items-center overflow-hidden rounded-2xl border border-slate-200 bg-surface px-4 py-3 focus-within:ring-2 focus-within:ring-sky-500/30">
                                                 <span className="mr-2 text-lg font-bold text-slate-500">Rp</span>
                                                 <input
                                                     value={newAccount.startingBalance}
@@ -1470,7 +1457,7 @@ export default function Accounts({
                                                 }
                                                 inputMode="numeric"
                                                 placeholder="25"
-                                                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none focus:ring-2 focus:ring-pink-200 font-medium text-slate-900"
+                                                className="w-full rounded-2xl border border-slate-200 bg-surface px-4 py-3 outline-none focus:ring-2 focus:ring-sky-500/30 font-medium text-slate-900"
                                             />
                                         </div>
 
@@ -1489,14 +1476,14 @@ export default function Accounts({
                                                         style={{ backgroundColor: c }}
                                                         className={`h-9 w-9 rounded-full border-2 transition ${
                                                             newAccount.color === c
-                                                                ? "border-pink-400 ring-2 ring-pink-200"
-                                                                : "border-white shadow"
+                                                                ? "border-sky-400 ring-2 ring-sky-500/30"
+                                                                : "border-surface shadow"
                                                         }`}
                                                     />
                                                 ))}
                                                 <div className="mx-1 h-7 w-px bg-slate-200" />
                                                 <label
-                                                    className="relative h-9 w-9 shrink-0 cursor-pointer overflow-hidden rounded-full border-2 border-white shadow"
+                                                    className="relative h-9 w-9 shrink-0 cursor-pointer overflow-hidden rounded-full border-2 border-surface shadow"
                                                     style={{
                                                         background:
                                                             "conic-gradient(red, yellow, lime, cyan, blue, magenta, red)",
@@ -1522,7 +1509,7 @@ export default function Accounts({
                                         <label className="text-sm font-bold text-slate-700">
                                             Saldo Awal
                                         </label>
-                                        <div className="flex items-center overflow-hidden rounded-2xl border border-slate-200 bg-white px-4 py-3 focus-within:ring-2 focus-within:ring-pink-200">
+                                        <div className="flex items-center overflow-hidden rounded-2xl border border-slate-200 bg-surface px-4 py-3 focus-within:ring-2 focus-within:ring-sky-500/30">
                                             <span className="mr-2 text-lg font-bold text-slate-500">Rp</span>
                                             <input
                                                 value={newAccount.startingBalance}
@@ -1545,7 +1532,7 @@ export default function Accounts({
                                 )}
 
                                 {error && (
-                                    <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-600">
+                                    <p className="rounded-2xl bg-rose-500/10 px-4 py-3 text-sm font-bold text-rose-400">
                                         {error}
                                     </p>
                                 )}
@@ -1560,7 +1547,7 @@ export default function Accounts({
                                     </button>
                                     <button
                                         type="submit"
-                                        className="flex-1 rounded-2xl bg-gradient-to-r from-pink-500 to-indigo-500 py-3.5 text-sm font-bold text-white hover:opacity-95 shadow-md hover:shadow-lg transition"
+                                        className="flex-1 rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 py-3.5 text-sm font-bold text-white hover:opacity-95 shadow-md hover:shadow-lg transition"
                                     >
                                         Simpan Akun
                                     </button>
@@ -1577,7 +1564,7 @@ export default function Accounts({
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}
-                            className="w-full max-w-md rounded-[2rem] border border-slate-100 bg-white p-6 shadow-2xl"
+                            className="w-full max-w-md rounded-[2rem] border border-slate-100 bg-surface p-6 shadow-2xl"
                         >
                             <div className="flex items-center justify-between mb-4">
                                 <h3 className="text-xl font-black text-slate-950">
@@ -1586,7 +1573,7 @@ export default function Accounts({
                                 <button
                                     onClick={() => setConfirmingPaidIds(null)}
                                     disabled={markingPaidLoading}
-                                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-100 bg-white text-slate-400 hover:bg-slate-50 transition disabled:opacity-50"
+                                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-100 bg-surface text-slate-400 hover:bg-slate-50 transition disabled:opacity-50"
                                 >
                                     <X className="h-5 w-5" />
                                 </button>
@@ -1654,7 +1641,7 @@ export default function Accounts({
                                         setMarkingPaidLoading(false);
                                         setConfirmingPaidIds(null);
                                     }}
-                                    className="flex-1 rounded-2xl bg-gradient-to-r from-pink-500 to-indigo-500 py-3.5 text-sm font-bold text-white shadow-lg hover:opacity-95 transition disabled:opacity-50"
+                                    className="flex-1 rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 py-3.5 text-sm font-bold text-white shadow-lg hover:opacity-95 transition disabled:opacity-50"
                                 >
                                     {markingPaidLoading ? "Memproses..." : "Tandai Lunas"}
                                 </button>
@@ -1670,7 +1657,7 @@ export default function Accounts({
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}
-                            className="w-full max-w-md rounded-[2rem] border border-slate-100 bg-white p-6 shadow-2xl"
+                            className="w-full max-w-md rounded-[2rem] border border-slate-100 bg-surface p-6 shadow-2xl"
                         >
                             <div className="flex items-center justify-between mb-6">
                                 <h3 className="text-xl font-black text-slate-950">
@@ -1678,7 +1665,7 @@ export default function Accounts({
                                 </h3>
                                 <button
                                     onClick={() => setShowPaymentModal(false)}
-                                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-100 bg-white text-slate-400 hover:bg-slate-50 transition"
+                                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-100 bg-surface text-slate-400 hover:bg-slate-50 transition"
                                 >
                                     <X className="h-5 w-5" />
                                 </button>
@@ -1689,7 +1676,7 @@ export default function Accounts({
                                     <label className="text-sm font-bold text-slate-700">
                                         Jumlah Pembayaran (Rp)
                                     </label>
-                                    <div className="flex items-center overflow-hidden rounded-2xl border border-slate-200 bg-white px-4 py-3 focus-within:ring-2 focus-within:ring-pink-200">
+                                    <div className="flex items-center overflow-hidden rounded-2xl border border-slate-200 bg-surface px-4 py-3 focus-within:ring-2 focus-within:ring-sky-500/30">
                                         <span className="mr-2 text-lg font-bold text-slate-500">Rp</span>
                                         <input
                                             value={paymentForm.amount}
@@ -1716,7 +1703,7 @@ export default function Accounts({
                                         onChange={(e) =>
                                             setPaymentForm((prev) => ({ ...prev, date: e.target.value }))
                                         }
-                                        className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none focus:ring-2 focus:ring-pink-200 font-medium text-slate-900"
+                                        className="w-full rounded-2xl border border-slate-200 bg-surface px-4 py-3 outline-none focus:ring-2 focus:ring-sky-500/30 font-medium text-slate-900"
                                     />
                                 </div>
 
@@ -1732,7 +1719,7 @@ export default function Accounts({
                                     <button
                                         type="submit"
                                         disabled={paymentLoading}
-                                        className="flex-1 rounded-2xl bg-gradient-to-r from-pink-500 to-indigo-500 py-3.5 text-sm font-bold text-white hover:opacity-95 shadow-md hover:shadow-lg transition disabled:opacity-50"
+                                        className="flex-1 rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 py-3.5 text-sm font-bold text-white hover:opacity-95 shadow-md hover:shadow-lg transition disabled:opacity-50"
                                     >
                                         {paymentLoading ? "Memproses..." : "Bayar"}
                                     </button>

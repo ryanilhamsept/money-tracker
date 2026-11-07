@@ -1,6 +1,6 @@
 export function Card({ className = "", children }) {
     return (
-        <div className={`border bg-white ${className}`}>
+        <div className={`border bg-surface ${className}`}>
             {children}
         </div>
     );

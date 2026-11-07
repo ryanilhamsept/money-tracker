@@ -145,7 +145,7 @@ export default function Plan({ userId }) {
 
     return (
         <section className="space-y-6 overflow-hidden">
-            <Card className="overflow-hidden rounded-3xl border-0 bg-white shadow-xl">
+            <Card className="overflow-hidden rounded-3xl border-0 bg-surface shadow-xl">
                 <CardContent className="p-6">
                     <div className="flex min-w-0 flex-col gap-4 md:flex-row md:items-end md:justify-between">
                         <div className="min-w-0">
@@ -157,7 +157,7 @@ export default function Plan({ userId }) {
                         <button
                             type="button"
                             onClick={formOpen ? closeForm : openAddForm}
-                            className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-pink-500 to-indigo-500 px-5 py-3 text-sm font-bold text-white shadow-lg transition hover:opacity-90"
+                            className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 px-5 py-3 text-sm font-bold text-white shadow-lg transition hover:opacity-90"
                         >
                             {formOpen ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
                             {formOpen ? "Tutup" : "Tambah Rencana"}
@@ -184,7 +184,7 @@ export default function Plan({ userId }) {
             </Card>
 
             {formOpen && (
-                <Card className="overflow-hidden rounded-3xl border-0 bg-white shadow-xl">
+                <Card className="overflow-hidden rounded-3xl border-0 bg-surface shadow-xl">
                     <CardContent className="p-6">
                         <h3 className="mb-4 text-lg font-black text-slate-900">
                             {editingGoal ? "Edit Rencana" : "Rencana Baru"}
@@ -216,7 +216,7 @@ export default function Plan({ userId }) {
                                     value={form.title}
                                     onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
                                     placeholder="e.g. Liburan, Dana Darurat"
-                                    className="w-full rounded-2xl border-2 border-slate-100 bg-slate-50 px-4 py-3 outline-none focus:border-pink-400"
+                                    className="w-full rounded-2xl border-2 border-slate-100 bg-slate-50 px-4 py-3 outline-none focus:border-sky-400"
                                 />
                             </label>
 
@@ -229,7 +229,7 @@ export default function Plan({ userId }) {
                                             setForm((f) => ({ ...f, targetAmount: formatThousands(e.target.value) }))
                                         }
                                         placeholder="25000000"
-                                        className="w-full rounded-2xl border-2 border-slate-100 bg-slate-50 px-4 py-3 outline-none focus:border-pink-400"
+                                        className="w-full rounded-2xl border-2 border-slate-100 bg-slate-50 px-4 py-3 outline-none focus:border-sky-400"
                                     />
                                 </label>
                                 <label className="block space-y-2">
@@ -240,7 +240,7 @@ export default function Plan({ userId }) {
                                             setForm((f) => ({ ...f, savedAmount: formatThousands(e.target.value) }))
                                         }
                                         placeholder="0"
-                                        className="w-full rounded-2xl border-2 border-slate-100 bg-slate-50 px-4 py-3 outline-none focus:border-pink-400"
+                                        className="w-full rounded-2xl border-2 border-slate-100 bg-slate-50 px-4 py-3 outline-none focus:border-sky-400"
                                     />
                                 </label>
                             </div>
@@ -251,7 +251,7 @@ export default function Plan({ userId }) {
                                     type="date"
                                     value={form.deadline}
                                     onChange={(e) => setForm((f) => ({ ...f, deadline: e.target.value }))}
-                                    className="w-full rounded-2xl border-2 border-slate-100 bg-slate-50 px-4 py-3 outline-none focus:border-pink-400"
+                                    className="w-full rounded-2xl border-2 border-slate-100 bg-slate-50 px-4 py-3 outline-none focus:border-sky-400"
                                 />
                             </label>
 
@@ -261,7 +261,7 @@ export default function Plan({ userId }) {
                                     value={form.note}
                                     onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))}
                                     placeholder="Catatan tambahan..."
-                                    className="w-full rounded-2xl border-2 border-slate-100 bg-slate-50 px-4 py-3 outline-none focus:border-pink-400"
+                                    className="w-full rounded-2xl border-2 border-slate-100 bg-slate-50 px-4 py-3 outline-none focus:border-sky-400"
                                 />
                             </label>
 
@@ -269,7 +269,7 @@ export default function Plan({ userId }) {
                                 <button
                                     type="submit"
                                     disabled={isSaving}
-                                    className="flex-1 rounded-2xl bg-gradient-to-r from-pink-500 to-indigo-500 px-5 py-3 text-sm font-bold text-white shadow-lg transition hover:opacity-90 disabled:opacity-60"
+                                    className="flex-1 rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 px-5 py-3 text-sm font-bold text-white shadow-lg transition hover:opacity-90 disabled:opacity-60"
                                 >
                                     {isSaving ? "Menyimpan..." : editingGoal ? "Simpan Perubahan" : "Simpan Rencana"}
                                 </button>
@@ -280,7 +280,7 @@ export default function Plan({ userId }) {
                                             await handleDelete(editingGoal.id);
                                             closeForm();
                                         }}
-                                        className="rounded-2xl border border-rose-200 bg-rose-50 px-5 py-3 text-sm font-bold text-rose-600 transition hover:bg-rose-100"
+                                        className="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-5 py-3 text-sm font-bold text-rose-400 transition hover:bg-rose-500/15"
                                     >
                                         Hapus
                                     </button>
@@ -291,7 +291,7 @@ export default function Plan({ userId }) {
                 </Card>
             )}
 
-            <Card className="overflow-hidden rounded-3xl border-0 bg-white shadow-xl">
+            <Card className="overflow-hidden rounded-3xl border-0 bg-surface shadow-xl">
                 <CardContent className="p-6">
                     {isLoading ? (
                         <div className="rounded-3xl bg-slate-50 p-8 text-center text-slate-500">Memuat...</div>
@@ -351,14 +351,14 @@ export default function Plan({ userId }) {
                                                 <button
                                                     type="button"
                                                     onClick={() => openEditForm(goal)}
-                                                    className="rounded-full border border-slate-200 bg-white p-2 text-slate-500 transition hover:bg-slate-100"
+                                                    className="rounded-full border border-slate-200 bg-surface p-2 text-slate-500 transition hover:bg-slate-100"
                                                 >
                                                     <Pencil className="h-3.5 w-3.5" />
                                                 </button>
                                                 <button
                                                     type="button"
                                                     onClick={() => handleDelete(goal.id)}
-                                                    className="rounded-full border border-rose-200 bg-rose-50 p-2 text-rose-500 transition hover:bg-rose-100"
+                                                    className="rounded-full border border-rose-500/30 bg-rose-500/10 p-2 text-rose-400 transition hover:bg-rose-500/15"
                                                 >
                                                     <Trash2 className="h-3.5 w-3.5" />
                                                 </button>

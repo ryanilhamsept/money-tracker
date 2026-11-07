@@ -237,7 +237,7 @@ export default function TransactionForm({ visible, initial, onClose, onSubmit, o
           style={styles.sheetWrap}
         >
           <View style={styles.sheet}>
-            <ScrollView style={{ flexShrink: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 80 }}>
+            <ScrollView style={{ flexShrink: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 8 }}>
               <Text style={styles.title}>
                 {isEdit ? "Edit Transaksi" : "Tambah Transaksi"}
               </Text>
@@ -500,14 +500,14 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   sheet: {
-    backgroundColor: "#ffffff",
+    backgroundColor: "#083c5a",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 20,
     flexShrink: 1,
   },
   title: {
-    color: "#0f172a",
+    color: "#e8f3fb",
     fontSize: 20,
     fontWeight: "900",
     marginBottom: 16,
@@ -527,13 +527,13 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   typeToggleButtonActiveExpense: {
-    backgroundColor: "#ec4899",
+    backgroundColor: "#0ea5e9",
   },
   typeToggleButtonActiveIncome: {
-    backgroundColor: "#16a34a",
+    backgroundColor: "#10b981",
   },
   typeToggleText: {
-    color: "#64748b",
+    color: "#9cbed4",
     fontSize: 13,
     fontWeight: "800",
   },
@@ -546,7 +546,7 @@ const styles = StyleSheet.create({
   },
   installmentInfoText: {
     fontSize: 12,
-    color: "#64748b",
+    color: "#9cbed4",
     marginBottom: 12,
     fontWeight: "500",
   },
@@ -559,41 +559,41 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   label: {
-    color: "#64748b",
+    color: "#9cbed4",
     fontSize: 12,
     fontWeight: "700",
     textTransform: "uppercase",
   },
   input: {
     backgroundColor: colors.surfaceMuted,
-    borderColor: "#e2e8f0",
+    borderColor: "#0f5479",
     borderRadius: 16,
     borderWidth: 1,
-    color: "#0f172a",
+    color: "#e8f3fb",
     fontSize: 15,
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
   duplicateBox: {
-    backgroundColor: "#fffbeb",
+    backgroundColor: "rgba(251,191,36,0.12)",
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: "#fde68a",
+    borderColor: "rgba(251,191,36,0.24)",
     marginBottom: 12,
     padding: 12,
   },
   duplicateTitle: {
-    color: "#78350f",
+    color: "#fcd34d",
     fontSize: 13,
     fontWeight: "800",
   },
   duplicateDetail: {
-    color: "#92400e",
+    color: "#fcd34d",
     fontSize: 13,
     marginTop: 6,
   },
   duplicateHint: {
-    color: "#b45309",
+    color: "#fcd34d",
     fontSize: 11,
     marginTop: 6,
   },
@@ -616,34 +616,34 @@ const styles = StyleSheet.create({
   },
   duplicateCancel: {
     alignItems: "center",
-    backgroundColor: "#ffffff",
+    backgroundColor: "#083c5a",
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: "#fcd34d",
+    borderColor: "rgba(251,191,36,0.28)",
     flex: 1,
     paddingVertical: 10,
   },
   duplicateCancelText: {
-    color: "#78350f",
+    color: "#fcd34d",
     fontSize: 13,
     fontWeight: "800",
   },
   errorBox: {
-    backgroundColor: "#fee2e2",
+    backgroundColor: "rgba(251,113,133,0.16)",
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: "#fecdd3",
+    borderColor: "rgba(251,113,133,0.22)",
     marginBottom: 12,
     padding: 12,
   },
   errorText: {
-    color: "#be123c",
+    color: "#fda4af",
     fontSize: 13,
     fontWeight: "700",
   },
   saveButton: {
     alignItems: "center",
-    backgroundColor: "#ec4899",
+    backgroundColor: "#0ea5e9",
     borderRadius: 16,
     justifyContent: "center",
     marginTop: 4,
@@ -656,8 +656,8 @@ const styles = StyleSheet.create({
   },
   deleteButton: {
     alignItems: "center",
-    backgroundColor: "#fff1f2",
-    borderColor: "#fecdd3",
+    backgroundColor: "rgba(251,113,133,0.16)",
+    borderColor: "rgba(251,113,133,0.22)",
     borderRadius: 16,
     borderWidth: 1,
     justifyContent: "center",
@@ -665,7 +665,7 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
   },
   deleteButtonText: {
-    color: "#be123c",
+    color: "#fda4af",
     fontSize: 15,
     fontWeight: "800",
   },
@@ -676,7 +676,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   cancelButtonText: {
-    color: "#64748b",
+    color: "#9cbed4",
     fontSize: 14,
     fontWeight: "700",
   },
@@ -691,15 +691,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   installmentToggleLabel: {
-    color: "#0f172a",
+    color: "#e8f3fb",
     fontSize: 15,
     fontWeight: "700",
   },
   installmentCard: {
-    backgroundColor: "#fef2f2",
+    backgroundColor: "rgba(251,113,133,0.12)",
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: "#fecaca",
+    borderColor: "rgba(251,113,133,0.22)",
     padding: 16,
     marginBottom: 16,
   },

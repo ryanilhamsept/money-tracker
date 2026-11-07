@@ -214,7 +214,7 @@ export default function TransactionList({
                         <h3 className="text-sm font-black text-slate-600">
                             {formatDayHeader(dayGroup.date)}
                         </h3>
-                        <span className="text-sm font-bold text-rose-500">
+                        <span className="text-sm font-bold text-rose-400">
                             Total {formatCurrency(dayGroup.total)}
                         </span>
                     </div>
@@ -231,7 +231,7 @@ export default function TransactionList({
                                 key={item.id}
                                 initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                className="overflow-hidden rounded-2xl border border-white/70 bg-white/90 p-3.5 shadow-sm backdrop-blur"
+                                className="overflow-hidden rounded-2xl border border-white/10 bg-surface/90 p-3.5 shadow-sm backdrop-blur"
                             >
                                 {!isEditing ? (
                                     <>
@@ -265,13 +265,13 @@ export default function TransactionList({
                                                             </p>
 
                                                             {item.syncState === "pending" && (
-                                                                <p className="mt-2 inline-flex rounded-full bg-indigo-50 px-3 py-1 text-xs font-black text-indigo-600">
+                                                                <p className="mt-2 inline-flex rounded-full bg-blue-500/10 px-3 py-1 text-xs font-black text-blue-400">
                                                                     Queued for sync
                                                                 </p>
                                                             )}
 
                                                             {item.syncState === "error" && (
-                                                                <p className="mt-2 inline-flex rounded-full bg-amber-50 px-3 py-1 text-xs font-black text-amber-700">
+                                                                <p className="mt-2 inline-flex rounded-full bg-amber-500/10 px-3 py-1 text-xs font-black text-amber-300">
                                                                     Will retry sync
                                                                 </p>
                                                             )}
@@ -281,8 +281,8 @@ export default function TransactionList({
                                                             <p
                                                                 className={`text-right text-lg font-black ${
                                                                     item.type === "income"
-                                                                        ? "text-emerald-500"
-                                                                        : "text-rose-500"
+                                                                        ? "text-emerald-400"
+                                                                        : "text-rose-400"
                                                                 }`}
                                                             >
                                                                 {item.type === "income" ? "+" : "-"}
@@ -292,7 +292,7 @@ export default function TransactionList({
                                                             <button
                                                                 type="button"
                                                                 onClick={() => openEdit(item)}
-                                                                className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-400 transition hover:bg-slate-50 hover:text-slate-600 active:scale-95"
+                                                                className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-surface text-slate-400 transition hover:bg-slate-50 hover:text-slate-600 active:scale-95"
                                                                 aria-label="Edit transaction"
                                                             >
                                                                 <Pencil className="h-4 w-4" />
@@ -301,7 +301,7 @@ export default function TransactionList({
                                                             <button
                                                                 type="button"
                                                                 onClick={() => deleteTransaction(item.id)}
-                                                                className="flex h-9 w-9 items-center justify-center rounded-xl border border-rose-100 bg-rose-50 text-rose-400 transition hover:bg-rose-100 hover:text-rose-600 active:scale-95"
+                                                                className="flex h-9 w-9 items-center justify-center rounded-xl border border-rose-500/20 bg-rose-500/10 text-rose-400 transition hover:bg-rose-500/15 hover:text-rose-400 active:scale-95"
                                                                 aria-label="Delete transaction"
                                                             >
                                                                 <Trash2 className="h-4 w-4" />
@@ -324,7 +324,7 @@ export default function TransactionList({
                                         }))
                                     }
                                     placeholder="Nama transaksi"
-                                    className="w-full min-w-0 max-w-full rounded-2xl border-2 border-slate-100 bg-white px-3 py-2 outline-none focus:border-pink-400"
+                                    className="w-full min-w-0 max-w-full rounded-2xl border-2 border-slate-100 bg-surface px-3 py-2 outline-none focus:border-sky-400"
                                 />
 
                                 <input
@@ -337,7 +337,7 @@ export default function TransactionList({
                                     }
                                     inputMode="numeric"
                                     placeholder="Nominal"
-                                    className="w-full min-w-0 max-w-full rounded-2xl border-2 border-slate-100 bg-white px-3 py-2 outline-none focus:border-pink-400"
+                                    className="w-full min-w-0 max-w-full rounded-2xl border-2 border-slate-100 bg-surface px-3 py-2 outline-none focus:border-sky-400"
                                 />
 
                                 <div className="grid min-w-0 grid-cols-[1fr_100px] gap-2">
@@ -351,7 +351,7 @@ export default function TransactionList({
                                         }
                                         type="date"
                                         style={{ WebkitAppearance: "none" }}
-                                        className="w-full min-w-0 max-w-full appearance-none rounded-2xl border-2 border-slate-100 bg-white px-3 py-2 text-base outline-none focus:border-pink-400"
+                                        className="w-full min-w-0 max-w-full appearance-none rounded-2xl border-2 border-slate-100 bg-surface px-3 py-2 text-base outline-none focus:border-sky-400"
                                     />
                                     <input
                                         value={editForm.time}
@@ -363,7 +363,7 @@ export default function TransactionList({
                                         }
                                         type="time"
                                         style={{ WebkitAppearance: "none" }}
-                                        className="w-full min-w-0 max-w-full appearance-none rounded-2xl border-2 border-slate-100 bg-white px-3 py-2 text-base outline-none focus:border-pink-400"
+                                        className="w-full min-w-0 max-w-full appearance-none rounded-2xl border-2 border-slate-100 bg-surface px-3 py-2 text-base outline-none focus:border-sky-400"
                                     />
                                 </div>
 
@@ -375,7 +375,7 @@ export default function TransactionList({
                                             category: event.target.value,
                                         }))
                                     }
-                                    className="w-full min-w-0 max-w-full rounded-2xl border-2 border-slate-100 bg-white px-3 py-2 outline-none focus:border-pink-400"
+                                    className="w-full min-w-0 max-w-full rounded-2xl border-2 border-slate-100 bg-surface px-3 py-2 outline-none focus:border-sky-400"
                                 >
                                     {categories.map((item) => (
                                         <option key={item} value={item}>
@@ -392,7 +392,7 @@ export default function TransactionList({
                                             source: event.target.value,
                                         }))
                                     }
-                                    className="w-full min-w-0 max-w-full rounded-2xl border-2 border-slate-100 bg-white px-3 py-2 outline-none focus:border-pink-400"
+                                    className="w-full min-w-0 max-w-full rounded-2xl border-2 border-slate-100 bg-surface px-3 py-2 outline-none focus:border-sky-400"
                                 >
                                     {fundSources.map((item) => (
                                         <option key={item} value={item}>
@@ -413,7 +413,7 @@ export default function TransactionList({
                                                 setIsInstallment(false);
                                             }
                                         }}
-                                        className="w-full min-w-0 max-w-full rounded-2xl border-2 border-slate-100 bg-white px-3 py-2 outline-none focus:border-pink-400"
+                                        className="w-full min-w-0 max-w-full rounded-2xl border-2 border-slate-100 bg-surface px-3 py-2 outline-none focus:border-sky-400"
                                     >
                                         {danaDipakaiOptions.map((item) => (
                                             <option key={item} value={item}>
@@ -430,7 +430,7 @@ export default function TransactionList({
                                                 type="checkbox"
                                                 checked={isInstallment}
                                                 onChange={(event) => setIsInstallment(event.target.checked)}
-                                                className="h-4 w-4 rounded border-slate-300 text-pink-500 focus:ring-pink-200"
+                                                className="h-4 w-4 rounded border-slate-300 text-sky-400 focus:ring-sky-500/30"
                                             />
                                             Ini cicilan?
                                         </label>
@@ -450,7 +450,7 @@ export default function TransactionList({
                                                         }))
                                                     }
                                                     placeholder="Provider (opsional)"
-                                                    className="w-full min-w-0 max-w-full rounded-xl border-2 border-slate-100 bg-white px-3 py-2 text-sm outline-none focus:border-pink-400"
+                                                    className="w-full min-w-0 max-w-full rounded-xl border-2 border-slate-100 bg-surface px-3 py-2 text-sm outline-none focus:border-sky-400"
                                                 />
 
                                                 <input
@@ -465,7 +465,7 @@ export default function TransactionList({
                                                     }}
                                                     inputMode="numeric"
                                                     placeholder="Total Harga Barang (Rp)"
-                                                    className="w-full min-w-0 max-w-full rounded-xl border-2 border-slate-100 bg-white px-3 py-2 text-sm outline-none focus:border-pink-400"
+                                                    className="w-full min-w-0 max-w-full rounded-xl border-2 border-slate-100 bg-surface px-3 py-2 text-sm outline-none focus:border-sky-400"
                                                 />
 
                                                 <div className="grid grid-cols-2 gap-2">
@@ -481,7 +481,7 @@ export default function TransactionList({
                                                         }}
                                                         inputMode="numeric"
                                                         placeholder="Sisa Tenor (bulan)"
-                                                        className="w-full min-w-0 max-w-full rounded-xl border-2 border-slate-100 bg-white px-3 py-2 text-sm outline-none focus:border-pink-400"
+                                                        className="w-full min-w-0 max-w-full rounded-xl border-2 border-slate-100 bg-surface px-3 py-2 text-sm outline-none focus:border-sky-400"
                                                     />
                                                     <input
                                                         value={installmentDetails.dueDate}
@@ -493,7 +493,7 @@ export default function TransactionList({
                                                         }
                                                         inputMode="numeric"
                                                         placeholder="Tgl Jatuh Tempo"
-                                                        className="w-full min-w-0 max-w-full rounded-xl border-2 border-slate-100 bg-white px-3 py-2 text-sm outline-none focus:border-pink-400"
+                                                        className="w-full min-w-0 max-w-full rounded-xl border-2 border-slate-100 bg-surface px-3 py-2 text-sm outline-none focus:border-sky-400"
                                                     />
                                                 </div>
                                             </>
@@ -505,7 +505,7 @@ export default function TransactionList({
                                     <Button
                                         type="button"
                                         onClick={() => saveEdit(item.id)}
-                                        className="rounded-2xl bg-gradient-to-r from-pink-500 to-violet-500 font-bold text-white"
+                                        className="rounded-2xl bg-gradient-to-r from-sky-500 to-blue-500 font-bold text-white"
                                     >
                                         <Check className="mr-2 h-4 w-4" />
                                         Save

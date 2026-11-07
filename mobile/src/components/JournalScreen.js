@@ -238,8 +238,12 @@ export default function JournalScreen({ onBack }) {
         onRequestClose={() => setOpenEntry(null)}
       >
         <View style={styles.backdrop}>
+          <View style={styles.sheetWrap}>
           <View style={styles.sheet}>
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: 20 }}
+            >
               <Text style={styles.sheetMood}>{openEntry?.mood}</Text>
               <Text style={styles.sheetTitle}>
                 {openEntry?.title || "Tanpa judul"}
@@ -272,6 +276,7 @@ export default function JournalScreen({ onBack }) {
               </Pressable>
             </ScrollView>
           </View>
+          </View>
         </View>
       </Modal>
 
@@ -291,6 +296,8 @@ export default function JournalScreen({ onBack }) {
               <ScrollView
                 style={{ flexShrink: 1 }}
                 showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: 80 }}
+                keyboardShouldPersistTaps="handled"
               >
                 <Text style={styles.sheetTitle}>
                   {editingId ? "Ubah journal" : "Journal baru"}
@@ -391,8 +398,8 @@ const styles = StyleSheet.create({
   errorText: { color: colors.negative, fontSize: 13, fontWeight: "700" },
 
   backdrop: { backgroundColor: "rgba(15, 23, 42, 0.55)", flex: 1, justifyContent: "flex-end" },
-  sheetWrap: { justifyContent: "flex-end" },
-  sheet: { backgroundColor: colors.surfaceSolid, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, maxHeight: "88%", padding: 20 },
+  sheetWrap: { flexShrink: 1, maxHeight: "88%" },
+  sheet: { backgroundColor: colors.surfaceSolid, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, flexShrink: 1, padding: 20 },
   sheetMood: { fontSize: 32 },
   sheetTitle: { color: colors.text, fontSize: 20, fontWeight: "900", marginTop: 6 },
   sheetMeta: { color: colors.textFaint, fontSize: 12, fontWeight: "700", marginTop: 4 },

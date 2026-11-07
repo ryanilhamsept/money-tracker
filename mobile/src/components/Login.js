@@ -157,13 +157,13 @@ export default function Login() {
         <View style={styles.card}>
           <View style={styles.header}>
             <View style={styles.logoOrb}>
-              <Text style={styles.logoText}>M</Text>
+              <Text style={styles.logoText}>R</Text>
             </View>
-            <Text style={styles.title}>Money Tracker</Text>
+            <Text style={styles.title}>ryanilhamsept</Text>
             <Text style={styles.subtitle}>
               {isSignUp
-                ? "Daftar untuk mengamankan data keuangan Anda"
-                : "Masuk untuk memantau pengeluaran Anda"}
+                ? "Daftar untuk mulai mencatat"
+                : "Masuk ke Money Tracker dan Journal"}
             </Text>
           </View>
 

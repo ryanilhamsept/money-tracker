@@ -33,3 +33,4 @@ dist-ssr
 # layar Journal versi mobile; kodenya TIDAK ikut repo ini -- kalau di-commit
 # apa adanya, Git cuma nyimpen pointer dan isinya malah hilang.
 ilham-journal/
+/ryanilhamsept.apk

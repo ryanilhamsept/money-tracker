@@ -25,7 +25,35 @@ import {
   portionsLeft,
   splitEvenly,
 } from "../utils/splitBill";
-import { colors, radius, shadow, TOP_INSET } from "../theme";
+import { radius, TOP_INSET } from "../theme";
+
+// Split Bill sengaja terang, satu-satunya layar yang begitu di app ini.
+// Itu permintaan eksplisit supaya sama dengan app aslinya, jadi paletnya
+// berdiri sendiri di sini dan tidak mengambil dari theme.js yang gelap.
+const C = {
+  bg: "#ffffff",
+  surface: "#ffffff",
+  surfaceMuted: "#f8f9fa",
+  border: "#e9ecef",
+  divider: "#f1f3f5",
+  text: "#13161c",
+  textMuted: "#6b7280",
+  textFaint: "#9ca3af",
+  solid: "#111318",
+  ok: "#16a34a",
+  warn: "#ea8c00",
+  danger: "#dc2626",
+};
+
+// Bayangan di latar putih harus halus; versi di theme.js disetel untuk
+// latar gelap dan di sini kelihatan seperti noda.
+const softShadow = {
+  shadowColor: "#0f172a",
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.06,
+  shadowRadius: 8,
+  elevation: 2,
+};
 
 const DEFAULT_TAX = 10;
 const DEFAULT_SERVICE = 0;
@@ -322,7 +350,11 @@ export default function SplitBillScreen({ onBack }) {
   // ============================ DAFTAR ============================
   if (!draft) {
     return (
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.screen}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.header}>
           <Pressable style={styles.iconButton} onPress={onBack}>
             <Text style={styles.iconButtonText}>‹</Text>
@@ -349,7 +381,7 @@ export default function SplitBillScreen({ onBack }) {
         </Pressable>
 
         {isLoading ? (
-          <ActivityIndicator color={colors.accent[0]} style={{ marginTop: 20 }} />
+          <ActivityIndicator color={C.solid} style={{ marginTop: 20 }} />
         ) : (
           bills.map((bill) => (
             <Pressable key={bill.id} style={styles.billCard} onPress={() => openBill(bill)}>
@@ -375,6 +407,7 @@ export default function SplitBillScreen({ onBack }) {
   return (
     <>
       <ScrollView
+        style={styles.screen}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
@@ -388,7 +421,7 @@ export default function SplitBillScreen({ onBack }) {
             value={draft.title}
             onChangeText={(v) => patch({ title: v })}
             placeholder="Nama bill"
-            placeholderTextColor={colors.textFaint}
+            placeholderTextColor={C.textFaint}
           />
           <Pressable
             style={[styles.iconButton, styles.saveButton, isSaving && styles.disabled]}
@@ -413,7 +446,7 @@ export default function SplitBillScreen({ onBack }) {
               value={personName}
               onChangeText={setPersonName}
               placeholder="Nama"
-              placeholderTextColor={colors.textFaint}
+              placeholderTextColor={C.textFaint}
               autoFocus
               onSubmitEditing={addPerson}
               returnKeyType="done"
@@ -465,7 +498,7 @@ export default function SplitBillScreen({ onBack }) {
               value={itemForm.name}
               onChangeText={(v) => setItemForm((f) => ({ ...f, name: v }))}
               placeholder="Nama menu"
-              placeholderTextColor={colors.textFaint}
+              placeholderTextColor={C.textFaint}
               autoFocus
             />
             <View style={styles.row}>
@@ -474,7 +507,7 @@ export default function SplitBillScreen({ onBack }) {
                 value={itemForm.price}
                 onChangeText={(v) => setItemForm((f) => ({ ...f, price: v }))}
                 placeholder="Harga (Rp)"
-                placeholderTextColor={colors.textFaint}
+                placeholderTextColor={C.textFaint}
                 keyboardType="number-pad"
               />
               <TextInput
@@ -749,7 +782,7 @@ export default function SplitBillScreen({ onBack }) {
                 value={draft.date}
                 onChangeText={(v) => patch({ date: v })}
                 placeholder="YYYY-MM-DD"
-                placeholderTextColor={colors.textFaint}
+                placeholderTextColor={C.textFaint}
               />
               <Pressable style={styles.solidButton} onPress={() => setShowRates(false)}>
                 <Text style={styles.solidButtonText}>Selesai</Text>
@@ -848,30 +881,31 @@ const styles = StyleSheet.create({
     paddingBottom: 140,
     width: "100%",
   },
-  receiptScreen: { backgroundColor: colors.bgGradient[1], flex: 1, paddingTop: TOP_INSET },
+  screen: { backgroundColor: C.bg, flex: 1 },
+  receiptScreen: { backgroundColor: C.bg, flex: 1, paddingTop: TOP_INSET },
 
   header: { alignItems: "center", flexDirection: "row", gap: 10, marginTop: 12 },
-  headerTitle: { color: colors.text, flex: 1, fontSize: 24, fontWeight: "900" },
-  titleInput: { color: colors.text, flex: 1, fontSize: 22, fontWeight: "900", padding: 0 },
+  headerTitle: { color: C.text, flex: 1, fontSize: 24, fontWeight: "900" },
+  titleInput: { color: C.text, flex: 1, fontSize: 22, fontWeight: "900", padding: 0 },
   iconButton: {
     alignItems: "center",
-    backgroundColor: colors.surface,
-    borderColor: colors.surfaceBorder,
+    backgroundColor: C.surface,
+    borderColor: C.border,
     borderRadius: radius.pill,
     borderWidth: 1,
     height: 42,
     justifyContent: "center",
     width: 42,
   },
-  iconButtonText: { color: colors.text, fontSize: 19, fontWeight: "900" },
-  saveButton: { backgroundColor: colors.accent[0], borderColor: colors.accent[0] },
+  iconButtonText: { color: C.text, fontSize: 19, fontWeight: "900" },
+  saveButton: { backgroundColor: C.solid, borderColor: C.solid },
   saveButtonText: { color: "#ffffff", fontSize: 19, fontWeight: "900" },
 
-  tagline: { color: colors.text, fontSize: 19, fontWeight: "900" },
-  taglineSub: { color: colors.textMuted, fontSize: 13, fontWeight: "600", marginTop: 4 },
+  tagline: { color: C.text, fontSize: 19, fontWeight: "900" },
+  taglineSub: { color: C.textMuted, fontSize: 13, fontWeight: "600", marginTop: 4 },
 
   sectionLabel: {
-    color: colors.textFaint,
+    color: C.textFaint,
     fontSize: 12,
     fontWeight: "800",
     letterSpacing: 0.4,
@@ -879,31 +913,31 @@ const styles = StyleSheet.create({
   },
 
   avatar: { alignItems: "center", justifyContent: "center" },
-  avatarText: { color: "#0b2231", fontWeight: "900" },
+  avatarText: { color: "#1f2937", fontWeight: "900" },
 
   dashedButton: {
     alignItems: "center",
-    borderColor: colors.border,
+    borderColor: C.border,
     borderRadius: radius.md,
     borderStyle: "dashed",
     borderWidth: 1.5,
     paddingVertical: 18,
   },
-  dashedButtonText: { color: colors.textMuted, fontSize: 14, fontWeight: "800" },
+  dashedButtonText: { color: C.textMuted, fontSize: 14, fontWeight: "800" },
 
   outlineButton: {
     alignItems: "center",
-    backgroundColor: colors.surface,
-    borderColor: colors.surfaceBorder,
+    backgroundColor: C.surface,
+    borderColor: C.border,
     borderRadius: radius.md,
     borderWidth: 1,
     paddingVertical: 14,
   },
-  outlineButtonText: { color: colors.textMuted, fontSize: 13, fontWeight: "800" },
+  outlineButtonText: { color: C.textMuted, fontSize: 13, fontWeight: "800" },
 
   inlineForm: {
-    backgroundColor: colors.surface,
-    borderColor: colors.surfaceBorder,
+    backgroundColor: C.surface,
+    borderColor: C.border,
     borderRadius: radius.md,
     borderWidth: 1,
     gap: 10,
@@ -913,56 +947,56 @@ const styles = StyleSheet.create({
   row: { flexDirection: "row", gap: 10 },
 
   input: {
-    backgroundColor: colors.surfaceMuted,
-    borderColor: colors.border,
+    backgroundColor: C.surfaceMuted,
+    borderColor: C.border,
     borderRadius: radius.md,
     borderWidth: 1,
-    color: colors.text,
+    color: C.text,
     fontSize: 14,
     paddingHorizontal: 12,
     paddingVertical: 11,
   },
-  fieldLabel: { color: colors.textMuted, fontSize: 12, fontWeight: "800", marginBottom: 6 },
-  hint: { color: colors.textFaint, fontSize: 12, fontWeight: "600" },
+  fieldLabel: { color: C.textMuted, fontSize: 12, fontWeight: "800", marginBottom: 6 },
+  hint: { color: C.textFaint, fontSize: 12, fontWeight: "600" },
 
   ghostButton: {
     alignItems: "center",
-    borderColor: colors.border,
+    borderColor: C.border,
     borderRadius: radius.md,
     borderWidth: 1,
     flex: 1,
     paddingVertical: 13,
   },
-  ghostButtonText: { color: colors.text, fontSize: 13, fontWeight: "800" },
+  ghostButtonText: { color: C.text, fontSize: 13, fontWeight: "800" },
   solidButton: {
     alignItems: "center",
-    backgroundColor: colors.accent[0],
+    backgroundColor: C.solid,
     borderRadius: radius.md,
     flex: 1,
     paddingVertical: 13,
   },
   solidButtonText: { color: "#ffffff", fontSize: 13, fontWeight: "900" },
   dangerButton: { alignItems: "center", flex: 1, paddingVertical: 13 },
-  dangerButtonText: { color: colors.negative, fontSize: 13, fontWeight: "800" },
+  dangerButtonText: { color: C.danger, fontSize: 13, fontWeight: "800" },
 
   personRow: {
     alignItems: "center",
-    backgroundColor: colors.surface,
-    borderColor: colors.surfaceBorder,
+    backgroundColor: C.surface,
+    borderColor: C.border,
     borderRadius: radius.md,
     borderWidth: 1,
     flexDirection: "row",
     gap: 12,
     padding: 12,
   },
-  personName: { color: colors.text, fontSize: 14, fontWeight: "800" },
-  personOwed: { color: colors.textMuted, fontSize: 11, fontWeight: "700", marginTop: 2 },
+  personName: { color: C.text, fontSize: 14, fontWeight: "800" },
+  personOwed: { color: C.textMuted, fontSize: 11, fontWeight: "700", marginTop: 2 },
 
   selectAllRow: { alignItems: "center", flexDirection: "row", justifyContent: "space-between" },
   checkRow: { alignItems: "center", flexDirection: "row", gap: 10 },
   checkbox: {
     alignItems: "center",
-    borderColor: colors.border,
+    borderColor: C.border,
     borderRadius: 6,
     borderWidth: 1.5,
     height: 20,
@@ -970,38 +1004,38 @@ const styles = StyleSheet.create({
     width: 20,
   },
   checkbox2: { paddingRight: 2 },
-  checkboxOn: { backgroundColor: colors.accent[0], borderColor: colors.accent[0] },
+  checkboxOn: { backgroundColor: C.solid, borderColor: C.solid },
   checkboxMark: { color: "#ffffff", fontSize: 12, fontWeight: "900" },
-  selectAllText: { color: colors.textMuted, fontSize: 13, fontWeight: "700" },
-  selectCount: { color: colors.textFaint, fontSize: 12, fontWeight: "700" },
+  selectAllText: { color: C.textMuted, fontSize: 13, fontWeight: "700" },
+  selectCount: { color: C.textFaint, fontSize: 12, fontWeight: "700" },
 
   itemCard: {
-    backgroundColor: colors.surface,
-    borderColor: colors.surfaceBorder,
+    backgroundColor: C.surface,
+    borderColor: C.border,
     borderRadius: radius.md,
     borderWidth: 1,
     overflow: "hidden",
   },
-  itemCardOpen: { borderColor: colors.accent[0] },
+  itemCardOpen: { borderColor: C.solid },
   itemHead: { alignItems: "center", flexDirection: "row", gap: 10, padding: 12 },
   itemNameRow: { alignItems: "center", flexDirection: "row", gap: 6 },
-  itemName: { color: colors.text, flexShrink: 1, fontSize: 14, fontWeight: "900" },
+  itemName: { color: C.text, flexShrink: 1, fontSize: 14, fontWeight: "900" },
   qtyBadge: {
-    backgroundColor: colors.surfaceMuted,
+    backgroundColor: C.surfaceMuted,
     borderRadius: 6,
     paddingHorizontal: 6,
     paddingVertical: 2,
   },
-  qtyBadgeText: { color: colors.textMuted, fontSize: 10, fontWeight: "800" },
-  itemAmount: { color: colors.text, flexShrink: 0, fontSize: 14, fontWeight: "900" },
-  chevron: { color: colors.textFaint, fontSize: 14, fontWeight: "900" },
+  qtyBadgeText: { color: C.textMuted, fontSize: 10, fontWeight: "800" },
+  itemAmount: { color: C.text, flexShrink: 0, fontSize: 14, fontWeight: "900" },
+  chevron: { color: C.textFaint, fontSize: 14, fontWeight: "900" },
 
   portionRow: { alignItems: "center", flexDirection: "row", gap: 4, marginTop: 4 },
-  portionOk: { color: colors.positive, fontSize: 11, fontWeight: "800" },
-  portionWarn: { color: "#fcd34d", fontSize: 11, fontWeight: "800", marginTop: 3 },
+  portionOk: { color: C.ok, fontSize: 11, fontWeight: "800" },
+  portionWarn: { color: C.warn, fontSize: 11, fontWeight: "800", marginTop: 3 },
 
   itemBody: {
-    borderTopColor: colors.divider,
+    borderTopColor: C.divider,
     borderTopWidth: 1,
     gap: 8,
     padding: 12,
@@ -1014,14 +1048,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 6,
   },
-  stepRowOn: { backgroundColor: colors.surfaceMuted },
-  stepName: { color: colors.text, fontSize: 13, fontWeight: "800" },
-  stepMeta: { color: colors.textFaint, fontSize: 10, fontWeight: "700", marginTop: 1 },
-  stepAmount: { color: colors.textMuted, fontSize: 12, fontWeight: "800" },
+  stepRowOn: { backgroundColor: C.surfaceMuted },
+  stepName: { color: C.text, fontSize: 13, fontWeight: "800" },
+  stepMeta: { color: C.textFaint, fontSize: 10, fontWeight: "700", marginTop: 1 },
+  stepAmount: { color: C.textMuted, fontSize: 12, fontWeight: "800" },
   stepButton: {
     alignItems: "center",
-    backgroundColor: colors.surfaceMuted,
-    borderColor: colors.border,
+    backgroundColor: C.surfaceMuted,
+    borderColor: C.border,
     borderRadius: 15,
     borderWidth: 1,
     height: 30,
@@ -1029,14 +1063,14 @@ const styles = StyleSheet.create({
     width: 30,
   },
   stepButtonOff: { opacity: 0.4 },
-  stepButtonText: { color: colors.text, fontSize: 16, fontWeight: "900" },
-  stepButtonAdd: { backgroundColor: colors.accent[0], borderColor: colors.accent[0] },
+  stepButtonText: { color: C.text, fontSize: 16, fontWeight: "900" },
+  stepButtonAdd: { backgroundColor: C.solid, borderColor: C.solid },
   stepButtonAddText: { color: "#ffffff", fontSize: 14, fontWeight: "900" },
-  stepCount: { color: colors.text, fontSize: 14, fontWeight: "900", minWidth: 18, textAlign: "center" },
+  stepCount: { color: C.text, fontSize: 14, fontWeight: "900", minWidth: 18, textAlign: "center" },
 
   itemFooter: {
     alignItems: "center",
-    borderTopColor: colors.divider,
+    borderTopColor: C.divider,
     borderTopWidth: 1,
     flexDirection: "row",
     justifyContent: "space-between",
@@ -1046,16 +1080,16 @@ const styles = StyleSheet.create({
 
   totalCard: {
     alignItems: "center",
-    backgroundColor: colors.surfaceMuted,
+    backgroundColor: C.surfaceMuted,
     borderRadius: radius.md,
     flexDirection: "row",
     gap: 12,
     marginTop: 6,
     padding: 16,
   },
-  totalLabel: { color: colors.textMuted, fontSize: 13, fontWeight: "800" },
-  totalSub: { color: colors.textFaint, fontSize: 11, fontWeight: "700", marginTop: 3 },
-  totalValue: { color: colors.text, fontSize: 22, fontWeight: "900" },
+  totalLabel: { color: C.textMuted, fontSize: 13, fontWeight: "800" },
+  totalSub: { color: C.textFaint, fontSize: 11, fontWeight: "700", marginTop: 3 },
+  totalValue: { color: C.text, fontSize: 22, fontWeight: "900" },
 
   ratesRow: {
     alignItems: "center",
@@ -1063,12 +1097,12 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingVertical: 14,
   },
-  ratesLabel: { color: colors.textMuted, fontSize: 13, fontWeight: "800" },
-  ratesValue: { color: colors.textFaint, fontSize: 12, fontWeight: "800" },
+  ratesLabel: { color: C.textMuted, fontSize: 13, fontWeight: "800" },
+  ratesValue: { color: C.textFaint, fontSize: 12, fontWeight: "800" },
 
   bulkBar: {
-    backgroundColor: "#06293d",
-    borderTopColor: colors.border,
+    backgroundColor: C.solid,
+    borderTopColor: C.border,
     borderTopWidth: 1,
     bottom: 0,
     gap: 10,
@@ -1077,27 +1111,27 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
     position: "absolute",
     right: 0,
-    ...shadow.raised,
+    ...softShadow,
   },
   bulkHead: { alignItems: "center", flexDirection: "row", justifyContent: "space-between" },
-  bulkTitle: { color: colors.text, fontSize: 14, fontWeight: "900" },
-  bulkClose: { color: colors.textMuted, fontSize: 16, fontWeight: "900" },
+  bulkTitle: { color: C.text, fontSize: 14, fontWeight: "900" },
+  bulkClose: { color: C.textMuted, fontSize: 16, fontWeight: "900" },
   bulkChip: {
     alignItems: "center",
-    backgroundColor: colors.surface,
-    borderColor: colors.surfaceBorder,
+    backgroundColor: C.surface,
+    borderColor: C.border,
     borderRadius: radius.pill,
     borderWidth: 1,
     flex: 1,
     paddingVertical: 10,
   },
-  bulkChipText: { color: colors.text, fontSize: 12, fontWeight: "800" },
-  bulkHint: { color: colors.textFaint, fontSize: 11, fontWeight: "700" },
+  bulkChipText: { color: C.text, fontSize: 12, fontWeight: "800" },
+  bulkHint: { color: C.textFaint, fontSize: 11, fontWeight: "700" },
   bulkPeople: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   bulkPerson: {
     alignItems: "center",
-    backgroundColor: colors.surface,
-    borderColor: colors.surfaceBorder,
+    backgroundColor: C.surface,
+    borderColor: C.border,
     borderRadius: radius.pill,
     borderWidth: 1,
     flexDirection: "row",
@@ -1106,21 +1140,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 5,
   },
-  bulkPersonText: { color: colors.text, fontSize: 12, fontWeight: "800" },
+  bulkPersonText: { color: C.text, fontSize: 12, fontWeight: "800" },
 
   billCard: {
     alignItems: "center",
-    backgroundColor: colors.surface,
-    borderColor: colors.surfaceBorder,
+    backgroundColor: C.surface,
+    borderColor: C.border,
     borderRadius: radius.md,
     borderWidth: 1,
     flexDirection: "row",
     gap: 12,
     padding: 14,
   },
-  billTitle: { color: colors.text, fontSize: 14, fontWeight: "900" },
-  billMeta: { color: colors.textMuted, fontSize: 11, fontWeight: "700", marginTop: 2 },
-  billAmount: { color: colors.text, flexShrink: 0, fontSize: 13, fontWeight: "900" },
+  billTitle: { color: C.text, fontSize: 14, fontWeight: "900" },
+  billMeta: { color: C.textMuted, fontSize: 11, fontWeight: "700", marginTop: 2 },
+  billAmount: { color: C.text, flexShrink: 0, fontSize: 13, fontWeight: "900" },
 
   xButton: {
     alignItems: "center",
@@ -1130,66 +1164,66 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     width: 28,
   },
-  xButtonText: { color: colors.negative, fontSize: 12, fontWeight: "900" },
+  xButtonText: { color: C.danger, fontSize: 12, fontWeight: "900" },
 
-  backdrop: { backgroundColor: "rgba(2, 16, 26, 0.6)", flex: 1, justifyContent: "flex-end" },
+  backdrop: { backgroundColor: "rgba(15, 23, 42, 0.45)", flex: 1, justifyContent: "flex-end" },
   sheetWrap: { flexShrink: 1, maxHeight: "88%" },
   sheet: {
-    backgroundColor: colors.surfaceSolid,
+    backgroundColor: C.surface,
     borderTopLeftRadius: radius.xl,
     borderTopRightRadius: radius.xl,
     flexShrink: 1,
     gap: 10,
     padding: 20,
   },
-  sheetTitle: { color: colors.text, fontSize: 18, fontWeight: "900" },
+  sheetTitle: { color: C.text, fontSize: 18, fontWeight: "900" },
 
   receipt: {
     alignSelf: "center",
-    backgroundColor: colors.surface,
-    borderColor: colors.surfaceBorder,
+    backgroundColor: C.surface,
+    borderColor: C.border,
     borderRadius: radius.lg,
     borderWidth: 1,
     maxWidth: 480,
     padding: 20,
     width: "100%",
-    ...shadow.card,
+    ...softShadow,
   },
-  receiptBrand: { color: colors.text, fontSize: 20, fontWeight: "900", textAlign: "center" },
+  receiptBrand: { color: C.text, fontSize: 20, fontWeight: "900", textAlign: "center" },
   receiptTitle: {
-    color: colors.textMuted,
+    color: C.textMuted,
     fontSize: 13,
     fontWeight: "900",
     letterSpacing: 0.6,
     marginTop: 6,
     textAlign: "center",
   },
-  receiptDate: { color: colors.textFaint, fontSize: 11, fontWeight: "700", marginTop: 3, textAlign: "center" },
-  receiptRule: { backgroundColor: colors.border, height: 2, marginVertical: 16 },
-  receiptRuleThin: { backgroundColor: colors.divider, height: 1, marginVertical: 12 },
+  receiptDate: { color: C.textFaint, fontSize: 11, fontWeight: "700", marginTop: 3, textAlign: "center" },
+  receiptRule: { backgroundColor: C.border, height: 2, marginVertical: 16 },
+  receiptRuleThin: { backgroundColor: C.divider, height: 1, marginVertical: 12 },
   receiptSection: {
-    color: colors.textFaint,
+    color: C.textFaint,
     fontSize: 10,
     fontWeight: "900",
     letterSpacing: 0.8,
     marginBottom: 10,
   },
   receiptItem: { flexDirection: "row", gap: 10, marginBottom: 10 },
-  receiptItemName: { color: colors.text, fontSize: 13, fontWeight: "800" },
-  receiptItemMeta: { color: colors.textFaint, fontSize: 11, fontWeight: "600", marginTop: 2 },
-  receiptItemAmount: { color: colors.text, fontSize: 13, fontWeight: "900" },
+  receiptItemName: { color: C.text, fontSize: 13, fontWeight: "800" },
+  receiptItemMeta: { color: C.textFaint, fontSize: 11, fontWeight: "600", marginTop: 2 },
+  receiptItemAmount: { color: C.text, fontSize: 13, fontWeight: "900" },
   receiptLine: { flexDirection: "row", justifyContent: "space-between", marginBottom: 6 },
-  receiptLineLabel: { color: colors.textMuted, fontSize: 12, fontWeight: "700" },
-  receiptLineValue: { color: colors.text, fontSize: 12, fontWeight: "800" },
-  receiptTotalLabel: { color: colors.text, fontSize: 15, fontWeight: "900" },
-  receiptTotalValue: { color: colors.accent[0], fontSize: 16, fontWeight: "900" },
+  receiptLineLabel: { color: C.textMuted, fontSize: 12, fontWeight: "700" },
+  receiptLineValue: { color: C.text, fontSize: 12, fontWeight: "800" },
+  receiptTotalLabel: { color: C.text, fontSize: 15, fontWeight: "900" },
+  receiptTotalValue: { color: C.solid, fontSize: 16, fontWeight: "900" },
   receiptPerson: { alignItems: "flex-start", flexDirection: "row", gap: 10, marginBottom: 14 },
-  receiptPersonName: { color: colors.text, fontSize: 13, fontWeight: "900" },
-  receiptPersonItems: { color: colors.textMuted, fontSize: 11, fontWeight: "600", marginTop: 2 },
-  receiptPersonMath: { color: colors.textFaint, fontSize: 10, fontWeight: "600", marginTop: 2 },
-  receiptPersonTotal: { color: colors.text, fontSize: 14, fontWeight: "900" },
+  receiptPersonName: { color: C.text, fontSize: 13, fontWeight: "900" },
+  receiptPersonItems: { color: C.textMuted, fontSize: 11, fontWeight: "600", marginTop: 2 },
+  receiptPersonMath: { color: C.textFaint, fontSize: 10, fontWeight: "600", marginTop: 2 },
+  receiptPersonTotal: { color: C.text, fontSize: 14, fontWeight: "900" },
 
   errorPanel: { backgroundColor: "rgba(251,113,133,0.16)", borderRadius: radius.md, padding: 12 },
-  errorText: { color: colors.negative, fontSize: 12, fontWeight: "700" },
+  errorText: { color: C.danger, fontSize: 12, fontWeight: "700" },
   disabled: { opacity: 0.4 },
 });

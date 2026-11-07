@@ -1,3 +1,5 @@
+import { Platform, StatusBar } from "react-native";
+
 // Palet gelap. Warna dasarnya #053E62 -- biru laut gelap yang diminta.
 // Aturannya: latar paling gelap, kartu selalu selangkah lebih terang dari
 // latar, teks dibalik jadi terang. Kalau nambah warna baru, taruh di sini
@@ -50,3 +52,10 @@ export const shadow = {
     elevation: 6,
   },
 };
+
+// Android menggambar app-nya edge-to-edge, jadi konten paling atas nempel ke
+// status bar kalau nggak dikasih jarak sendiri. SafeAreaView bawaan RN cuma
+// jalan di iOS. Modal dirender di luar pohon SafeAreaView, jadi layar penuh
+// yang muncul dari Modal perlu memasang jarak ini sendiri.
+export const TOP_INSET =
+  Platform.OS === "android" ? (StatusBar.currentHeight || 24) + 6 : 0;

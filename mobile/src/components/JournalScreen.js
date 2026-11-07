@@ -18,7 +18,7 @@ import {
   updateJournal,
   deleteJournal,
 } from "../services/supabase";
-import { colors, radius, shadow } from "../theme";
+import { colors, radius, shadow, TOP_INSET } from "../theme";
 
 const MOODS = ["😊", "😁", "😌", "🥲", "😐", "😔"];
 
@@ -281,88 +281,83 @@ export default function JournalScreen({ onBack }) {
       </Modal>
 
       {/* Tulis / ubah entri. */}
+      {/* Layar penuh, bukan bottom sheet. Sheet selalu kalah lawan keyboard:
+          tingginya dibatasi persentase layar, jadi begitu keyboard naik yang
+          tersisa cuma beberapa puluh piksel dan kolom Judul ketelan. Layar
+          penuh nggak punya masalah itu -- badan tulisannya tinggal menyusut
+          mengikuti ruang yang ada. Bentuknya disamakan dengan PWA. */}
       <Modal
         visible={isComposerOpen}
         animationType="slide"
-        transparent
         onRequestClose={closeComposer}
       >
-        <View style={styles.backdrop}>
-          <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : undefined}
-            style={styles.sheetWrap}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          style={styles.composerScreen}
+        >
+          <View style={styles.composerBar}>
+            <Pressable style={styles.composerIcon} onPress={closeComposer}>
+              <Text style={styles.composerIconText}>←</Text>
+            </Pressable>
+
+            <Pressable
+              style={[
+                styles.composerIcon,
+                styles.composerSave,
+                (!draft.body.trim() || isSaving) && styles.disabled,
+              ]}
+              onPress={save}
+              disabled={!draft.body.trim() || isSaving}
+            >
+              {isSaving ? (
+                <ActivityIndicator color="#ffffff" size="small" />
+              ) : (
+                <Text style={styles.composerSaveText}>✓</Text>
+              )}
+            </Pressable>
+          </View>
+
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={styles.composerBody}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
           >
-            <View style={styles.sheet}>
-              <ScrollView
-                style={{ flexShrink: 1 }}
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={{ paddingBottom: 8 }}
-                keyboardShouldPersistTaps="handled"
-              >
-                <Text style={styles.sheetTitle}>
-                  {editingId ? "Ubah journal" : "Journal baru"}
-                </Text>
-
-                <Text style={styles.label}>Lagi gimana perasaannya?</Text>
-                <View style={styles.moodRow}>
-                  {MOODS.map((m) => (
-                    <Pressable
-                      key={m}
-                      style={[
-                        styles.moodButton,
-                        draft.mood === m && styles.moodButtonActive,
-                      ]}
-                      onPress={() => setDraft((d) => ({ ...d, mood: m }))}
-                    >
-                      <Text style={styles.moodButtonText}>{m}</Text>
-                    </Pressable>
-                  ))}
-                </View>
-
-                <Text style={styles.label}>Judul</Text>
-                <TextInput
-                  style={styles.input}
-                  value={draft.title}
-                  onChangeText={(v) => setDraft((d) => ({ ...d, title: v }))}
-                  placeholder="Opsional"
-                  placeholderTextColor={colors.textFaint}
-                />
-
-                <Text style={styles.label}>Isi</Text>
-                <TextInput
-                  style={[styles.input, styles.inputMultiline]}
-                  value={draft.body}
-                  onChangeText={(v) => setDraft((d) => ({ ...d, body: v }))}
-                  placeholder="Tulis apa aja..."
-                  placeholderTextColor={colors.textFaint}
-                  multiline
-                  textAlignVertical="top"
-                />
-
+            <Text style={styles.composerLabel}>Lagi gimana perasaannya?</Text>
+            <View style={styles.moodRow}>
+              {MOODS.map((m) => (
                 <Pressable
+                  key={m}
                   style={[
-                    styles.primaryButton,
-                    (!draft.body.trim() || isSaving) && styles.disabled,
+                    styles.moodButton,
+                    draft.mood === m && styles.moodButtonActive,
                   ]}
-                  onPress={save}
-                  disabled={!draft.body.trim() || isSaving}
+                  onPress={() => setDraft((d) => ({ ...d, mood: m }))}
                 >
-                  {isSaving ? (
-                    <ActivityIndicator color="#ffffff" size="small" />
-                  ) : (
-                    <Text style={styles.primaryButtonText}>
-                      {editingId ? "Simpan perubahan" : "Simpan"}
-                    </Text>
-                  )}
+                  <Text style={styles.moodButtonText}>{m}</Text>
                 </Pressable>
-
-                <Pressable style={styles.cancelButton} onPress={closeComposer}>
-                  <Text style={styles.cancelButtonText}>Batal</Text>
-                </Pressable>
-              </ScrollView>
+              ))}
             </View>
-          </KeyboardAvoidingView>
-        </View>
+
+            <TextInput
+              style={styles.composerTitleInput}
+              value={draft.title}
+              onChangeText={(v) => setDraft((d) => ({ ...d, title: v }))}
+              placeholder="Judul"
+              placeholderTextColor={colors.textFaint}
+            />
+
+            <TextInput
+              style={styles.composerBodyInput}
+              value={draft.body}
+              onChangeText={(v) => setDraft((d) => ({ ...d, body: v }))}
+              placeholder="Tulis apa aja..."
+              placeholderTextColor={colors.textFaint}
+              multiline
+              textAlignVertical="top"
+            />
+          </ScrollView>
+        </KeyboardAvoidingView>
       </Modal>
     </ScrollView>
   );
@@ -397,6 +392,61 @@ const styles = StyleSheet.create({
   errorPanel: { backgroundColor: "rgba(251,113,133,0.16)", borderRadius: radius.md, padding: 12 },
   errorText: { color: colors.negative, fontSize: 13, fontWeight: "700" },
 
+  // --- Composer layar penuh ---
+  composerScreen: {
+    backgroundColor: colors.bgGradient[1],
+    flex: 1,
+    // Modal dirender di luar SafeAreaView App, jadi jaraknya dipasang di sini.
+    paddingTop: TOP_INSET,
+  },
+  composerBar: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+  },
+  composerIcon: {
+    alignItems: "center",
+    backgroundColor: colors.surface,
+    borderColor: colors.surfaceBorder,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    height: 44,
+    justifyContent: "center",
+    width: 44,
+  },
+  composerIconText: { color: colors.text, fontSize: 20, fontWeight: "900" },
+  composerSave: { backgroundColor: colors.accent[0], borderColor: colors.accent[0] },
+  composerSaveText: { color: "#ffffff", fontSize: 20, fontWeight: "900" },
+  composerBody: { flexGrow: 1, paddingBottom: 24, paddingHorizontal: 20 },
+  composerLabel: {
+    color: colors.textMuted,
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 0.6,
+    marginBottom: 10,
+    textTransform: "uppercase",
+  },
+  // Tanpa kotak input -- yang dilihat cuma teksnya, seperti di PWA.
+  composerTitleInput: {
+    color: colors.text,
+    fontSize: 28,
+    fontWeight: "900",
+    marginTop: 26,
+    padding: 0,
+  },
+  composerBodyInput: {
+    color: colors.textMuted,
+    flex: 1,
+    fontSize: 16,
+    fontWeight: "500",
+    lineHeight: 24,
+    marginTop: 16,
+    minHeight: 160,
+    padding: 0,
+  },
+
   backdrop: { backgroundColor: "rgba(15, 23, 42, 0.55)", flex: 1, justifyContent: "flex-end" },
   sheetWrap: { flexShrink: 1, maxHeight: "88%" },
   sheet: { backgroundColor: colors.surfaceSolid, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, flexShrink: 1, padding: 20 },
@@ -406,9 +456,6 @@ const styles = StyleSheet.create({
   sheetBody: { color: colors.text, fontSize: 15, lineHeight: 23, marginTop: 14 },
   sheetActions: { flexDirection: "row", gap: 10, marginTop: 20 },
 
-  label: { color: colors.textMuted, fontSize: 12, fontWeight: "800", marginBottom: 6, marginTop: 14 },
-  input: { backgroundColor: colors.surfaceMuted, borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, color: colors.text, fontSize: 14, paddingHorizontal: 12, paddingVertical: 11 },
-  inputMultiline: { minHeight: 150 },
 
   moodRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   moodButton: { alignItems: "center", backgroundColor: colors.surfaceMuted, borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, height: 44, justifyContent: "center", width: 44 },

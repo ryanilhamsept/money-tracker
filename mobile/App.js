@@ -3,11 +3,9 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Platform,
   Pressable,
   SafeAreaView,
   ScrollView,
-  StatusBar as RNStatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -76,7 +74,7 @@ import JournalScreen from "./src/components/JournalScreen";
 import CreditCalculator from "./src/components/CreditCalculator";
 import PinLockScreen from "./src/components/PinLockScreen";
 import { hasPinSet } from "./src/utils/pinStorage";
-import { colors, radius, shadow } from "./src/theme";
+import { colors, radius, shadow, TOP_INSET } from "./src/theme";
 
 // Hermes/RN nggak selalu punya crypto.randomUUID -- pakai fallback manual biar aman.
 const generateId = () => {
@@ -89,11 +87,6 @@ const generateId = () => {
     return v.toString(16);
   });
 };
-
-// Android menggambar app-nya edge-to-edge, jadi header nempel ke status bar
-// kalau nggak dikasih jarak sendiri. SafeAreaView bawaan RN cuma jalan di iOS.
-const TOP_INSET =
-  Platform.OS === "android" ? (RNStatusBar.currentHeight || 24) + 6 : 0;
 
 // Isi layar hub. Tiap app dapat warnanya sendiri biar kebaca sekali lihat,
 // tapi semuanya masih di keluarga pink-ungu yang sama kayak sisa app-nya.

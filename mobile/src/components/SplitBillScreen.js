@@ -25,35 +25,27 @@ import {
   portionsLeft,
   splitEvenly,
 } from "../utils/splitBill";
-import { radius, TOP_INSET } from "../theme";
+import { colors, radius, shadow, TOP_INSET } from "../theme";
 
-// Split Bill sengaja terang, satu-satunya layar yang begitu di app ini.
-// Itu permintaan eksplisit supaya sama dengan app aslinya, jadi paletnya
-// berdiri sendiri di sini dan tidak mengambil dari theme.js yang gelap.
+// Lapisan tipis di atas theme.js. Warnanya sama persis dengan layar lain --
+// yang dibeli lewat lapisan ini cuma satu tempat kalau suatu saat layar ini
+// perlu palet sendiri lagi.
 const C = {
-  bg: "#ffffff",
-  surface: "#ffffff",
-  surfaceMuted: "#f8f9fa",
-  border: "#e9ecef",
-  divider: "#f1f3f5",
-  text: "#13161c",
-  textMuted: "#6b7280",
-  textFaint: "#9ca3af",
-  solid: "#111318",
-  ok: "#16a34a",
-  warn: "#ea8c00",
-  danger: "#dc2626",
+  bg: colors.bgGradient[1],
+  surface: colors.surface,
+  surfaceMuted: colors.surfaceMuted,
+  border: colors.border,
+  divider: colors.divider,
+  text: colors.text,
+  textMuted: colors.textMuted,
+  textFaint: colors.textFaint,
+  solid: colors.accent[0],
+  ok: colors.positive,
+  warn: "#fcd34d",
+  danger: colors.negative,
 };
 
-// Bayangan di latar putih harus halus; versi di theme.js disetel untuk
-// latar gelap dan di sini kelihatan seperti noda.
-const softShadow = {
-  shadowColor: "#0f172a",
-  shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.06,
-  shadowRadius: 8,
-  elevation: 2,
-};
+const softShadow = shadow.card;
 
 const DEFAULT_TAX = 10;
 const DEFAULT_SERVICE = 0;
@@ -117,6 +109,11 @@ export default function SplitBillScreen({ onBack }) {
 
   const [draft, setDraft] = useState(null);
   const [isSaving, setSaving] = useState(false);
+
+  // Memberi nama bill adalah langkahnya sendiri sebelum peserta dan item,
+  // bukan satu kolom yang nyempil di antara keduanya.
+  const [creating, setCreating] = useState(false);
+  const [newBill, setNewBill] = useState({ title: "", date: today() });
 
   const [addingPerson, setAddingPerson] = useState(false);
   const [personName, setPersonName] = useState("");
@@ -347,6 +344,64 @@ export default function SplitBillScreen({ onBack }) {
     }
   };
 
+  // ======================= LANGKAH 1: NAMA =======================
+  if (creating) {
+    const ready = newBill.title.trim().length > 0;
+    return (
+      <ScrollView
+        style={styles.screen}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.header}>
+          <Pressable style={styles.iconButton} onPress={() => setCreating(false)}>
+            <Text style={styles.iconButtonText}>‹</Text>
+          </Pressable>
+          <Text style={styles.headerTitle}>Bill Baru</Text>
+          <View style={{ width: 42 }} />
+        </View>
+
+        <Text style={styles.createHint}>
+          Kasih nama dulu, biar gampang dicari nanti.
+        </Text>
+
+        <Text style={styles.fieldLabel}>Nama bill</Text>
+        <TextInput
+          style={styles.input}
+          value={newBill.title}
+          onChangeText={(v) => setNewBill((b) => ({ ...b, title: v }))}
+          placeholder="Makan di mana?"
+          placeholderTextColor={C.textFaint}
+          autoFocus
+          returnKeyType="next"
+        />
+
+        <Text style={styles.fieldLabel}>Tanggal</Text>
+        <TextInput
+          style={styles.input}
+          value={newBill.date}
+          onChangeText={(v) => setNewBill((b) => ({ ...b, date: v }))}
+          placeholder="YYYY-MM-DD"
+          placeholderTextColor={C.textFaint}
+        />
+
+        <Pressable
+          style={[styles.solidButton, !ready && styles.disabled]}
+          disabled={!ready}
+          onPress={() => {
+            setDraft({ ...emptyDraft(), title: newBill.title.trim(), date: newBill.date });
+            setSelectedIds([]);
+            setExpandedId(null);
+            setCreating(false);
+          }}
+        >
+          <Text style={styles.solidButtonText}>Lanjut</Text>
+        </Pressable>
+      </ScrollView>
+    );
+  }
+
   // ============================ DAFTAR ============================
   if (!draft) {
     return (
@@ -376,7 +431,13 @@ export default function SplitBillScreen({ onBack }) {
           </View>
         ) : null}
 
-        <Pressable style={styles.dashedButton} onPress={() => setDraft(emptyDraft())}>
+        <Pressable
+          style={styles.dashedButton}
+          onPress={() => {
+            setNewBill({ title: "", date: today() });
+            setCreating(true);
+          }}
+        >
           <Text style={styles.dashedButtonText}>+  Bikin Bill Baru</Text>
         </Pressable>
 
@@ -416,13 +477,9 @@ export default function SplitBillScreen({ onBack }) {
           <Pressable style={styles.iconButton} onPress={() => setDraft(null)}>
             <Text style={styles.iconButtonText}>‹</Text>
           </Pressable>
-          <TextInput
-            style={styles.titleInput}
-            value={draft.title}
-            onChangeText={(v) => patch({ title: v })}
-            placeholder="Nama bill"
-            placeholderTextColor={C.textFaint}
-          />
+          <Text style={styles.headerTitle} numberOfLines={1}>
+            {draft.title}
+          </Text>
           <Pressable
             style={[styles.iconButton, styles.saveButton, isSaving && styles.disabled]}
             onPress={save}
@@ -755,7 +812,17 @@ export default function SplitBillScreen({ onBack }) {
             style={styles.sheetWrap}
           >
             <View style={styles.sheet}>
-              <Text style={styles.sheetTitle}>Pajak &amp; Service</Text>
+              <Text style={styles.sheetTitle}>Pengaturan bill</Text>
+
+              <Text style={styles.fieldLabel}>Nama bill</Text>
+              <TextInput
+                style={styles.input}
+                value={draft.title}
+                onChangeText={(v) => patch({ title: v })}
+                placeholder="Nama bill"
+                placeholderTextColor={C.textFaint}
+              />
+
               <View style={styles.row}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.fieldLabel}>PPN %</Text>
@@ -881,12 +948,11 @@ const styles = StyleSheet.create({
     paddingBottom: 140,
     width: "100%",
   },
-  screen: { backgroundColor: C.bg, flex: 1 },
+  screen: { flex: 1 },
   receiptScreen: { backgroundColor: C.bg, flex: 1, paddingTop: TOP_INSET },
 
   header: { alignItems: "center", flexDirection: "row", gap: 10, marginTop: 12 },
   headerTitle: { color: C.text, flex: 1, fontSize: 24, fontWeight: "900" },
-  titleInput: { color: C.text, flex: 1, fontSize: 22, fontWeight: "900", padding: 0 },
   iconButton: {
     alignItems: "center",
     backgroundColor: C.surface,
@@ -913,7 +979,7 @@ const styles = StyleSheet.create({
   },
 
   avatar: { alignItems: "center", justifyContent: "center" },
-  avatarText: { color: "#1f2937", fontWeight: "900" },
+  avatarText: { color: "#0b2231", fontWeight: "900" },
 
   dashedButton: {
     alignItems: "center",
@@ -1098,10 +1164,11 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   ratesLabel: { color: C.textMuted, fontSize: 13, fontWeight: "800" },
+  createHint: { color: C.textMuted, fontSize: 13, fontWeight: "600", marginBottom: 4 },
   ratesValue: { color: C.textFaint, fontSize: 12, fontWeight: "800" },
 
   bulkBar: {
-    backgroundColor: C.solid,
+    backgroundColor: "#06293d",
     borderTopColor: C.border,
     borderTopWidth: 1,
     bottom: 0,
@@ -1166,7 +1233,7 @@ const styles = StyleSheet.create({
   },
   xButtonText: { color: C.danger, fontSize: 12, fontWeight: "900" },
 
-  backdrop: { backgroundColor: "rgba(15, 23, 42, 0.45)", flex: 1, justifyContent: "flex-end" },
+  backdrop: { backgroundColor: "rgba(2, 16, 26, 0.6)", flex: 1, justifyContent: "flex-end" },
   sheetWrap: { flexShrink: 1, maxHeight: "88%" },
   sheet: {
     backgroundColor: C.surface,

@@ -52,6 +52,19 @@ app.use(compression());
 
 app.use(express.json());
 
+// Express sudah memasang ETag di tiap response. Yang kurang cuma izin buat
+// browser memakainya: tanpa Cache-Control, browser tidak mengirim
+// If-None-Match, jadi 68 KB yang sama dikirim ulang terus walaupun tidak ada
+// yang berubah. "no-cache" bukan berarti jangan di-cache -- artinya selalu
+// tanya dulu, dan kalau ETag-nya masih sama server menjawab 304 tanpa badan
+// response sama sekali. "private" wajib ada karena ini data per-pengguna:
+// tanpa itu cache bersama (proxy, CDN) boleh menyimpan dan menyajikannya ke
+// orang lain.
+app.use((req, res, next) => {
+    if (req.method === "GET") res.set("Cache-Control", "private, no-cache");
+    next();
+});
+
 // --- Routes ---
 app.get("/api/health", (req, res) => {
     res.json({ status: "ok", service: "money-tracker-api" });

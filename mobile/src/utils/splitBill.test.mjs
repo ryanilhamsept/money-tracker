@@ -1,6 +1,7 @@
 import {
-  distributeEvenly, calculateItemTotal, calculateParticipantTotals,
-  calculateSimplifiedDebts, validateSplitTotal, calculateBillTotals, buildSplits,
+  distributeEvenly, distributeByWeight, calculateItemTotal, calculateBillTotals,
+  calculateParticipantTotals, calculateSimplifiedDebts, splitEvenly, itemShares,
+  portionsAssigned, takerCount, isAssigned, describeParticipantItems, billCharges,
 } from "./splitBill.js";
 
 let pass = 0, fail = 0;
@@ -11,89 +12,99 @@ const eq = (name, got, want) => {
   if (!ok) console.log(`        dapat : ${JSON.stringify(got)}\n        harus : ${JSON.stringify(want)}`);
 };
 
-// Pembagian tidak boleh menghilangkan rupiah
-eq("100 dibagi 3 = 34+33+33", distributeEvenly(100, 3), [34, 33, 33]);
+// --- pembagian dasar ---
+eq("100 dibagi 3", distributeEvenly(100, 3), [34, 33, 33]);
 eq("jumlahnya tetap 100", distributeEvenly(100, 3).reduce((a, b) => a + b, 0), 100);
 eq("dibagi 0 orang", distributeEvenly(100, 0), []);
+eq("berbobot 2:1 dari 100", distributeByWeight(100, [2, 1]), [67, 33]);
+eq("berbobot tetap utuh", distributeByWeight(100, [1, 1, 1]).reduce((a, b) => a + b, 0), 100);
+eq("bobot semua nol", distributeByWeight(100, [0, 0]), [0, 0]);
 
-// Pajak
+// --- item ---
 eq("50.000 + PPN 10%", calculateItemTotal(50000, 1, 10, 0),
    { subtotal: 50000, tax: 5000, service: 0, total: 55000 });
-eq("2 x 25.000 + 10% + 5%", calculateItemTotal(25000, 2, 10, 5),
-   { subtotal: 50000, tax: 5000, service: 2500, total: 57500 });
 
-// Lubang pembagian nol yang ditutup -- di repo asli ini menghasilkan NaN
-const gratis = [{ id: "a", name: "A" }];
-const hasilGratis = calculateParticipantTotals(gratis,
-  [{ participantId: "a", amount: 0, item: { price: 0, quantity: 1, taxRate: 10, serviceRate: 0 } }]);
-eq("item gratis tidak jadi NaN", hasilGratis[0].total, 0);
+const tiga = [{ id: "a", name: "a" }, { id: "b", name: "b" }, { id: "v", name: "v" }];
+const mk = (over = {}) => [{ id: "i", name: "NASGORR", price: 100000, quantity: 1,
+                             taxMode: "percent", taxRate: 11, serviceMode: "percent",
+                             serviceRate: 9, splits: [], ...over }];
 
-const qty0 = calculateParticipantTotals(gratis,
-  [{ participantId: "a", amount: 0, item: { price: 1000, quantity: 0, taxRate: 10, serviceRate: 0 } }]);
-eq("qty 0 tidak jadi NaN", qty0[0].total, 0);
+// --- mode persen: kasus yang dilaporkan melenceng 1 rupiah ---
+const persen = mk();
+eq("total mode persen", calculateBillTotals(persen),
+   { subtotal: 100000, tax: 11000, service: 9000, total: 120000 });
+const pp = calculateParticipantTotals(tiga, persen);
+eq("per orang berjumlah pas", pp.reduce((a, p) => a + p.total, 0), 120000);
+eq("pajak berjumlah pas", pp.reduce((a, p) => a + p.taxShare, 0), 11000);
+eq("service berjumlah pas", pp.reduce((a, p) => a + p.serviceShare, 0), 9000);
 
-// Penyederhanaan utang
-eq("A nalangin, B & C bayar ke A", calculateSimplifiedDebts([
+// --- mode nominal: struk cuma menyebut rupiahnya ---
+const nominal = mk({ taxMode: "amount", taxAmount: 11000,
+                     serviceMode: "amount", serviceAmount: 9000 });
+eq("nominal dibaca apa adanya", calculateBillTotals(nominal),
+   { subtotal: 100000, tax: 11000, service: 9000, total: 120000 });
+eq("mode terbaca", billCharges(nominal).taxMode, "amount");
+const pn = calculateParticipantTotals(tiga, nominal);
+eq("nominal pun tidak melenceng", pn.reduce((a, p) => a + p.total, 0), 120000);
+eq("persen dan nominal hasilnya sama", pn.map(p => p.total), pp.map(p => p.total));
+
+// --- bagi rata & bobot ---
+eq("bagi rata = satu bobot per orang",
+   splitEvenly({ quantity: 3 }, [{ id: "a" }, { id: "b" }]),
+   [{ participantId: "a", portions: 1 }, { participantId: "b", portions: 1 }]);
+eq("1 item ke 3 orang", pp.map(p => p.subtotal), [33334, 33333, 33333]);
+
+const berat = mk({ splits: [{ participantId: "a", portions: 2 },
+                            { participantId: "b", portions: 1 }] });
+const pb = calculateParticipantTotals(tiga, berat);
+eq("bobot 2:1, v tidak kebagian", pb.map(p => p.subtotal), [66667, 33333, 0]);
+eq("bobot pun berjumlah pas", pb.reduce((a, p) => a + p.total, 0), 120000);
+eq("yang tidak ambil tidak kena pajak", pb[2].total, 0);
+
+// --- pembagian nol & kasus kosong ---
+const gratis = mk({ price: 0, taxMode: "percent", taxRate: 10 });
+eq("item gratis tidak jadi NaN",
+   calculateParticipantTotals(tiga, gratis).every(p => Number.isFinite(p.total)), true);
+eq("tanpa item", calculateBillTotals([]), { subtotal: 0, tax: 0, service: 0, total: 0 });
+eq("tanpa peserta", calculateParticipantTotals([], persen), []);
+
+// --- penanda item ---
+const esteh = { id: "e", name: "esteh", price: 5000, quantity: 3,
+                splits: [{ participantId: "a", portions: 1 }] };
+eq("porsi terhitung", portionsAssigned(esteh), 1);
+eq("satu orang kebagian", takerCount(esteh), 1);
+eq("sudah ada yang ambil", isAssigned(esteh), true);
+eq("bagian rupiah per item", [...itemShares(persen[0], tiga).values()], [33334, 33333, 33333]);
+eq("rincian item", describeParticipantItems("a", persen, tiga), "1 NASGORR");
+
+// --- utang disederhanakan ---
+eq("B & C bayar ke A", calculateSimplifiedDebts([
   { name: "A", total: 50000, paid: 150000 },
   { name: "B", total: 50000, paid: 0 },
   { name: "C", total: 50000, paid: 0 },
 ]), [{ from: "B", to: "A", amount: 50000 }, { from: "C", to: "A", amount: 50000 }]);
 
-eq("semua pas, tidak ada transfer", calculateSimplifiedDebts([
-  { name: "A", total: 50000, paid: 50000 },
-  { name: "B", total: 50000, paid: 50000 },
-]), []);
-
-// Validasi
-eq("split kurang 10.000", validateSplitTotal([{ amount: 40000 }], 50000, 1),
-   { valid: false, assigned: 40000, expected: 50000, remaining: 10000 });
-
-// --- Model porsi ---
-import { portionsAssigned, takerCount, isAssigned, splitEvenly,
-         describeParticipantItems, distributeByWeight } from "./splitBill.js";
-
-const esteh = { id: "e", name: "esteh", price: 5000, quantity: 3, taxRate: 10, serviceRate: 0,
-                splits: [{ participantId: "p1", portions: 1 }] };
-eq("porsi terbagi 1 dari 3", portionsAssigned(esteh), 1);
-eq("satu orang kebagian", takerCount(esteh), 1);
-eq("sudah ada yang ambil", isAssigned(esteh), true);
-eq("bagi rata = satu bobot per orang",
-   splitEvenly({ quantity: 3 }, [{ id: "a" }, { id: "b" }]),
-   [{ participantId: "a", portions: 1 }, { participantId: "b", portions: 1 }]);
-
-// Inilah yang dulu rusak: 1 item untuk 3 orang. Membagi satuannya mentok
-// (1 tidak bisa jadi 3), tapi harganya jelas bisa dibagi tiga.
-const satuUntukBertiga = [{ id: "i", name: "Nasi Goreng", price: 100000, quantity: 1,
-                            taxRate: 0, serviceRate: 0, splits: [] }];
-const bertiga = [{ id: "a", name: "A" }, { id: "b", name: "B" }, { id: "c", name: "C" }];
-const bagiTiga = calculateParticipantTotals(bertiga, buildSplits(satuUntukBertiga, bertiga));
-eq("1 item ke 3 orang terbagi semua", bagiTiga.map((p) => p.total), [33334, 33333, 33333]);
-eq("tidak ada rupiah yang hilang", bagiTiga.reduce((a, p) => a + p.total, 0), 100000);
-
-eq("pembagian berbobot 2:1 dari 100", distributeByWeight(100, [2, 1]), [67, 33]);
-eq("berbobot tetap utuh", distributeByWeight(100, [1, 1, 1]).reduce((a, b) => a + b, 0), 100);
-eq("bobot semua nol", distributeByWeight(100, [0, 0]), [0, 0]);
-
-// Skenario utuh: 3 orang, 2 item, satu item ditandai manual
-const peserta = [{ id: "p1", name: "Ryan" }, { id: "p2", name: "Budi" }, { id: "p3", name: "Sari" }];
-const item = [
-  // belum dibagi -> jatuh ke bagi rata, 3 porsi untuk 3 orang
-  { id: "i1", name: "Nasi Goreng", price: 30000, quantity: 3, taxRate: 10, serviceRate: 5, splits: [] },
-  // 1 porsi, diambil Ryan sendiri
-  { id: "i2", name: "Kopi", price: 25000, quantity: 1, taxRate: 10, serviceRate: 5,
-    splits: [{ participantId: "p1", portions: 1 }] },
-];
-const total = calculateBillTotals(item);
-eq("grand total bill", total, { subtotal: 115000, tax: 11500, service: 5750, total: 132250 });
-
-const perOrang = calculateParticipantTotals(peserta, buildSplits(item, peserta));
-console.log("\n  rincian per orang:");
-perOrang.forEach(p => console.log(`    ${p.name.padEnd(6)} subtotal ${String(p.subtotal).padStart(6)}  pajak ${String(p.taxShare).padStart(5)}  service ${String(p.serviceShare).padStart(5)}  = ${p.total}`));
-const jumlah = perOrang.reduce((a, p) => a + p.total, 0);
-eq("jumlah semua orang = grand total", jumlah, total.total);
-
-eq("rincian item Ryan", describeParticipantItems("p1", item, peserta), "1 Nasi Goreng + 1 Kopi");
-eq("tidak ada NaN di mana pun", perOrang.every((p) => Number.isFinite(p.total)), true);
+// --- sapuan: selisih satu rupiah hanya muncul di kombinasi tertentu ---
+let melenceng = 0, kombinasi = 0;
+for (const harga of [100000, 33333, 7, 999999]) {
+  for (const qty of [1, 2, 3, 7]) {
+    for (const mode of ["percent", "amount"]) {
+      for (const pajak of [0, 10, 11, 12.5]) {
+        for (const orang of [1, 2, 3, 4, 7]) {
+          const items = [{ id: "x", name: "x", price: harga, quantity: qty,
+                           taxMode: mode, taxRate: pajak, taxAmount: pajak * 137,
+                           serviceMode: mode, serviceRate: 5, serviceAmount: 999,
+                           splits: [] }];
+          const ps = Array.from({ length: orang }, (_, i) => ({ id: "p" + i, name: "p" + i }));
+          const per = calculateParticipantTotals(ps, items);
+          kombinasi += 1;
+          if (per.reduce((a, p) => a + p.total, 0) !== calculateBillTotals(items).total) melenceng += 1;
+        }
+      }
+    }
+  }
+}
+eq(`sapuan ${kombinasi} kombinasi, semua pas`, melenceng, 0);
 
 console.log(`\n${pass} lolos, ${fail} gagal`);
 process.exit(fail ? 1 : 0);

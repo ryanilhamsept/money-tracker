@@ -15,9 +15,10 @@ import {
 
 import { getSplitBills, saveSplitBill, deleteSplitBill } from "../services/supabase";
 import {
-  buildSplits,
+  billCharges,
   calculateBillTotals,
   calculateParticipantTotals,
+  itemShares,
   describeParticipantItems,
   isAssigned,
   portionsAssigned,
@@ -78,12 +79,22 @@ const longDate = (iso) => {
   return Number.isFinite(d) ? `${d} ${bulan[(m || 1) - 1]} ${y}` : iso;
 };
 
+/** Label biaya: "PPN 11%" kalau persen, "PPN (nominal)" kalau rupiah. */
+const chargeLabel = (name, mode, rate) =>
+  mode === "amount" ? `${name} (nominal)` : `${name} ${rate}%`;
+
 const emptyDraft = () => ({
   id: null,
   title: "",
   date: today(),
-  taxRate: DEFAULT_TAX,
-  serviceRate: DEFAULT_SERVICE,
+  charges: {
+    taxMode: "percent",
+    taxRate: DEFAULT_TAX,
+    taxAmount: 0,
+    serviceMode: "percent",
+    serviceRate: DEFAULT_SERVICE,
+    serviceAmount: 0,
+  },
   participants: [],
   items: [],
 });
@@ -97,6 +108,51 @@ function Avatar({ name, size = 36 }) {
       ]}
     >
       <Text style={[styles.avatarText, { fontSize: size * 0.42 }]}>{initial(name)}</Text>
+    </View>
+  );
+}
+
+function ChargeField({ label, mode, rate, amount, onMode, onRate, onAmount }) {
+  const isPercent = mode !== "amount";
+  return (
+    <View style={{ gap: 8 }}>
+      <View style={styles.chargeHead}>
+        <Text style={styles.fieldLabel}>{label}</Text>
+        <View style={styles.toggle}>
+          <Pressable
+            style={[styles.toggleItem, isPercent && styles.toggleItemOn]}
+            onPress={() => onMode("percent")}
+          >
+            <Text style={[styles.toggleText, isPercent && styles.toggleTextOn]}>%</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.toggleItem, !isPercent && styles.toggleItemOn]}
+            onPress={() => onMode("amount")}
+          >
+            <Text style={[styles.toggleText, !isPercent && styles.toggleTextOn]}>Rp</Text>
+          </Pressable>
+        </View>
+      </View>
+
+      {isPercent ? (
+        <TextInput
+          style={styles.input}
+          value={String(rate)}
+          onChangeText={(v) => onRate(digits(v))}
+          placeholder="0"
+          placeholderTextColor={C.textFaint}
+          keyboardType="number-pad"
+        />
+      ) : (
+        <TextInput
+          style={styles.input}
+          value={amount ? String(amount) : ""}
+          onChangeText={(v) => onAmount(digits(v))}
+          placeholder="Nominal di struk"
+          placeholderTextColor={C.textFaint}
+          keyboardType="number-pad"
+        />
+      )}
     </View>
   );
 }
@@ -151,10 +207,7 @@ export default function SplitBillScreen({ onBack }) {
 
   const perPerson = useMemo(() => {
     if (!draft) return [];
-    return calculateParticipantTotals(
-      draft.participants,
-      buildSplits(draft.items, draft.participants)
-    );
+    return calculateParticipantTotals(draft.participants, draft.items);
   }, [draft]);
 
   const dibagi = useMemo(
@@ -196,8 +249,7 @@ export default function SplitBillScreen({ onBack }) {
     patch({
       items: [
         ...draft.items,
-        { id: newId(), name, price, quantity, taxRate: draft.taxRate,
-          serviceRate: draft.serviceRate, splits: [] },
+        { id: newId(), name, price, quantity, ...draft.charges, splits: [] },
       ],
     });
     setItemForm({ name: "", price: "", qty: "1" });
@@ -228,13 +280,12 @@ export default function SplitBillScreen({ onBack }) {
     patchItem(item.id, { splits: rebuilt });
   };
 
-  const setRates = (taxRate, serviceRate) =>
-    patch({
-      taxRate,
-      serviceRate,
-      // Tarif berlaku untuk seluruh bill tapi disimpan di tiap item, jadi
-      // mengubahnya harus menyapu semuanya.
-      items: draft.items.map((it) => ({ ...it, taxRate, serviceRate })),
+  // Biaya berlaku untuk seluruh bill tapi tersimpan di tiap item (tabelnya
+  // tidak punya kolom khusus), jadi setiap perubahan harus menyapu semuanya.
+  const setCharges = (fields) =>
+    setDraft((d) => {
+      const charges = { ...d.charges, ...fields };
+      return { ...d, charges, items: d.items.map((it) => ({ ...it, ...charges })) };
     });
 
   // --- Aksi massal ---
@@ -310,8 +361,7 @@ export default function SplitBillScreen({ onBack }) {
       id: bill.id,
       title: bill.title,
       date: bill.date,
-      taxRate: bill.items?.[0]?.taxRate ?? DEFAULT_TAX,
-      serviceRate: bill.items?.[0]?.serviceRate ?? DEFAULT_SERVICE,
+      charges: { ...emptyDraft().charges, ...billCharges(bill.items || []) },
       participants: bill.participants || [],
       items: bill.items || [],
     });
@@ -327,8 +377,10 @@ export default function SplitBillScreen({ onBack }) {
       ...draft.items.map((it) => `${it.quantity}x ${it.name} — ${rupiah(it.price * it.quantity)}`),
       "",
       `Subtotal ${rupiah(totals.subtotal)}`,
-      `PPN ${draft.taxRate}% ${rupiah(totals.tax)}`,
-      ...(draft.serviceRate ? [`Service ${draft.serviceRate}% ${rupiah(totals.service)}`] : []),
+      `${chargeLabel("PPN", draft.charges.taxMode, draft.charges.taxRate)} ${rupiah(totals.tax)}`,
+      ...(totals.service
+        ? [`${chargeLabel("Service", draft.charges.serviceMode, draft.charges.serviceRate)} ${rupiah(totals.service)}`]
+        : []),
       `Total ${rupiah(totals.total)}`,
       "",
       "Per orang:",
@@ -723,9 +775,7 @@ export default function SplitBillScreen({ onBack }) {
                           {n > 0 ? (
                             <Text style={styles.stepAmount}>
                               {rupiah(
-                                buildSplits([item], draft.participants).find(
-                                  (x) => x.participantId === p.id
-                                )?.amount || 0
+                                itemShares(item, draft.participants).get(p.id) || 0
                               )}
                             </Text>
                           ) : null}
@@ -781,8 +831,8 @@ export default function SplitBillScreen({ onBack }) {
             <View style={{ flex: 1 }}>
               <Text style={styles.totalLabel}>Total</Text>
               <Text style={styles.totalSub}>
-                Termasuk PPN {draft.taxRate}%
-                {draft.serviceRate ? ` + service ${draft.serviceRate}%` : ""}
+                Termasuk {chargeLabel("PPN", draft.charges.taxMode, draft.charges.taxRate)}
+                {totals.service ? ` + ${chargeLabel("service", draft.charges.serviceMode, draft.charges.serviceRate)}` : ""}
               </Text>
             </View>
             <View style={{ alignItems: "flex-end" }}>
@@ -806,7 +856,7 @@ export default function SplitBillScreen({ onBack }) {
         <Pressable style={styles.ratesRow} onPress={() => setShowRates(true)}>
           <Text style={styles.ratesLabel}>⚙  Pajak &amp; Service</Text>
           <Text style={styles.ratesValue}>
-            PPN {draft.taxRate}%{draft.serviceRate ? ` · ${draft.serviceRate}%` : ""}  ›
+            {chargeLabel("PPN", draft.charges.taxMode, draft.charges.taxRate)}  ›
           </Text>
         </Pressable>
       </ScrollView>
@@ -867,26 +917,28 @@ export default function SplitBillScreen({ onBack }) {
                 placeholderTextColor={C.textFaint}
               />
 
-              <View style={styles.row}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.fieldLabel}>PPN %</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={String(draft.taxRate)}
-                    onChangeText={(v) => setRates(digits(v), draft.serviceRate)}
-                    keyboardType="number-pad"
-                  />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.fieldLabel}>Service %</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={String(draft.serviceRate)}
-                    onChangeText={(v) => setRates(draft.taxRate, digits(v))}
-                    keyboardType="number-pad"
-                  />
-                </View>
-              </View>
+              {/* Dua cara isi. Struk sering cuma menulis nominalnya tanpa
+                  menyebut persennya, dan memaksa menghitung persen sendiri
+                  justru bikin angkanya meleset. */}
+              <ChargeField
+                label="PPN"
+                mode={draft.charges.taxMode}
+                rate={draft.charges.taxRate}
+                amount={draft.charges.taxAmount}
+                onMode={(taxMode) => setCharges({ taxMode })}
+                onRate={(taxRate) => setCharges({ taxRate })}
+                onAmount={(taxAmount) => setCharges({ taxAmount })}
+              />
+
+              <ChargeField
+                label="Service"
+                mode={draft.charges.serviceMode}
+                rate={draft.charges.serviceRate}
+                amount={draft.charges.serviceAmount}
+                onMode={(serviceMode) => setCharges({ serviceMode })}
+                onRate={(serviceRate) => setCharges({ serviceRate })}
+                onAmount={(serviceAmount) => setCharges({ serviceAmount })}
+              />
               <Text style={styles.fieldLabel}>Tanggal</Text>
               <TextInput
                 style={styles.input}
@@ -942,12 +994,16 @@ export default function SplitBillScreen({ onBack }) {
                 <Text style={styles.receiptLineValue}>{rupiah(totals.subtotal)}</Text>
               </View>
               <View style={styles.receiptLine}>
-                <Text style={styles.receiptLineLabel}>PPN ({draft.taxRate}%)</Text>
+                <Text style={styles.receiptLineLabel}>
+                  {chargeLabel("PPN", draft.charges.taxMode, draft.charges.taxRate)}
+                </Text>
                 <Text style={styles.receiptLineValue}>{rupiah(totals.tax)}</Text>
               </View>
-              {draft.serviceRate ? (
+              {totals.service ? (
                 <View style={styles.receiptLine}>
-                  <Text style={styles.receiptLineLabel}>Service ({draft.serviceRate}%)</Text>
+                  <Text style={styles.receiptLineLabel}>
+                    {chargeLabel("Service", draft.charges.serviceMode, draft.charges.serviceRate)}
+                  </Text>
                   <Text style={styles.receiptLineValue}>{rupiah(totals.service)}</Text>
                 </View>
               ) : null}
@@ -1334,6 +1390,21 @@ const styles = StyleSheet.create({
   receiptPersonItems: { color: C.textMuted, fontSize: 11, fontWeight: "600", marginTop: 2 },
   receiptPersonMath: { color: C.textFaint, fontSize: 10, fontWeight: "600", marginTop: 2 },
   receiptPersonTotal: { color: C.text, fontSize: 14, fontWeight: "900" },
+
+  chargeHead: { alignItems: "center", flexDirection: "row", justifyContent: "space-between" },
+  toggle: {
+    backgroundColor: C.surfaceMuted,
+    borderColor: C.border,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    flexDirection: "row",
+    overflow: "hidden",
+    padding: 2,
+  },
+  toggleItem: { borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 5 },
+  toggleItemOn: { backgroundColor: C.solid },
+  toggleText: { color: C.textMuted, fontSize: 12, fontWeight: "800" },
+  toggleTextOn: { color: "#ffffff" },
 
   confirmBackdrop: {
     alignItems: "center",

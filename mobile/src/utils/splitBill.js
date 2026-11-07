@@ -24,7 +24,16 @@ export const distributeEvenly = (total, count) => {
   return Array.from({ length: count }, (_, i) => base + (i < remainder ? 1 : 0));
 };
 
-/** Subtotal, pajak, dan service charge untuk satu item. */
+/**
+ * Biaya tambahan disimpan di tiap item (tabelnya tidak punya kolom khusus),
+ * tapi nilainya berlaku untuk seluruh bill. Diambil dari item pertama.
+ *
+ * Tiap biaya punya dua cara pakai. "percent" untuk struk yang menyebut
+ * tarifnya, "amount" untuk struk yang cuma menulis nominalnya -- dan itu
+ * yang lebih sering kejadian: orang lihat "PPN Rp 11.000" tanpa tahu
+ * persennya berapa.
+ */
+/** Subtotal, pajak, dan service untuk satu item berdiri sendiri. */
 export const calculateItemTotal = (price, quantity, taxRate = 0, serviceRate = 0) => {
   const subtotal = (Number(price) || 0) * (Number(quantity) || 0);
   const tax = Math.round(subtotal * ((Number(taxRate) || 0) / 100));
@@ -32,121 +41,95 @@ export const calculateItemTotal = (price, quantity, taxRate = 0, serviceRate = 0
   return { subtotal, tax, service, total: subtotal + tax + service };
 };
 
-/**
- * Porsi satu split terhadap itemnya.
- *
- * Aslinya `split.amount / itemSubtotal` tanpa penjagaan apa pun. Item gratis
- * atau qty 0 bikin pembaginya nol, hasilnya NaN, dan NaN itu menjalar sampai
- * ke total yang ditampilkan ke pengguna. Item tanpa harga tidak punya pajak
- * untuk dibagi, jadi 0 adalah jawaban yang benar.
- */
-const splitRatio = (amount, itemSubtotal) =>
-  itemSubtotal > 0 ? amount / itemSubtotal : 0;
-
-/**
- * Berapa yang harus dibayar tiap orang: porsi item yang dia ambil, plus
- * pajak dan service sebanding dengan porsi itu.
- */
-export const calculateParticipantTotals = (participants = [], splits = []) => {
-  const byId = new Map(
-    participants.map((p) => [
-      p.id,
-      { participantId: p.id, name: p.name, subtotal: 0, taxShare: 0, serviceShare: 0, total: 0 },
-    ])
-  );
-
-  splits.forEach((split) => {
-    const person = byId.get(split.participantId);
-    if (!person || !split.item) return;
-
-    const { price, quantity, taxRate, serviceRate } = split.item;
-    const calc = calculateItemTotal(price, quantity, taxRate, serviceRate);
-    const ratio = splitRatio(Number(split.amount) || 0, calc.subtotal);
-
-    person.subtotal += Number(split.amount) || 0;
-    person.taxShare += Math.round(calc.tax * ratio);
-    person.serviceShare += Math.round(calc.service * ratio);
-  });
-
-  byId.forEach((p) => {
-    p.total = p.subtotal + p.taxShare + p.serviceShare;
-  });
-
-  return Array.from(byId.values());
-};
-
-/**
- * Sederhanakan siapa bayar ke siapa.
- *
- * Tanpa ini tiap orang harus transfer ke tiap orang lain. Caranya: hitung
- * saldo bersih tiap orang (sudah bayar dikurangi tanggungan), lalu pasangkan
- * yang nombok paling besar dengan yang kurang bayar paling besar sampai
- * semuanya nol. Hasilnya jumlah transfer paling sedikit.
- */
-export const calculateSimplifiedDebts = (people = []) => {
-  const balances = people.map((p) => ({
-    name: p.name,
-    balance: Math.round((Number(p.paid) || 0) - (Number(p.total) || 0)),
-  }));
-
-  const debtors = balances.filter((b) => b.balance < 0).sort((a, b) => a.balance - b.balance);
-  const creditors = balances.filter((b) => b.balance > 0).sort((a, b) => b.balance - a.balance);
-
-  const debts = [];
-  let i = 0;
-  let j = 0;
-
-  // Tiap putaran menuntaskan minimal satu sisi, jadi perulangannya pasti
-  // berhenti. Pembulatan di atas menjaga saldonya bilangan bulat supaya
-  // perbandingan dengan nol tidak pernah meleset karena pecahan.
-  while (i < debtors.length && j < creditors.length) {
-    const debtor = debtors[i];
-    const creditor = creditors[j];
-    const amount = Math.min(Math.abs(debtor.balance), creditor.balance);
-
-    if (amount > 0) debts.push({ from: debtor.name, to: creditor.name, amount });
-
-    debtor.balance += amount;
-    creditor.balance -= amount;
-    if (debtor.balance === 0) i += 1;
-    if (creditor.balance === 0) j += 1;
-  }
-
-  return debts;
-};
-
-/** Apakah seluruh harga item sudah dibagi habis ke peserta. */
-export const validateSplitTotal = (splits = [], price = 0, quantity = 1) => {
-  const expected = (Number(price) || 0) * (Number(quantity) || 0);
-  const assigned = splits.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
-  return { valid: assigned === expected, assigned, expected, remaining: expected - assigned };
-};
-
-/** Ringkasan seluruh bill: subtotal, pajak, service, dan grand total. */
-export const calculateBillTotals = (items = []) =>
-  items.reduce(
-    (acc, item) => {
-      const c = calculateItemTotal(item.price, item.quantity, item.taxRate, item.serviceRate);
-      return {
-        subtotal: acc.subtotal + c.subtotal,
-        tax: acc.tax + c.tax,
-        service: acc.service + c.service,
-        total: acc.total + c.total,
-      };
-    },
-    { subtotal: 0, tax: 0, service: 0, total: 0 }
-  );
-
-/**
- * Pembagian di sini dihitung per PORSI, bukan per orang.
- *
- * Satu item punya qty, misal "esteh x3" berarti 3 porsi. Tiap peserta dikasih
- * sekian porsi, dan jumlah seluruh porsi harus pas sama qty-nya. Ini beda
- * dengan sekadar mencentang siapa yang ikut: dua orang bisa ambil porsi yang
- * tidak sama dari satu item yang sama.
- */
+/** Total bobot yang sudah diberikan pada sebuah item. */
 export const portionsAssigned = (item) =>
   (item?.splits || []).reduce((sum, s) => sum + (Number(s.portions) || 0), 0);
+
+export const billCharges = (items = []) => {
+  const first = items[0] || {};
+  return {
+    taxMode: first.taxMode === "amount" ? "amount" : "percent",
+    taxRate: Number(first.taxRate) || 0,
+    taxAmount: Number(first.taxAmount) || 0,
+    serviceMode: first.serviceMode === "amount" ? "amount" : "percent",
+    serviceRate: Number(first.serviceRate) || 0,
+    serviceAmount: Number(first.serviceAmount) || 0,
+  };
+};
+
+const subtotalOf = (items = []) =>
+  items.reduce((sum, it) => sum + (Number(it.price) || 0) * (Number(it.quantity) || 0), 0);
+
+/** Subtotal, pajak, service, dan total seluruh bill. */
+export const calculateBillTotals = (items = []) => {
+  const subtotal = subtotalOf(items);
+  const c = billCharges(items);
+  const tax =
+    c.taxMode === "amount" ? Math.round(c.taxAmount) : Math.round(subtotal * (c.taxRate / 100));
+  const service =
+    c.serviceMode === "amount"
+      ? Math.round(c.serviceAmount)
+      : Math.round(subtotal * (c.serviceRate / 100));
+  return { subtotal, tax, service, total: subtotal + tax + service };
+};
+
+/**
+ * Bagian tiap orang dari harga barangnya saja, belum termasuk biaya.
+ * Dihitung per item lalu dijumlahkan.
+ */
+const subtotalPerParticipant = (participants = [], items = []) => {
+  const out = new Map(participants.map((p) => [p.id, 0]));
+
+  items.forEach((item) => {
+    const list = (item.splits || []).filter((s) => Number(s.portions) > 0);
+    const effective = list.length ? list : splitEvenly(item, participants);
+    if (!effective.length) return;
+
+    const itemSubtotal = (Number(item.price) || 0) * (Number(item.quantity) || 0);
+    const shares = distributeByWeight(
+      itemSubtotal,
+      effective.map((s) => Number(s.portions) || 0)
+    );
+
+    effective.forEach((s, i) => {
+      if (!out.has(s.participantId)) return;
+      out.set(s.participantId, out.get(s.participantId) + shares[i]);
+    });
+  });
+
+  return out;
+};
+
+/**
+ * Berapa yang harus dibayar tiap orang.
+ *
+ * Pajak dan service dibagikan sekali saja dari angka total bill, sebanding
+ * dengan harga barang yang diambil masing-masing. Versi sebelumnya
+ * membulatkan pajak tiap orang sendiri-sendiri, dan tiga orang berbagi PPN
+ * 11.000 masing-masing jadi 3.667 -- berjumlah 11.001, satu rupiah lebih
+ * banyak dari pajak yang sebenarnya. Dibagikan dari totalnya, selisih itu
+ * tidak mungkin muncul.
+ */
+export const calculateParticipantTotals = (participants = [], items = []) => {
+  const subtotals = subtotalPerParticipant(participants, items);
+  const { tax, service } = calculateBillTotals(items);
+
+  const weights = participants.map((p) => subtotals.get(p.id) || 0);
+  const taxes = distributeByWeight(tax, weights);
+  const services = distributeByWeight(service, weights);
+
+  return participants.map((p, i) => {
+    const subtotal = subtotals.get(p.id) || 0;
+    return {
+      participantId: p.id,
+      name: p.name,
+      subtotal,
+      taxShare: taxes[i],
+      serviceShare: services[i],
+      total: subtotal + taxes[i] + services[i],
+    };
+  });
+};
 
 /** Berapa orang yang kebagian item ini. */
 export const takerCount = (item) =>
@@ -191,50 +174,68 @@ export const distributeByWeight = (total, weights = []) => {
 export const splitEvenly = (item, participants = []) =>
   participants.map((p) => ({ participantId: p.id, portions: 1 }));
 
-/**
- * Ratakan item menjadi daftar split yang bisa dibaca
- * `calculateParticipantTotals`. Nilai rupiahnya diturunkan dari porsi:
- * harga satuan dikali jumlah porsi yang diambil.
- *
- * Item yang belum ditandai siapa pun dibagi rata ke semua peserta -- itu
- * perilaku yang paling tidak mengagetkan kalau seseorang lupa membagi.
- */
-export const buildSplits = (items = [], participants = []) => {
-  const splits = [];
-
-  items.forEach((item) => {
-    const price = Number(item.price) || 0;
-    const quantity = Number(item.quantity) || 0;
-    const assigned = (item.splits || []).filter((s) => Number(s.portions) > 0);
-    const list = assigned.length > 0 ? assigned : splitEvenly(item, participants);
-    if (!list.length) return;
-
-    // Porsi diperlakukan sebagai bobot, bukan pengali harga langsung. Kalau
-    // jumlah porsinya kebetulan sama dengan qty, hasilnya identik dengan
-    // harga x porsi. Bedanya baru terasa waktu tidak sama -- satu item untuk
-    // tiga orang -- dan di situlah cara ini benar dan perkalian langsung
-    // salah.
-    const shares = distributeByWeight(
-      price * quantity,
-      list.map((s) => Number(s.portions) || 0)
-    );
-
-    list.forEach((s, i) =>
-      splits.push({
-        participantId: s.participantId,
-        amount: shares[i],
-        portions: Number(s.portions) || 0,
-        item,
-      })
-    );
-  });
-
-  return splits;
+/** Bagian rupiah tiap orang untuk satu item, buat ditampilkan di barisnya. */
+export const itemShares = (item, participants = []) => {
+  const list = (item.splits || []).filter((s) => Number(s.portions) > 0);
+  const effective = list.length ? list : splitEvenly(item, participants);
+  const itemSubtotal = (Number(item.price) || 0) * (Number(item.quantity) || 0);
+  const shares = distributeByWeight(
+    itemSubtotal,
+    effective.map((s) => Number(s.portions) || 0)
+  );
+  const out = new Map();
+  effective.forEach((s, i) => out.set(s.participantId, shares[i]));
+  return out;
 };
 
 /** Ringkasan "apa aja yang dia ambil", buat ditampilkan di struk. */
 export const describeParticipantItems = (participantId, items = [], participants = []) =>
-  buildSplits(items, participants)
-    .filter((s) => s.participantId === participantId && s.portions > 0)
-    .map((s) => `${s.portions} ${s.item.name}`)
+  items
+    .map((item) => {
+      const list = (item.splits || []).filter((s) => Number(s.portions) > 0);
+      const effective = list.length ? list : splitEvenly(item, participants);
+      const mine = effective.find((s) => s.participantId === participantId);
+      return mine ? `${mine.portions} ${item.name}` : null;
+    })
+    .filter(Boolean)
     .join(" + ");
+
+/**
+ * Sederhanakan siapa bayar ke siapa.
+ *
+ * Tanpa ini tiap orang harus transfer ke tiap orang lain. Caranya: hitung
+ * saldo bersih tiap orang (sudah bayar dikurangi tanggungan), lalu pasangkan
+ * yang nombok paling besar dengan yang kurang bayar paling besar sampai
+ * semuanya nol. Hasilnya jumlah transfer paling sedikit.
+ */
+export const calculateSimplifiedDebts = (people = []) => {
+  const balances = people.map((p) => ({
+    name: p.name,
+    balance: Math.round((Number(p.paid) || 0) - (Number(p.total) || 0)),
+  }));
+
+  const debtors = balances.filter((b) => b.balance < 0).sort((a, b) => a.balance - b.balance);
+  const creditors = balances.filter((b) => b.balance > 0).sort((a, b) => b.balance - a.balance);
+
+  const debts = [];
+  let i = 0;
+  let j = 0;
+
+  // Tiap putaran menuntaskan minimal satu sisi, jadi perulangannya pasti
+  // berhenti. Pembulatan di atas menjaga saldonya bilangan bulat supaya
+  // perbandingan dengan nol tidak pernah meleset karena pecahan.
+  while (i < debtors.length && j < creditors.length) {
+    const debtor = debtors[i];
+    const creditor = creditors[j];
+    const amount = Math.min(Math.abs(debtor.balance), creditor.balance);
+
+    if (amount > 0) debts.push({ from: debtor.name, to: creditor.name, amount });
+
+    debtor.balance += amount;
+    creditor.balance -= amount;
+    if (debtor.balance === 0) i += 1;
+    if (creditor.balance === 0) j += 1;
+  }
+
+  return debts;
+};

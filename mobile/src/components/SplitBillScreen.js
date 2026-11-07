@@ -20,9 +20,9 @@ import {
   calculateBillTotals,
   calculateParticipantTotals,
   describeParticipantItems,
-  isFullyAssigned,
+  isAssigned,
   portionsAssigned,
-  portionsLeft,
+  takerCount,
   splitEvenly,
 } from "../utils/splitBill";
 import { colors, radius, shadow, TOP_INSET } from "../theme";
@@ -153,7 +153,7 @@ export default function SplitBillScreen({ onBack }) {
   }, [draft]);
 
   const dibagi = useMemo(
-    () => (draft?.items || []).filter(isFullyAssigned).length,
+    () => (draft?.items || []).filter(isAssigned).length,
     [draft?.items]
   );
 
@@ -213,7 +213,6 @@ export default function SplitBillScreen({ onBack }) {
     const next = now + delta;
 
     if (next < 0) return;
-    if (delta > 0 && portionsLeft(item) <= 0) return;
 
     const rebuilt = current
       ? splits
@@ -260,8 +259,6 @@ export default function SplitBillScreen({ onBack }) {
         const splits = it.splits || [];
         const has = splits.some((s) => s.participantId === participantId);
         if (has) return { ...it, splits: splits.filter((s) => s.participantId !== participantId) };
-        const left = portionsLeft(it);
-        if (left <= 0) return it;
         return { ...it, splits: [...splits, { participantId, portions: 1 }] };
       }),
     });
@@ -607,10 +604,10 @@ export default function SplitBillScreen({ onBack }) {
 
         {draft.items.map((item) => {
           const assigned = portionsAssigned(item);
-          const left = portionsLeft(item);
-          const done = isFullyAssigned(item);
+          const takers = takerCount(item);
+          const done = isAssigned(item);
           const open = expandedId === item.id;
-          const takers = (item.splits || []).filter((s) => s.portions > 0);
+          const takerList = (item.splits || []).filter((s) => s.portions > 0);
 
           return (
             <View key={item.id} style={[styles.itemCard, open && styles.itemCardOpen]}>
@@ -636,18 +633,16 @@ export default function SplitBillScreen({ onBack }) {
 
                   {done ? (
                     <View style={styles.portionRow}>
-                      {takers.slice(0, 4).map((s) => {
+                      {takerList.slice(0, 4).map((s) => {
                         const p = draft.participants.find((x) => x.id === s.participantId);
                         return <Avatar key={s.participantId} name={p?.name || "?"} size={18} />;
                       })}
                       <Text style={styles.portionOk}>
-                        {assigned}/{item.quantity} porsi
+                        dibagi ke {takers} orang
                       </Text>
                     </View>
                   ) : (
-                    <Text style={styles.portionWarn}>
-                      {assigned === 0 ? "Belum dibagi" : `${assigned}/${item.quantity} porsi`}
-                    </Text>
+                    <Text style={styles.portionWarn}>Belum dibagi</Text>
                   )}
                 </Pressable>
 
@@ -674,12 +669,18 @@ export default function SplitBillScreen({ onBack }) {
                             <Text style={styles.stepName} numberOfLines={1}>{p.name}</Text>
                             {n > 0 ? (
                               <Text style={styles.stepMeta}>
-                                {rupiah(item.price)} × {n}
+                                {n} bagian dari {portionsAssigned(item)}
                               </Text>
                             ) : null}
                           </View>
                           {n > 0 ? (
-                            <Text style={styles.stepAmount}>{rupiah(item.price * n)}</Text>
+                            <Text style={styles.stepAmount}>
+                              {rupiah(
+                                buildSplits([item], draft.participants).find(
+                                  (x) => x.participantId === p.id
+                                )?.amount || 0
+                              )}
+                            </Text>
                           ) : null}
                           <Pressable
                             style={[styles.stepButton, n === 0 && styles.stepButtonOff]}
@@ -690,9 +691,8 @@ export default function SplitBillScreen({ onBack }) {
                           </Pressable>
                           <Text style={styles.stepCount}>{n}</Text>
                           <Pressable
-                            style={[styles.stepButton, styles.stepButtonAdd, left <= 0 && styles.disabled]}
+                            style={[styles.stepButton, styles.stepButtonAdd]}
                             onPress={() => bumpPortion(item, p.id, 1)}
-                            disabled={left <= 0}
                           >
                             <Text style={styles.stepButtonAddText}>＋</Text>
                           </Pressable>
@@ -703,14 +703,11 @@ export default function SplitBillScreen({ onBack }) {
 
                   <View style={styles.itemFooter}>
                     {done ? (
-                      <Text style={styles.portionOk}>Porsinya sudah pas</Text>
+                      <Text style={styles.portionOk}>Dibagi ke {takers} orang</Text>
                     ) : (
-                      <>
-                        <Text style={styles.portionWarn}>
-                          ⚠ {assigned}/{item.quantity} porsi terbagi
-                        </Text>
-                        <Text style={styles.portionWarn}>{left} porsi tersisa</Text>
-                      </>
+                      <Text style={styles.portionWarn}>
+                        ⚠ Belum ada yang ambil — kalau dibiarkan, dibagi rata ke semua
+                      </Text>
                     )}
                   </View>
 

@@ -148,21 +148,48 @@ export const calculateBillTotals = (items = []) =>
 export const portionsAssigned = (item) =>
   (item?.splits || []).reduce((sum, s) => sum + (Number(s.portions) || 0), 0);
 
-/** Sisa porsi yang belum ada yang ambil. */
-export const portionsLeft = (item) =>
-  (Number(item?.quantity) || 0) - portionsAssigned(item);
+/** Berapa orang yang kebagian item ini. */
+export const takerCount = (item) =>
+  (item?.splits || []).filter((s) => Number(s.portions) > 0).length;
 
-/** Sudah pas terbagi, tidak kurang dan tidak lebih. */
-export const isFullyAssigned = (item) => portionsLeft(item) === 0 && portionsAssigned(item) > 0;
+/** Sudah ada yang ambil bagian. */
+export const isAssigned = (item) => portionsAssigned(item) > 0;
 
-/** Bagi rata porsi sebuah item ke peserta; sisa pembagian jatuh ke yang awal. */
-export const splitEvenly = (item, participants = []) => {
-  if (!participants.length) return [];
-  const shares = distributeEvenly(Number(item.quantity) || 0, participants.length);
-  return participants
-    .map((p, i) => ({ participantId: p.id, portions: shares[i] || 0 }))
-    .filter((s) => s.portions > 0);
+/**
+ * Bagi sejumlah uang menurut bobot, tanpa ada rupiah yang hilang.
+ *
+ * Pembagian berbobot hampir selalu menyisakan pecahan. Di sini tiap orang
+ * dapat bagian bulatnya dulu, lalu sisa rupiahnya diberikan ke yang
+ * pecahannya paling besar -- jadi jumlah seluruh bagian selalu persis sama
+ * dengan totalnya, bukan kurang satu-dua rupiah.
+ */
+export const distributeByWeight = (total, weights = []) => {
+  const sum = weights.reduce((a, b) => a + (Number(b) || 0), 0);
+  if (sum <= 0) return weights.map(() => 0);
+
+  const exact = weights.map((w) => (total * (Number(w) || 0)) / sum);
+  const out = exact.map(Math.floor);
+  let left = total - out.reduce((a, b) => a + b, 0);
+
+  const byFraction = exact
+    .map((v, i) => ({ i, frac: v - Math.floor(v) }))
+    .sort((a, b) => b.frac - a.frac);
+
+  for (let k = 0; k < byFraction.length && left > 0; k += 1, left -= 1) {
+    out[byFraction[k].i] += 1;
+  }
+  return out;
 };
+
+/**
+ * Bagi rata sebuah item ke semua peserta: satu bobot untuk masing-masing.
+ *
+ * Sengaja TIDAK membagi jumlah satuannya. Satu nasi goreng untuk bertiga
+ * tidak bisa dipecah jadi tiga satuan, tapi harganya jelas bisa dibagi
+ * tiga -- dan itu yang orang maksud waktu bilang "bagi rata".
+ */
+export const splitEvenly = (item, participants = []) =>
+  participants.map((p) => ({ participantId: p.id, portions: 1 }));
 
 /**
  * Ratakan item menjadi daftar split yang bisa dibaca
@@ -177,13 +204,25 @@ export const buildSplits = (items = [], participants = []) => {
 
   items.forEach((item) => {
     const price = Number(item.price) || 0;
+    const quantity = Number(item.quantity) || 0;
     const assigned = (item.splits || []).filter((s) => Number(s.portions) > 0);
     const list = assigned.length > 0 ? assigned : splitEvenly(item, participants);
+    if (!list.length) return;
 
-    list.forEach((s) =>
+    // Porsi diperlakukan sebagai bobot, bukan pengali harga langsung. Kalau
+    // jumlah porsinya kebetulan sama dengan qty, hasilnya identik dengan
+    // harga x porsi. Bedanya baru terasa waktu tidak sama -- satu item untuk
+    // tiga orang -- dan di situlah cara ini benar dan perkalian langsung
+    // salah.
+    const shares = distributeByWeight(
+      price * quantity,
+      list.map((s) => Number(s.portions) || 0)
+    );
+
+    list.forEach((s, i) =>
       splits.push({
         participantId: s.participantId,
-        amount: price * (Number(s.portions) || 0),
+        amount: shares[i],
         portions: Number(s.portions) || 0,
         item,
       })

@@ -49,19 +49,30 @@ eq("split kurang 10.000", validateSplitTotal([{ amount: 40000 }], 50000, 1),
    { valid: false, assigned: 40000, expected: 50000, remaining: 10000 });
 
 // --- Model porsi ---
-import { portionsAssigned, portionsLeft, isFullyAssigned, splitEvenly, describeParticipantItems }
-  from "./splitBill.js";
+import { portionsAssigned, takerCount, isAssigned, splitEvenly,
+         describeParticipantItems, distributeByWeight } from "./splitBill.js";
 
 const esteh = { id: "e", name: "esteh", price: 5000, quantity: 3, taxRate: 10, serviceRate: 0,
                 splits: [{ participantId: "p1", portions: 1 }] };
 eq("porsi terbagi 1 dari 3", portionsAssigned(esteh), 1);
-eq("sisa 2 porsi", portionsLeft(esteh), 2);
-eq("belum pas terbagi", isFullyAssigned(esteh), false);
-eq("qty 3 ke 2 orang = 2+1", splitEvenly({ quantity: 3 }, [{ id: "a" }, { id: "b" }]),
-   [{ participantId: "a", portions: 2 }, { participantId: "b", portions: 1 }]);
-eq("qty 1 ke 3 orang, yang nol dibuang",
-   splitEvenly({ quantity: 1 }, [{ id: "a" }, { id: "b" }, { id: "c" }]),
-   [{ participantId: "a", portions: 1 }]);
+eq("satu orang kebagian", takerCount(esteh), 1);
+eq("sudah ada yang ambil", isAssigned(esteh), true);
+eq("bagi rata = satu bobot per orang",
+   splitEvenly({ quantity: 3 }, [{ id: "a" }, { id: "b" }]),
+   [{ participantId: "a", portions: 1 }, { participantId: "b", portions: 1 }]);
+
+// Inilah yang dulu rusak: 1 item untuk 3 orang. Membagi satuannya mentok
+// (1 tidak bisa jadi 3), tapi harganya jelas bisa dibagi tiga.
+const satuUntukBertiga = [{ id: "i", name: "Nasi Goreng", price: 100000, quantity: 1,
+                            taxRate: 0, serviceRate: 0, splits: [] }];
+const bertiga = [{ id: "a", name: "A" }, { id: "b", name: "B" }, { id: "c", name: "C" }];
+const bagiTiga = calculateParticipantTotals(bertiga, buildSplits(satuUntukBertiga, bertiga));
+eq("1 item ke 3 orang terbagi semua", bagiTiga.map((p) => p.total), [33334, 33333, 33333]);
+eq("tidak ada rupiah yang hilang", bagiTiga.reduce((a, p) => a + p.total, 0), 100000);
+
+eq("pembagian berbobot 2:1 dari 100", distributeByWeight(100, [2, 1]), [67, 33]);
+eq("berbobot tetap utuh", distributeByWeight(100, [1, 1, 1]).reduce((a, b) => a + b, 0), 100);
+eq("bobot semua nol", distributeByWeight(100, [0, 0]), [0, 0]);
 
 // Skenario utuh: 3 orang, 2 item, satu item ditandai manual
 const peserta = [{ id: "p1", name: "Ryan" }, { id: "p2", name: "Budi" }, { id: "p3", name: "Sari" }];
@@ -82,6 +93,7 @@ const jumlah = perOrang.reduce((a, p) => a + p.total, 0);
 eq("jumlah semua orang = grand total", jumlah, total.total);
 
 eq("rincian item Ryan", describeParticipantItems("p1", item, peserta), "1 Nasi Goreng + 1 Kopi");
+eq("tidak ada NaN di mana pun", perOrang.every((p) => Number.isFinite(p.total)), true);
 
 console.log(`\n${pass} lolos, ${fail} gagal`);
 process.exit(fail ? 1 : 0);

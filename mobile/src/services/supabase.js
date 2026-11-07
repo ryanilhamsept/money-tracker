@@ -417,3 +417,68 @@ export const getTransactions = async () => {
 
   return allData.map(mapTransactionFromDB);
 };
+
+// --- Split Bill ---
+
+// Sama persis dengan generator di App.js. Disalin ke sini, bukan diimpor,
+// supaya lapisan data tidak bergantung pada komponen layar.
+const generateId = () => {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
+
+// Peserta dan item disimpan sebagai JSONB di satu baris, bukan dipecah ke
+// tabel terpisah. Satu bill selalu dibaca dan ditulis utuh, tidak pernah
+// sebagian, jadi memecahnya cuma menambah join tanpa memberi apa-apa.
+// Tarif pajak & service menempel di tiap item -- itu yang diminta fungsi
+// hitungnya, dan membuat item yang tidak kena pajak jadi mungkin.
+
+const mapSplitBillFromDB = (row) => ({
+  id: row.id,
+  title: row.title,
+  date: row.date,
+  totalAmount: Number(row.total_amount) || 0,
+  participants: Array.isArray(row.participants) ? row.participants : [],
+  items: Array.isArray(row.items) ? row.items : [],
+  createdAt: row.created_at,
+});
+
+export const getSplitBills = async () => {
+  const { data, error } = await supabase
+    .from("split_bills")
+    .select("*")
+    .order("date", { ascending: false })
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+  return (data || []).map(mapSplitBillFromDB);
+};
+
+export const saveSplitBill = async (bill) => {
+  const row = {
+    title: bill.title,
+    date: bill.date,
+    total_amount: bill.totalAmount,
+    participants: bill.participants,
+    items: bill.items,
+  };
+
+  // user_id sengaja tidak dikirim: kolomnya default ke auth.uid() di
+  // database, sama seperti tabel lain di app ini.
+  const query = bill.id
+    ? supabase.from("split_bills").update(row).eq("id", bill.id).select().single()
+    : supabase.from("split_bills").insert({ ...row, id: generateId() }).select().single();
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return mapSplitBillFromDB(data);
+};
+
+export const deleteSplitBill = async (id) => {
+  const { error } = await supabase.from("split_bills").delete().eq("id", id);
+  if (error) throw error;
+};

@@ -72,6 +72,7 @@ import PlanScreen from "./src/components/PlanScreen";
 import MonthlyReportScreen from "./src/components/MonthlyReportScreen";
 import JournalScreen from "./src/components/JournalScreen";
 import CreditCalculator from "./src/components/CreditCalculator";
+import SplitBillScreen from "./src/components/SplitBillScreen";
 import PinLockScreen from "./src/components/PinLockScreen";
 import { hasPinSet } from "./src/utils/pinStorage";
 import { colors, radius, shadow, TOP_INSET } from "./src/theme";
@@ -115,9 +116,8 @@ const HUB_APPS = [
     icon: "\u{1F9FE}",
     art: "\u{1F465}",
     headline: "Bagi tagihan bareng\nteman-teman",
-    meta: "Belum tersedia",
-    colors: ["#2b4a5e", "#3d5f75"],
-    disabled: true,
+    meta: "Patungan, pajak, siapa bayar ke siapa",
+    colors: ["#0b5a63", "#12998f"],
   },
   {
     key: "kredit",
@@ -126,7 +126,7 @@ const HUB_APPS = [
     art: "\u{1F3E0}",
     headline: "Hitung cicilan KPR\natau kendaraan",
     meta: "Kalkulator kredit",
-    colors: ["#0b5a63", "#0e8a8a"],
+    colors: ["#2f6f9e", "#4aa3d4"],
   },
 ];
 
@@ -871,6 +871,10 @@ export default function App() {
 
       {activeApp === "kredit" ? (
         <CreditCalculator onBack={() => setActiveApp("hub")} />
+      ) : null}
+
+      {activeApp === "split" ? (
+        <SplitBillScreen onBack={() => setActiveApp("hub")} />
       ) : null}
 
       {activeApp === "tracker" && activeTab === "transactions" ? (

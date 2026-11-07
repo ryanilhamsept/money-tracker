@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -125,6 +124,12 @@ export default function SplitBillScreen({ onBack }) {
   const [selectedIds, setSelectedIds] = useState([]);
   const [showDetail, setShowDetail] = useState(false);
   const [showRates, setShowRates] = useState(false);
+
+  // Dialog sendiri, bukan Alert bawaan: di react-native-web `Alert.alert`
+  // adalah fungsi kosong, jadi konfirmasi hapus tidak pernah muncul di
+  // browser dan tidak ada yang terhapus.
+  const [confirming, setConfirming] = useState(null);
+  const [notice, setNotice] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -266,9 +271,10 @@ export default function SplitBillScreen({ onBack }) {
   // --- Simpan / hapus ---
   const save = async () => {
     if (!draft.title.trim()) {
-      Alert.alert("Judul masih kosong", "Kasih nama dulu buat bill-nya.");
+      setNotice("Judulnya masih kosong.");
       return;
     }
+    setNotice("");
     setSaving(true);
     try {
       await saveSplitBill({
@@ -282,28 +288,22 @@ export default function SplitBillScreen({ onBack }) {
       setDraft(null);
       await load();
     } catch (e) {
-      Alert.alert("Gagal menyimpan", e.message || "Coba lagi.");
+      setNotice(e.message || "Gagal menyimpan, coba lagi.");
     } finally {
       setSaving(false);
     }
   };
 
-  const confirmDelete = (bill) =>
-    Alert.alert("Hapus bill ini?", `"${bill.title}" akan hilang permanen.`, [
-      { text: "Batal", style: "cancel" },
-      {
-        text: "Hapus",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await deleteSplitBill(bill.id);
-            await load();
-          } catch (e) {
-            Alert.alert("Gagal menghapus", e.message || "Coba lagi.");
-          }
-        },
-      },
-    ]);
+  const doDelete = async () => {
+    const bill = confirming;
+    setConfirming(null);
+    try {
+      await deleteSplitBill(bill.id);
+      await load();
+    } catch (e) {
+      setError(e.message || "Gagal menghapus, coba lagi.");
+    }
+  };
 
   const openBill = (bill) => {
     setDraft({
@@ -340,6 +340,32 @@ export default function SplitBillScreen({ onBack }) {
       // Dibatalkan pengguna -- tidak perlu diapa-apakan.
     }
   };
+
+  const confirmModal = (
+    <Modal
+      visible={!!confirming}
+      animationType="fade"
+      transparent
+      onRequestClose={() => setConfirming(null)}
+    >
+      <View style={styles.confirmBackdrop}>
+        <View style={styles.confirmBox}>
+          <Text style={styles.confirmTitle}>Hapus bill ini?</Text>
+          <Text style={styles.confirmBody}>
+            "{confirming?.title}" bakal hilang permanen. Nggak bisa dibalikin.
+          </Text>
+          <View style={styles.row}>
+            <Pressable style={styles.ghostButton} onPress={() => setConfirming(null)}>
+              <Text style={styles.ghostButtonText}>Batal</Text>
+            </Pressable>
+            <Pressable style={styles.destructiveButton} onPress={doDelete}>
+              <Text style={styles.destructiveButtonText}>Hapus</Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
 
   // ======================= LANGKAH 1: NAMA =======================
   if (creating) {
@@ -402,6 +428,8 @@ export default function SplitBillScreen({ onBack }) {
   // ============================ DAFTAR ============================
   if (!draft) {
     return (
+      <>
+      {confirmModal}
       <ScrollView
         style={styles.screen}
         contentContainerStyle={styles.content}
@@ -438,26 +466,39 @@ export default function SplitBillScreen({ onBack }) {
           <Text style={styles.dashedButtonText}>+  Bikin Bill Baru</Text>
         </Pressable>
 
+        {notice ? (
+          <View style={styles.errorPanel}>
+            <Text style={styles.errorText}>{notice}</Text>
+          </View>
+        ) : null}
+
         {isLoading ? (
           <ActivityIndicator color={C.solid} style={{ marginTop: 20 }} />
         ) : (
           bills.map((bill) => (
-            <Pressable key={bill.id} style={styles.billCard} onPress={() => openBill(bill)}>
-              <Avatar name={bill.title} />
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={styles.billTitle} numberOfLines={1}>{bill.title}</Text>
-                <Text style={styles.billMeta}>
-                  {longDate(bill.date)} · {bill.participants.length} orang
-                </Text>
-              </View>
-              <Text style={styles.billAmount} numberOfLines={1}>{rupiah(bill.totalAmount)}</Text>
-              <Pressable style={styles.xButton} onPress={() => confirmDelete(bill)}>
+            <View key={bill.id} style={styles.billCard}>
+              <Pressable style={styles.billMain} onPress={() => openBill(bill)}>
+                <Avatar name={bill.title} />
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={styles.billTitle} numberOfLines={1}>{bill.title}</Text>
+                  <Text style={styles.billMeta}>
+                    {longDate(bill.date)} · {bill.participants.length} orang
+                  </Text>
+                </View>
+                <Text style={styles.billAmount} numberOfLines={1}>{rupiah(bill.totalAmount)}</Text>
+              </Pressable>
+              <Pressable
+                style={styles.xButton}
+                hitSlop={8}
+                onPress={() => setConfirming(bill)}
+              >
                 <Text style={styles.xButtonText}>✕</Text>
               </Pressable>
-            </Pressable>
+            </View>
           ))
         )}
       </ScrollView>
+      </>
     );
   }
 
@@ -489,6 +530,12 @@ export default function SplitBillScreen({ onBack }) {
             )}
           </Pressable>
         </View>
+
+        {notice ? (
+          <View style={styles.errorPanel}>
+            <Text style={styles.errorText}>{notice}</Text>
+          </View>
+        ) : null}
 
         {/* ---------------- Peserta ---------------- */}
         <Text style={styles.sectionLabel}>Peserta</Text>
@@ -1206,6 +1253,7 @@ const styles = StyleSheet.create({
   },
   bulkPersonText: { color: C.text, fontSize: 12, fontWeight: "800" },
 
+  billMain: { alignItems: "center", flex: 1, flexDirection: "row", gap: 12, minWidth: 0 },
   billCard: {
     alignItems: "center",
     backgroundColor: C.surface,
@@ -1286,6 +1334,34 @@ const styles = StyleSheet.create({
   receiptPersonItems: { color: C.textMuted, fontSize: 11, fontWeight: "600", marginTop: 2 },
   receiptPersonMath: { color: C.textFaint, fontSize: 10, fontWeight: "600", marginTop: 2 },
   receiptPersonTotal: { color: C.text, fontSize: 14, fontWeight: "900" },
+
+  confirmBackdrop: {
+    alignItems: "center",
+    backgroundColor: "rgba(2, 16, 26, 0.7)",
+    flex: 1,
+    justifyContent: "center",
+    padding: 28,
+  },
+  confirmBox: {
+    backgroundColor: C.surfaceMuted,
+    borderColor: C.border,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    gap: 12,
+    maxWidth: 380,
+    padding: 20,
+    width: "100%",
+  },
+  confirmTitle: { color: C.text, fontSize: 17, fontWeight: "900" },
+  confirmBody: { color: C.textMuted, fontSize: 13, fontWeight: "600", lineHeight: 19 },
+  destructiveButton: {
+    alignItems: "center",
+    backgroundColor: C.danger,
+    borderRadius: radius.md,
+    flex: 1,
+    paddingVertical: 13,
+  },
+  destructiveButtonText: { color: "#ffffff", fontSize: 13, fontWeight: "900" },
 
   errorPanel: { backgroundColor: "rgba(251,113,133,0.16)", borderRadius: radius.md, padding: 12 },
   errorText: { color: C.danger, fontSize: 12, fontWeight: "700" },

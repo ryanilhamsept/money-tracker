@@ -138,28 +138,64 @@ export const calculateBillTotals = (items = []) =>
   );
 
 /**
- * Ratakan item menjadi daftar split, supaya `calculateParticipantTotals`
- * bisa membacanya. Item yang tidak ditandai siapa pun dianggap dibagi rata
- * ke semua peserta -- itu perilaku yang paling tidak mengagetkan ketika
- * seseorang lupa menandai.
+ * Pembagian di sini dihitung per PORSI, bukan per orang.
+ *
+ * Satu item punya qty, misal "esteh x3" berarti 3 porsi. Tiap peserta dikasih
+ * sekian porsi, dan jumlah seluruh porsi harus pas sama qty-nya. Ini beda
+ * dengan sekadar mencentang siapa yang ikut: dua orang bisa ambil porsi yang
+ * tidak sama dari satu item yang sama.
+ */
+export const portionsAssigned = (item) =>
+  (item?.splits || []).reduce((sum, s) => sum + (Number(s.portions) || 0), 0);
+
+/** Sisa porsi yang belum ada yang ambil. */
+export const portionsLeft = (item) =>
+  (Number(item?.quantity) || 0) - portionsAssigned(item);
+
+/** Sudah pas terbagi, tidak kurang dan tidak lebih. */
+export const isFullyAssigned = (item) => portionsLeft(item) === 0 && portionsAssigned(item) > 0;
+
+/** Bagi rata porsi sebuah item ke peserta; sisa pembagian jatuh ke yang awal. */
+export const splitEvenly = (item, participants = []) => {
+  if (!participants.length) return [];
+  const shares = distributeEvenly(Number(item.quantity) || 0, participants.length);
+  return participants
+    .map((p, i) => ({ participantId: p.id, portions: shares[i] || 0 }))
+    .filter((s) => s.portions > 0);
+};
+
+/**
+ * Ratakan item menjadi daftar split yang bisa dibaca
+ * `calculateParticipantTotals`. Nilai rupiahnya diturunkan dari porsi:
+ * harga satuan dikali jumlah porsi yang diambil.
+ *
+ * Item yang belum ditandai siapa pun dibagi rata ke semua peserta -- itu
+ * perilaku yang paling tidak mengagetkan kalau seseorang lupa membagi.
  */
 export const buildSplits = (items = [], participants = []) => {
   const splits = [];
 
   items.forEach((item) => {
-    const assigned = (item.splits || []).filter((s) => Number(s.amount) > 0);
+    const price = Number(item.price) || 0;
+    const assigned = (item.splits || []).filter((s) => Number(s.portions) > 0);
+    const list = assigned.length > 0 ? assigned : splitEvenly(item, participants);
 
-    if (assigned.length > 0) {
-      assigned.forEach((s) => splits.push({ participantId: s.participantId, amount: Number(s.amount), item }));
-      return;
-    }
-
-    const subtotal = (Number(item.price) || 0) * (Number(item.quantity) || 0);
-    const shares = distributeEvenly(subtotal, participants.length);
-    participants.forEach((p, idx) => {
-      splits.push({ participantId: p.id, amount: shares[idx] || 0, item });
-    });
+    list.forEach((s) =>
+      splits.push({
+        participantId: s.participantId,
+        amount: price * (Number(s.portions) || 0),
+        portions: Number(s.portions) || 0,
+        item,
+      })
+    );
   });
 
   return splits;
 };
+
+/** Ringkasan "apa aja yang dia ambil", buat ditampilkan di struk. */
+export const describeParticipantItems = (participantId, items = [], participants = []) =>
+  buildSplits(items, participants)
+    .filter((s) => s.participantId === participantId && s.portions > 0)
+    .map((s) => `${s.portions} ${s.item.name}`)
+    .join(" + ");

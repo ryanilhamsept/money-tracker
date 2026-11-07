@@ -48,12 +48,29 @@ eq("semua pas, tidak ada transfer", calculateSimplifiedDebts([
 eq("split kurang 10.000", validateSplitTotal([{ amount: 40000 }], 50000, 1),
    { valid: false, assigned: 40000, expected: 50000, remaining: 10000 });
 
+// --- Model porsi ---
+import { portionsAssigned, portionsLeft, isFullyAssigned, splitEvenly, describeParticipantItems }
+  from "./splitBill.js";
+
+const esteh = { id: "e", name: "esteh", price: 5000, quantity: 3, taxRate: 10, serviceRate: 0,
+                splits: [{ participantId: "p1", portions: 1 }] };
+eq("porsi terbagi 1 dari 3", portionsAssigned(esteh), 1);
+eq("sisa 2 porsi", portionsLeft(esteh), 2);
+eq("belum pas terbagi", isFullyAssigned(esteh), false);
+eq("qty 3 ke 2 orang = 2+1", splitEvenly({ quantity: 3 }, [{ id: "a" }, { id: "b" }]),
+   [{ participantId: "a", portions: 2 }, { participantId: "b", portions: 1 }]);
+eq("qty 1 ke 3 orang, yang nol dibuang",
+   splitEvenly({ quantity: 1 }, [{ id: "a" }, { id: "b" }, { id: "c" }]),
+   [{ participantId: "a", portions: 1 }]);
+
 // Skenario utuh: 3 orang, 2 item, satu item ditandai manual
 const peserta = [{ id: "p1", name: "Ryan" }, { id: "p2", name: "Budi" }, { id: "p3", name: "Sari" }];
 const item = [
+  // belum dibagi -> jatuh ke bagi rata, 3 porsi untuk 3 orang
   { id: "i1", name: "Nasi Goreng", price: 30000, quantity: 3, taxRate: 10, serviceRate: 5, splits: [] },
+  // 1 porsi, diambil Ryan sendiri
   { id: "i2", name: "Kopi", price: 25000, quantity: 1, taxRate: 10, serviceRate: 5,
-    splits: [{ participantId: "p1", amount: 25000 }] },
+    splits: [{ participantId: "p1", portions: 1 }] },
 ];
 const total = calculateBillTotals(item);
 eq("grand total bill", total, { subtotal: 115000, tax: 11500, service: 5750, total: 132250 });
@@ -63,6 +80,8 @@ console.log("\n  rincian per orang:");
 perOrang.forEach(p => console.log(`    ${p.name.padEnd(6)} subtotal ${String(p.subtotal).padStart(6)}  pajak ${String(p.taxShare).padStart(5)}  service ${String(p.serviceShare).padStart(5)}  = ${p.total}`));
 const jumlah = perOrang.reduce((a, p) => a + p.total, 0);
 eq("jumlah semua orang = grand total", jumlah, total.total);
+
+eq("rincian item Ryan", describeParticipantItems("p1", item, peserta), "1 Nasi Goreng + 1 Kopi");
 
 console.log(`\n${pass} lolos, ${fail} gagal`);
 process.exit(fail ? 1 : 0);

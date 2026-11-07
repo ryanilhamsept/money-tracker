@@ -2,6 +2,7 @@ require("dotenv").config();
 
 const express = require("express");
 const cors = require("cors");
+const compression = require("compression");
 const { Pool, types } = require("pg");
 
 // DATE columns (OID 1082) default to JS Date objects, which serialize to
@@ -44,6 +45,11 @@ const allowedOrigins = [
 ];
 
 app.use(cors({ origin: allowedOrigins, credentials: true }));
+
+// Daftar transaksi penuh itu 411 KB JSON mentah dan 68 KB setelah gzip --
+// 84% dari yang dikirim selama ini sebetulnya tidak perlu lewat kabel.
+app.use(compression());
+
 app.use(express.json());
 
 // --- Routes ---

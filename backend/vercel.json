@@ -1,5 +1,7 @@
 {
     "$schema": "https://openapi.vercel.sh/vercel.json",
+    "_comment_regions": "Database-nya di Supabase ap-south-1 (Mumbai). Tanpa baris ini Vercel menaruh function di iad1 (Washington DC), jadi tiap query bolak-balik Amerika-India: diukur ~200 ms per query, padahal eksekusi query-nya sendiri cuma 2 ms. bom1 = Mumbai, satu region dengan database.",
+    "regions": ["bom1"],
     "functions": {
         "api/index.js": {
             "includeFiles": "src/**"

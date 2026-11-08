@@ -1288,7 +1288,11 @@ export default function App() {
       ) : null}
 
       {activeApp === "tracker" && activeTab === "yearly" ? (
-        <YearlyReportScreen transactions={transactions} onRemap={handleRemapTransaction} />
+        <YearlyReportScreen
+          transactions={transactions}
+          onRemap={handleRemapTransaction}
+          onDelete={handleDeleteTransactionById}
+        />
       ) : null}
 
       {activeApp === "tracker" ? (

@@ -14,7 +14,7 @@ import { categoryIcons } from "./MonthlyReport";
 // bukan "lengkap", cuma nggak kebaca.
 const MAX_DETAIL = 30;
 
-export default function YearlyReport({ transactions = [], onRemap }) {
+export default function YearlyReport({ transactions = [], onRemap, onDelete }) {
     const years = useMemo(() => availableYears(transactions), [transactions]);
     const todayStr = today();
     const thisYear = todayStr.slice(0, 4);
@@ -173,6 +173,7 @@ export default function YearlyReport({ transactions = [], onRemap }) {
             <Breakdown
                 title="Spending by Category"
                 onRemap={onRemap}
+                onDelete={onDelete}
                 rows={summary.byCategory}
                 emptyText={emptyText}
                 openKey={openCategory}
@@ -186,6 +187,7 @@ export default function YearlyReport({ transactions = [], onRemap }) {
             <Breakdown
                 title="Spending by Sumber Dana"
                 onRemap={onRemap}
+                onDelete={onDelete}
                 rows={summary.bySource}
                 emptyText={emptyText}
                 openKey={openSource}
@@ -196,6 +198,7 @@ export default function YearlyReport({ transactions = [], onRemap }) {
             <Breakdown
                 title="Ambil Dari Mana"
                 onRemap={onRemap}
+                onDelete={onDelete}
                 rows={summary.byDana}
                 emptyText={emptyText}
                 openKey={openDana}
@@ -215,11 +218,12 @@ export default function YearlyReport({ transactions = [], onRemap }) {
 // layar ini adalah merapikan transaksi yang nyasar ke baris yang salah, dan
 // judul/nominal/tanggalnya sudah benar. Form lengkap untuk keperluan itu malah
 // menambah tiga kolom lain yang bisa salah ketik tanpa sengaja.
-function TransactionRow({ transaction: t, onRemap }) {
+function TransactionRow({ transaction: t, onRemap, onDelete }) {
     const [editing, setEditing] = useState(false);
     const [draft, setDraft] = useState(null);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState("");
+    const [confirming, setConfirming] = useState(false);
 
     const start = () => {
         setDraft({
@@ -240,6 +244,17 @@ function TransactionRow({ transaction: t, onRemap }) {
         } catch (err) {
             setError(err?.message || "Gagal menyimpan, coba lagi.");
         } finally {
+            setSaving(false);
+        }
+    };
+
+    const remove = async () => {
+        setSaving(true);
+        setError("");
+        try {
+            await onDelete(t.id);
+        } catch (err) {
+            setError(err?.message || "Gagal menghapus, coba lagi.");
             setSaving(false);
         }
     };
@@ -326,6 +341,42 @@ function TransactionRow({ transaction: t, onRemap }) {
                     {saving ? "Menyimpan..." : "Simpan"}
                 </button>
             </div>
+
+            {onDelete &&
+                (confirming ? (
+                    <div className="space-y-2 border-t border-slate-200 pt-3">
+                        <p className="text-center text-xs font-semibold text-rose-300">
+                            Dihapus permanen, tidak bisa dibatalkan. Saldo akunnya ikut
+                            disesuaikan.
+                        </p>
+                        <div className="flex gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setConfirming(false)}
+                                disabled={saving}
+                                className="flex-1 rounded-xl border border-slate-200 py-2 text-sm font-bold text-slate-500 transition hover:bg-slate-50 disabled:opacity-50"
+                            >
+                                Jangan jadi
+                            </button>
+                            <button
+                                type="button"
+                                onClick={remove}
+                                disabled={saving}
+                                className="flex-1 rounded-xl bg-rose-500 py-2 text-sm font-bold text-white transition hover:bg-rose-600 disabled:opacity-50"
+                            >
+                                {saving ? "Menghapus..." : "Hapus permanen"}
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    <button
+                        type="button"
+                        onClick={() => setConfirming(true)}
+                        className="w-full py-1 text-center text-xs font-bold text-rose-400 transition hover:text-rose-300"
+                    >
+                        Hapus transaksi ini
+                    </button>
+                ))}
         </div>
     );
 }
@@ -346,7 +397,7 @@ function Empty({ text }) {
     );
 }
 
-function Breakdown({ title, rows, emptyText, openKey, setOpenKey, detailFor, withIcon, onRemap }) {
+function Breakdown({ title, rows, emptyText, openKey, setOpenKey, detailFor, withIcon, onRemap, onDelete }) {
     return (
         <Card className="overflow-hidden rounded-3xl border-0 bg-surface shadow-xl">
             <CardContent className="p-6">
@@ -419,6 +470,7 @@ function Breakdown({ title, rows, emptyText, openKey, setOpenKey, detailFor, wit
                                                     key={t.id}
                                                     transaction={t}
                                                     onRemap={onRemap}
+                                                    onDelete={onDelete}
                                                 />
                                             ))}
                                             {detail.length > MAX_DETAIL && (

@@ -17,7 +17,7 @@ import { reportStyles as rs } from "./MonthlyReportScreen";
 // daftar 400 baris di dalam kartu bukan "lengkap", cuma nggak kebaca.
 const MAX_DETAIL = 30;
 
-export default function YearlyReportScreen({ transactions = [], onRemap }) {
+export default function YearlyReportScreen({ transactions = [], onRemap, onDelete }) {
   const years = useMemo(() => availableYears(transactions), [transactions]);
   const todayStr = today();
   const thisYear = todayStr.slice(0, 4);
@@ -157,6 +157,7 @@ export default function YearlyReportScreen({ transactions = [], onRemap }) {
         openKey={openCategory}
         setOpenKey={setOpenCategory}
         onRemap={onRemap}
+        onDelete={onDelete}
         detailFor={(bucket) => expenses.filter((t) => belongsTo(bucket, t.category))}
       />
 
@@ -167,6 +168,7 @@ export default function YearlyReportScreen({ transactions = [], onRemap }) {
         openKey={openSource}
         setOpenKey={setOpenSource}
         onRemap={onRemap}
+        onDelete={onDelete}
         detailFor={(bucket) => expenses.filter((t) => belongsTo(bucket, t.source))}
       />
 
@@ -177,6 +179,7 @@ export default function YearlyReportScreen({ transactions = [], onRemap }) {
         openKey={openDana}
         setOpenKey={setOpenDana}
         onRemap={onRemap}
+        onDelete={onDelete}
         detailFor={(bucket) => expenses.filter((t) => belongsTo(bucket, t.danaDipakai))}
       />
 
@@ -192,10 +195,14 @@ export default function YearlyReportScreen({ transactions = [], onRemap }) {
 // layar ini adalah merapikan transaksi yang nyasar ke baris yang salah, dan
 // judul/nominal/tanggalnya sudah benar. Form lengkap untuk keperluan itu malah
 // menambah tiga kolom lain yang bisa salah ketik tanpa sengaja.
-function TransactionRow({ transaction: t, onRemap }) {
+function TransactionRow({ transaction: t, onRemap, onDelete }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(null);
   const [saving, setSaving] = useState(false);
+  // Konfirmasi dua ketuk, bukan Alert: react-native-web mengekspor Alert
+  // sebagai fungsi kosong, jadi di pratinjau browser dialognya tidak pernah
+  // muncul dan tombolnya terlihat rusak padahal kodenya jalan.
+  const [confirming, setConfirming] = useState(false);
 
   const start = () => {
     setDraft({
@@ -224,6 +231,15 @@ function TransactionRow({ transaction: t, onRemap }) {
       value: v,
       label: v,
     }));
+
+  const remove = async () => {
+    setSaving(true);
+    try {
+      await onDelete(t.id);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   if (!editing) {
     return (
@@ -277,6 +293,31 @@ function TransactionRow({ transaction: t, onRemap }) {
           <Text style={styles.editSaveText}>{saving ? "Menyimpan..." : "Simpan"}</Text>
         </Pressable>
       </View>
+
+      {onDelete ? (
+        confirming ? (
+          <View style={styles.editButtons}>
+            <Pressable style={styles.editCancel} onPress={() => setConfirming(false)} disabled={saving}>
+              <Text style={styles.editCancelText}>Jangan jadi</Text>
+            </Pressable>
+            <Pressable style={styles.deleteConfirm} onPress={remove} disabled={saving}>
+              <Text style={styles.deleteConfirmText}>
+                {saving ? "Menghapus..." : "Hapus permanen"}
+              </Text>
+            </Pressable>
+          </View>
+        ) : (
+          <Pressable style={styles.deleteLink} onPress={() => setConfirming(true)}>
+            <Text style={styles.deleteLinkText}>Hapus transaksi ini</Text>
+          </Pressable>
+        )
+      ) : null}
+
+      {confirming ? (
+        <Text style={styles.deleteWarning}>
+          Dihapus permanen, tidak bisa dibatalkan. Saldo akunnya ikut disesuaikan.
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -291,7 +332,7 @@ function StatBox({ label, value, meta }) {
   );
 }
 
-function Breakdown({ title, rows, year, openKey, setOpenKey, detailFor, onRemap }) {
+function Breakdown({ title, rows, year, openKey, setOpenKey, detailFor, onRemap, onDelete }) {
   return (
     <View style={rs.section}>
       <Text style={rs.sectionTitle}>{title}</Text>
@@ -324,7 +365,7 @@ function Breakdown({ title, rows, year, openKey, setOpenKey, detailFor, onRemap 
                 {expanded ? (
                   <View style={rs.dayDetail}>
                     {detail.slice(0, MAX_DETAIL).map((t) => (
-                      <TransactionRow key={t.id} transaction={t} onRemap={onRemap} />
+                      <TransactionRow key={t.id} transaction={t} onRemap={onRemap} onDelete={onDelete} />
                     ))}
                     {detail.length > MAX_DETAIL ? (
                       <Text style={styles.moreText}>
@@ -379,5 +420,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accent[0],
   },
   editSaveText: { color: "#ffffff", fontWeight: "800", fontSize: 13 },
+  deleteLink: { alignItems: "center", paddingVertical: 8 },
+  deleteLinkText: { color: colors.negative, fontSize: 12, fontWeight: "800" },
+  deleteConfirm: {
+    flex: 1, alignItems: "center", paddingVertical: 10, borderRadius: 12,
+    backgroundColor: colors.negative,
+  },
+  deleteConfirmText: { color: "#ffffff", fontWeight: "800", fontSize: 13 },
+  deleteWarning: { color: colors.negativeSoft, fontSize: 11, fontWeight: "600", textAlign: "center" },
   moreText: { color: colors.textFaint, fontSize: 11, fontWeight: "600", paddingTop: 8, paddingHorizontal: 4 },
 });

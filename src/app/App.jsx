@@ -472,6 +472,7 @@ export default function App() {
                     <YearlyReport
                         transactions={transactions}
                         onRemap={handleRemapTransaction}
+                        onDelete={handleDeleteTransaction}
                     />
                 )}
             </div>

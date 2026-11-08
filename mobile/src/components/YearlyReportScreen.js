@@ -2,6 +2,8 @@ import React, { useMemo, useState } from "react";
 import { View, Text, Pressable, ScrollView, StyleSheet } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 
+import Dropdown from "./Dropdown";
+
 import { categories, fundSources, danaDipakaiOptions } from "../constants/options";
 import { formatCurrency } from "../utils/formatters";
 import { formatDisplayDate, today } from "../utils/date";
@@ -15,7 +17,7 @@ import { reportStyles as rs } from "./MonthlyReportScreen";
 // daftar 400 baris di dalam kartu bukan "lengkap", cuma nggak kebaca.
 const MAX_DETAIL = 30;
 
-export default function YearlyReportScreen({ transactions = [], onEditTransaction }) {
+export default function YearlyReportScreen({ transactions = [], onRemap }) {
   const years = useMemo(() => availableYears(transactions), [transactions]);
   const todayStr = today();
   const thisYear = todayStr.slice(0, 4);
@@ -154,7 +156,7 @@ export default function YearlyReportScreen({ transactions = [], onEditTransactio
         year={selectedYear}
         openKey={openCategory}
         setOpenKey={setOpenCategory}
-        onPressTransaction={onEditTransaction}
+        onRemap={onRemap}
         detailFor={(bucket) => expenses.filter((t) => belongsTo(bucket, t.category))}
       />
 
@@ -164,7 +166,7 @@ export default function YearlyReportScreen({ transactions = [], onEditTransactio
         year={selectedYear}
         openKey={openSource}
         setOpenKey={setOpenSource}
-        onPressTransaction={onEditTransaction}
+        onRemap={onRemap}
         detailFor={(bucket) => expenses.filter((t) => belongsTo(bucket, t.source))}
       />
 
@@ -174,12 +176,108 @@ export default function YearlyReportScreen({ transactions = [], onEditTransactio
         year={selectedYear}
         openKey={openDana}
         setOpenKey={setOpenDana}
-        onPressTransaction={onEditTransaction}
+        onRemap={onRemap}
         detailFor={(bucket) => expenses.filter((t) => belongsTo(bucket, t.danaDipakai))}
       />
 
       <View style={{ height: 120 }} />
     </ScrollView>
+  );
+}
+
+// Satu baris transaksi di dalam rincian yang dibuka. Diketuk -> berubah jadi
+// tiga dropdown di tempat.
+//
+// Sengaja cuma tiga kolom itu, bukan form transaksi lengkap: yang dicari dari
+// layar ini adalah merapikan transaksi yang nyasar ke baris yang salah, dan
+// judul/nominal/tanggalnya sudah benar. Form lengkap untuk keperluan itu malah
+// menambah tiga kolom lain yang bisa salah ketik tanpa sengaja.
+function TransactionRow({ transaction: t, onRemap }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  const start = () => {
+    setDraft({
+      category: t.category || "",
+      source: t.source || "",
+      danaDipakai: t.danaDipakai || "",
+    });
+    setEditing(true);
+  };
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await onRemap(t, draft);
+      setEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Nilai yang sekarang dipakai transaksi ini ikut dimasukkan ke pilihan walau
+  // tidak terdaftar -- kalau tidak, dropdown-nya tampil kosong dan nilai lama
+  // terlihat seperti sudah hilang.
+  const withCurrent = (list, current) =>
+    (current && !list.includes(current) ? [current, ...list] : list).map((v) => ({
+      value: v,
+      label: v,
+    }));
+
+  if (!editing) {
+    return (
+      <Pressable style={rs.detailRow} onPress={onRemap ? start : undefined} disabled={!onRemap}>
+        <View style={{ flex: 1 }}>
+          <Text style={rs.detailTitle}>{t.title}</Text>
+          <Text style={rs.detailMeta}>
+            {formatDisplayDate(t.date)}
+            {t.time ? ` ${t.time}` : ""} · {t.source}
+            {t.danaDipakai ? ` · ${t.danaDipakai}` : ""}
+          </Text>
+        </View>
+        <Text style={rs.detailAmount}>-{formatCurrency(t.amount)}</Text>
+      </Pressable>
+    );
+  }
+
+  return (
+    <View style={styles.editCard}>
+      <Text style={rs.detailTitle}>{t.title}</Text>
+      <Text style={rs.detailMeta}>
+        {formatDisplayDate(t.date)} · {formatCurrency(t.amount)}
+      </Text>
+
+      <Text style={styles.editLabel}>Kategori</Text>
+      <Dropdown
+        value={draft.category}
+        options={withCurrent(categories, t.category)}
+        onChange={(v) => setDraft((d) => ({ ...d, category: v }))}
+      />
+
+      <Text style={styles.editLabel}>Sumber Dana</Text>
+      <Dropdown
+        value={draft.source}
+        options={withCurrent(fundSources, t.source)}
+        onChange={(v) => setDraft((d) => ({ ...d, source: v }))}
+      />
+
+      <Text style={styles.editLabel}>Ambil Dari Mana</Text>
+      <Dropdown
+        value={draft.danaDipakai}
+        options={withCurrent(danaDipakaiOptions, t.danaDipakai)}
+        onChange={(v) => setDraft((d) => ({ ...d, danaDipakai: v }))}
+      />
+
+      <View style={styles.editButtons}>
+        <Pressable style={styles.editCancel} onPress={() => setEditing(false)} disabled={saving}>
+          <Text style={styles.editCancelText}>Batal</Text>
+        </Pressable>
+        <Pressable style={styles.editSave} onPress={save} disabled={saving}>
+          <Text style={styles.editSaveText}>{saving ? "Menyimpan..." : "Simpan"}</Text>
+        </Pressable>
+      </View>
+    </View>
   );
 }
 
@@ -193,7 +291,7 @@ function StatBox({ label, value, meta }) {
   );
 }
 
-function Breakdown({ title, rows, year, openKey, setOpenKey, detailFor, onPressTransaction }) {
+function Breakdown({ title, rows, year, openKey, setOpenKey, detailFor, onRemap }) {
   return (
     <View style={rs.section}>
       <Text style={rs.sectionTitle}>{title}</Text>
@@ -226,22 +324,7 @@ function Breakdown({ title, rows, year, openKey, setOpenKey, detailFor, onPressT
                 {expanded ? (
                   <View style={rs.dayDetail}>
                     {detail.slice(0, MAX_DETAIL).map((t) => (
-                      <Pressable
-                        key={t.id}
-                        style={rs.detailRow}
-                        onPress={() => onPressTransaction && onPressTransaction(t)}
-                        disabled={!onPressTransaction}
-                      >
-                        <View style={{ flex: 1 }}>
-                          <Text style={rs.detailTitle}>{t.title}</Text>
-                          <Text style={rs.detailMeta}>
-                            {formatDisplayDate(t.date)}
-                            {t.time ? ` ${t.time}` : ""} · {t.source}
-                            {t.danaDipakai ? ` · ${t.danaDipakai}` : ""}
-                          </Text>
-                        </View>
-                        <Text style={rs.detailAmount}>-{formatCurrency(t.amount)}</Text>
-                      </Pressable>
+                      <TransactionRow key={t.id} transaction={t} onRemap={onRemap} />
                     ))}
                     {detail.length > MAX_DETAIL ? (
                       <Text style={styles.moreText}>
@@ -274,5 +357,27 @@ const styles = StyleSheet.create({
   monthValueEmpty: { color: colors.textFaint, fontWeight: "600" },
 
   unlisted: { color: "#fbbf24", fontSize: 11, fontWeight: "700" },
+
+  editCard: {
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 12,
+    gap: 6,
+    marginBottom: 8,
+  },
+  editLabel: { color: colors.textMuted, fontSize: 11, fontWeight: "700", marginTop: 4 },
+  editButtons: { flexDirection: "row", gap: 8, marginTop: 10 },
+  editCancel: {
+    flex: 1, alignItems: "center", paddingVertical: 10, borderRadius: 12,
+    borderWidth: 1, borderColor: colors.border,
+  },
+  editCancelText: { color: colors.textMuted, fontWeight: "800", fontSize: 13 },
+  editSave: {
+    flex: 1, alignItems: "center", paddingVertical: 10, borderRadius: 12,
+    backgroundColor: colors.accent[0],
+  },
+  editSaveText: { color: "#ffffff", fontWeight: "800", fontSize: 13 },
   moreText: { color: colors.textFaint, fontSize: 11, fontWeight: "600", paddingTop: 8, paddingHorizontal: 4 },
 });

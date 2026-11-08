@@ -439,6 +439,35 @@ export default function App() {
     [accounts]
   );
 
+  // Ubah pemetaan satu transaksi dari laporan tahunan: kategori / sumber dana /
+  // ambil dari mana, tanpa menyentuh judul, nominal, maupun tanggalnya.
+  //
+  // Efek sampingnya dibikin sama persis dengan menyimpan lewat form transaksi,
+  // karena ketiganya memang berdampak ke luar baris itu sendiri: mengganti
+  // sumber dana memindahkan uangnya dari saldo satu akun ke akun lain, dan
+  // mengganti kategori ikut berlaku untuk cicilan lain dari pembelian yang
+  // sama. Menulis langsung ke baris tanpa dua hal itu akan membuat saldo akun
+  // melenceng diam-diam.
+  const handleRemapTransaction = async (transaction, patch) => {
+    const payload = { ...transaction, ...patch };
+    await updateTransaction(payload);
+    await applyBalanceDeltas(transaction, payload);
+
+    if (payload.category !== transaction.category) {
+      const baseTitle = getInstallmentBaseTitle(transaction.title);
+      const siblings = baseTitle
+        ? transactions.filter(
+            (t) => t.id !== transaction.id && getInstallmentBaseTitle(t.title) === baseTitle
+          )
+        : [];
+      for (const sibling of siblings) {
+        await updateTransaction({ ...sibling, category: payload.category });
+      }
+    }
+
+    await loadDashboard();
+  };
+
   const openAddForm = () => {
     setEditingTransaction(null);
     setFormVisible(true);
@@ -1259,7 +1288,7 @@ export default function App() {
       ) : null}
 
       {activeApp === "tracker" && activeTab === "yearly" ? (
-        <YearlyReportScreen transactions={transactions} onEditTransaction={openEditForm} />
+        <YearlyReportScreen transactions={transactions} onRemap={handleRemapTransaction} />
       ) : null}
 
       {activeApp === "tracker" ? (

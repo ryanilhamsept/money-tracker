@@ -14,7 +14,7 @@ import { categoryIcons } from "./MonthlyReport";
 // bukan "lengkap", cuma nggak kebaca.
 const MAX_DETAIL = 30;
 
-export default function YearlyReport({ transactions = [] }) {
+export default function YearlyReport({ transactions = [], onRemap }) {
     const years = useMemo(() => availableYears(transactions), [transactions]);
     const todayStr = today();
     const thisYear = todayStr.slice(0, 4);
@@ -172,6 +172,7 @@ export default function YearlyReport({ transactions = [] }) {
 
             <Breakdown
                 title="Spending by Category"
+                onRemap={onRemap}
                 rows={summary.byCategory}
                 emptyText={emptyText}
                 openKey={openCategory}
@@ -184,6 +185,7 @@ export default function YearlyReport({ transactions = [] }) {
 
             <Breakdown
                 title="Spending by Sumber Dana"
+                onRemap={onRemap}
                 rows={summary.bySource}
                 emptyText={emptyText}
                 openKey={openSource}
@@ -193,6 +195,7 @@ export default function YearlyReport({ transactions = [] }) {
 
             <Breakdown
                 title="Ambil Dari Mana"
+                onRemap={onRemap}
                 rows={summary.byDana}
                 emptyText={emptyText}
                 openKey={openDana}
@@ -201,6 +204,128 @@ export default function YearlyReport({ transactions = [] }) {
                     expenses.filter((t) => belongsTo(bucket, t.danaDipakai))
                 }
             />
+        </div>
+    );
+}
+
+// Satu baris transaksi di dalam rincian yang dibuka. Diklik -> berubah jadi
+// tiga dropdown di tempat.
+//
+// Sengaja cuma tiga kolom itu, bukan form transaksi lengkap: yang dicari dari
+// layar ini adalah merapikan transaksi yang nyasar ke baris yang salah, dan
+// judul/nominal/tanggalnya sudah benar. Form lengkap untuk keperluan itu malah
+// menambah tiga kolom lain yang bisa salah ketik tanpa sengaja.
+function TransactionRow({ transaction: t, onRemap }) {
+    const [editing, setEditing] = useState(false);
+    const [draft, setDraft] = useState(null);
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState("");
+
+    const start = () => {
+        setDraft({
+            category: t.category || "",
+            source: t.source || "",
+            danaDipakai: t.danaDipakai || "",
+        });
+        setError("");
+        setEditing(true);
+    };
+
+    const save = async () => {
+        setSaving(true);
+        setError("");
+        try {
+            await onRemap(t, draft);
+            setEditing(false);
+        } catch (err) {
+            setError(err?.message || "Gagal menyimpan, coba lagi.");
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    // Nilai yang sekarang dipakai transaksi ini ikut dimasukkan ke pilihan walau
+    // tidak terdaftar -- kalau tidak, dropdown-nya tampil kosong dan nilai lama
+    // terlihat seperti sudah hilang.
+    const withCurrent = (list, current) =>
+        current && !list.includes(current) ? [current, ...list] : list;
+
+    if (!editing) {
+        return (
+            <button
+                type="button"
+                onClick={onRemap ? start : undefined}
+                disabled={!onRemap}
+                className="flex w-full min-w-0 items-center justify-between gap-3 rounded-2xl bg-surface p-3 text-left shadow-sm transition enabled:hover:bg-slate-50"
+            >
+                <div className="min-w-0">
+                    <p className="truncate font-bold text-slate-900">{t.title}</p>
+                    <p className="text-xs font-medium text-slate-500">
+                        {formatDisplayDate(t.date)}
+                        {t.time ? ` ${t.time}` : ""} • {t.source}
+                        {t.danaDipakai ? ` • ${t.danaDipakai}` : ""}
+                    </p>
+                </div>
+                <p className="shrink-0 font-black text-rose-400">
+                    -{formatCurrency(t.amount)}
+                </p>
+            </button>
+        );
+    }
+
+    const field = (label, key, options) => (
+        <label className="min-w-0 space-y-1">
+            <span className="text-xs font-bold text-slate-500">{label}</span>
+            <select
+                value={draft[key]}
+                onChange={(e) => setDraft((d) => ({ ...d, [key]: e.target.value }))}
+                className="w-full rounded-xl border border-slate-200 bg-surface px-3 py-2 text-sm font-semibold text-slate-900 outline-none focus:ring-2 focus:ring-sky-500/30"
+            >
+                {options.map((o) => (
+                    <option key={o} value={o}>
+                        {o}
+                    </option>
+                ))}
+            </select>
+        </label>
+    );
+
+    return (
+        <div className="space-y-3 rounded-2xl border border-slate-200 bg-surface p-3 shadow-sm">
+            <div className="flex min-w-0 items-center justify-between gap-3">
+                <p className="truncate font-bold text-slate-900">{t.title}</p>
+                <p className="shrink-0 font-black text-rose-400">
+                    -{formatCurrency(t.amount)}
+                </p>
+            </div>
+            <p className="text-xs font-medium text-slate-500">{formatDisplayDate(t.date)}</p>
+
+            <div className="grid gap-3 sm:grid-cols-3">
+                {field("Kategori", "category", withCurrent(categories, t.category))}
+                {field("Sumber Dana", "source", withCurrent(fundSources, t.source))}
+                {field("Ambil Dari Mana", "danaDipakai", withCurrent(danaDipakaiOptions, t.danaDipakai))}
+            </div>
+
+            {error && <p className="text-xs font-bold text-rose-400">{error}</p>}
+
+            <div className="flex gap-2">
+                <button
+                    type="button"
+                    onClick={() => setEditing(false)}
+                    disabled={saving}
+                    className="flex-1 rounded-xl border border-slate-200 py-2 text-sm font-bold text-slate-500 transition hover:bg-slate-50 disabled:opacity-50"
+                >
+                    Batal
+                </button>
+                <button
+                    type="button"
+                    onClick={save}
+                    disabled={saving}
+                    className="flex-1 rounded-xl bg-sky-500 py-2 text-sm font-bold text-white transition hover:bg-sky-600 disabled:opacity-50"
+                >
+                    {saving ? "Menyimpan..." : "Simpan"}
+                </button>
+            </div>
         </div>
     );
 }
@@ -221,7 +346,7 @@ function Empty({ text }) {
     );
 }
 
-function Breakdown({ title, rows, emptyText, openKey, setOpenKey, detailFor, withIcon }) {
+function Breakdown({ title, rows, emptyText, openKey, setOpenKey, detailFor, withIcon, onRemap }) {
     return (
         <Card className="overflow-hidden rounded-3xl border-0 bg-surface shadow-xl">
             <CardContent className="p-6">
@@ -290,24 +415,11 @@ function Breakdown({ title, rows, emptyText, openKey, setOpenKey, detailFor, wit
                                     {expanded && (
                                         <div className="space-y-2 border-t border-slate-200 pt-3">
                                             {detail.slice(0, MAX_DETAIL).map((t) => (
-                                                <div
+                                                <TransactionRow
                                                     key={t.id}
-                                                    className="flex min-w-0 items-center justify-between gap-3 rounded-2xl bg-surface p-3 shadow-sm"
-                                                >
-                                                    <div className="min-w-0">
-                                                        <p className="truncate font-bold text-slate-900">
-                                                            {t.title}
-                                                        </p>
-                                                        <p className="text-xs font-medium text-slate-500">
-                                                            {formatDisplayDate(t.date)}
-                                                            {t.time ? ` ${t.time}` : ""} • {t.source}
-                                                            {t.danaDipakai ? ` • ${t.danaDipakai}` : ""}
-                                                        </p>
-                                                    </div>
-                                                    <p className="shrink-0 font-black text-rose-400">
-                                                        -{formatCurrency(t.amount)}
-                                                    </p>
-                                                </div>
+                                                    transaction={t}
+                                                    onRemap={onRemap}
+                                                />
                                             ))}
                                             {detail.length > MAX_DETAIL && (
                                                 <p className="px-1 pt-1 text-xs font-medium text-slate-500">

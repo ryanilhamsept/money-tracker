@@ -147,6 +147,36 @@ export default function App() {
         [transactions]
     );
 
+    // Ubah pemetaan satu transaksi dari laporan tahunan: kategori / sumber dana /
+    // ambil dari mana, tanpa menyentuh judul, nominal, maupun tanggalnya.
+    //
+    // Cascade kategorinya disalin dari handleUpdateTransaction di Tracker:
+    // kategori itu sifatnya milik sebuah pembelian, bukan milik satu baris
+    // cicilan, jadi mengubahnya di satu angsuran berlaku untuk angsuran lain
+    // dari pembelian yang sama. Pergeseran saldo akun saat sumber dananya
+    // ganti sudah ditangani di dalam updateTransaction itu sendiri.
+    const handleRemapTransaction = async (transaction, patch) => {
+        const wasSaved = await updateTransaction(transaction.id, { ...transaction, ...patch });
+
+        if (wasSaved && patch.category !== transaction.category) {
+            const baseTitle = getInstallmentBaseTitle(transaction.title);
+            const siblings = baseTitle
+                ? transactions.filter(
+                      (t) =>
+                          t.id !== transaction.id &&
+                          getInstallmentBaseTitle(t.title) === baseTitle
+                  )
+                : [];
+            await Promise.all(
+                siblings.map((sibling) =>
+                    updateTransaction(sibling.id, { ...sibling, category: patch.category })
+                )
+            );
+        }
+
+        return wasSaved;
+    };
+
     const handleDeleteTransaction = async (id) => {
         const deletedTx = transactions.find(t => t.id === id);
         const success = await deleteTransaction(id);
@@ -439,7 +469,10 @@ export default function App() {
                 )}
 
                 {activePage === "yearly" && (
-                    <YearlyReport transactions={transactions} />
+                    <YearlyReport
+                        transactions={transactions}
+                        onRemap={handleRemapTransaction}
+                    />
                 )}
             </div>
 

@@ -12,40 +12,12 @@ import {
   ActivityIndicator,
   Switch,
 } from "react-native";
-import { formatCurrency } from "../utils/formatters";
+import { formatCurrency, formatThousands, parseAmount } from "../utils/formatters";
 import { categories, incomeCategories, fundSources, danaDipakaiOptions } from "../constants/options";
 import Dropdown from "./Dropdown";
 import { colors } from "../theme";
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
-
-// Format tampilan sambil ngetik: titik = pemisah ribuan, koma = pemisah desimal (sen).
-// Bagian desimal dibiarin apa adanya dulu (belum dibulatin) selagi masih diketik.
-const formatThousands = (value) => {
-  const raw = String(value || "");
-  const commaIndex = raw.indexOf(",");
-  const intRaw = (commaIndex === -1 ? raw : raw.slice(0, commaIndex)).replace(/[^\d]/g, "");
-  const formattedInt = intRaw ? new Intl.NumberFormat("id-ID").format(Number(intRaw)) : "";
-
-  if (commaIndex === -1) return formattedInt;
-
-  const decRaw = raw.slice(commaIndex + 1).replace(/[^\d]/g, "").slice(0, 2);
-  return `${formattedInt || "0"},${decRaw}`;
-};
-
-// Buat nilai final yang disimpan: gabung bagian bulat + desimal, lalu dibulatin ke atas
-// (Rupiah nggak punya pecahan yang beredar, jadi sen dibulatin bukan dibuang).
-const parseAmountRounded = (value) => {
-  const raw = String(value || "");
-  const commaIndex = raw.indexOf(",");
-  const intRaw = (commaIndex === -1 ? raw : raw.slice(0, commaIndex)).replace(/[^\d]/g, "");
-  const decRaw = commaIndex === -1 ? "" : raw.slice(commaIndex + 1).replace(/[^\d]/g, "");
-
-  if (!intRaw && !decRaw) return 0;
-
-  const numeric = Number(`${intRaw || "0"}.${decRaw || "0"}`);
-  return Math.ceil(numeric);
-};
 
 const emptyForm = {
   type: "expense",
@@ -135,7 +107,7 @@ export default function TransactionForm({ visible, initial, onClose, onSubmit, o
   };
 
   const recalcInstallmentAmount = (loanVal, termVal) => {
-    const totalLoanNum = parseAmountRounded(loanVal);
+    const totalLoanNum = parseAmount(loanVal);
     const termNum = Number(String(termVal || "").replace(/[^\d]/g, ""));
     if (totalLoanNum > 0 && termNum > 0) {
       setForm((f) => ({ ...f, amount: formatThousands(String(Math.ceil(totalLoanNum / termNum))) }));
@@ -155,7 +127,7 @@ export default function TransactionForm({ visible, initial, onClose, onSubmit, o
   };
 
   const handleSubmit = async ({ allowDuplicate = false } = {}) => {
-    const amount = parseAmountRounded(form.amount);
+    const amount = parseAmount(form.amount);
 
     if (!form.title.trim()) {
       setErrorMessage("Judul wajib diisi.");
@@ -197,7 +169,7 @@ export default function TransactionForm({ visible, initial, onClose, onSubmit, o
         amount,
         danaDipakai: form.type === "income" ? "" : form.danaDipakai,
       }, wantsInstallment, {
-          totalLoan: parseAmountRounded(totalLoan),
+          totalLoan: parseAmount(totalLoan),
           remainingTerm: remainingTerm,
           provider: provider,
           dueDate: dueDate,

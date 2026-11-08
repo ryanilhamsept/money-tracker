@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { normalizeDate } from "../utils/date";
-import { parseAmountInput } from "../utils/parser";
+import { parseAmount } from "../utils/currency";
 import {
     deduplicateTransactionsById,
     findDuplicateTransaction,
@@ -324,7 +324,7 @@ export const useTransactions = ({
     // equivalent transaction already exists -- nothing is added in that case,
     // so the caller can ask the user and retry with allowDuplicate: true.
     const addTransaction = (form, { allowDuplicate = false } = {}) => {
-        const amount = parseAmountInput(form.amount);
+        const amount = parseAmount(form.amount);
 
         if (!form.title.trim() || !amount) return { ok: false, reason: "invalid" };
 
@@ -364,7 +364,7 @@ export const useTransactions = ({
     };
 
     const updateTransaction = async (id, updatedForm) => {
-        const amount = parseAmountInput(String(updatedForm.amount));
+        const amount = parseAmount(String(updatedForm.amount));
 
         if (!updatedForm.title.trim() || !amount) return;
 

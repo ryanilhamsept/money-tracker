@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { parseAmountInput } from "../utils/parser";
+import { parseAmount } from "../utils/currency";
 import {
     getBudget as getBudgetFromSupabase,
     saveBudget as saveBudgetToSupabase,
@@ -33,7 +33,7 @@ export const useBudget = (userId) => {
     const saveBudget = async (event) => {
         event.preventDefault();
 
-        const newBudget = parseAmountInput(budgetInput);
+        const newBudget = parseAmount(budgetInput);
 
         if (!newBudget) return;
 

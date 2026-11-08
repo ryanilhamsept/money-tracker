@@ -11,20 +11,13 @@ import {
   Platform,
   ActivityIndicator,
 } from "react-native";
-import { formatCurrency } from "../utils/formatters";
+import { formatCurrency, formatThousands, parseAmount } from "../utils/formatters";
 import { formatDisplayDate } from "../utils/date";
 import { goalIcons, goalColors } from "../constants/options";
 import { colors } from "../theme";
 
 const generateId = () =>
   `goal-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
-
-const formatThousands = (value) => {
-  const raw = String(value || "").replace(/[^\d]/g, "");
-  return raw ? new Intl.NumberFormat("id-ID").format(Number(raw)) : "";
-};
-
-const parseAmount = (value) => Number(String(value || "").replace(/[^\d]/g, "")) || 0;
 
 const SORT_OPTIONS = [
   { key: "newest", label: "Terbaru" },
@@ -264,7 +257,7 @@ export default function PlanScreen({ goals, onAdd, onUpdate, onDelete }) {
                   <Text style={styles.label}>Target (Rp)</Text>
                   <TextInput
                     style={styles.input}
-                    placeholder="25000000"
+                    placeholder="25.000.000"
                     placeholderTextColor="#94a3b8"
                     keyboardType="numeric"
                     value={form.targetAmount}

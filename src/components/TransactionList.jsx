@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "./ui/button";
-import { formatCurrency } from "../utils/currency";
+import { formatCurrency, formatThousands, parseAmount } from "../utils/currency";
 import { formatDisplayDate, normalizeDate, addMonthsToDate } from "../utils/date";
 import { findCreditCardForSource } from "../utils/accountBalance";
 import {
@@ -98,10 +98,10 @@ export default function TransactionList({
     // Amount = cicilan bulanan; begitu Total Harga Barang & Sisa Tenor keisi,
     // hitung otomatis (dibulatkan ke atas) biar konsisten.
     const recalcInstallmentAmount = (totalLoanVal, remainingTermVal) => {
-        const totalLoanNum = Number(String(totalLoanVal || "").replace(/[^\d]/g, ""));
+        const totalLoanNum = parseAmount(totalLoanVal);
         const termNum = Number(remainingTermVal || "");
         if (totalLoanNum > 0 && termNum > 0) {
-            setEditForm((prev) => ({ ...prev, amount: String(Math.ceil(totalLoanNum / termNum)) }));
+            setEditForm((prev) => ({ ...prev, amount: formatThousands(String(Math.ceil(totalLoanNum / termNum))) }));
         }
     };
 
@@ -110,7 +110,7 @@ export default function TransactionList({
 
         setEditForm({
             title: item.title,
-            amount: String(item.amount),
+            amount: formatThousands(String(item.amount)),
             category: item.category,
             source: item.source,
             danaDipakai: item.danaDipakai,
@@ -141,7 +141,7 @@ export default function TransactionList({
 
     const saveEdit = async (id) => {
         const wantsInstallment = editForm.danaDipakai === "Spend CC" && isInstallment;
-        const totalLoan = Number(String(installmentDetails.totalLoan || "").replace(/[^\d]/g, ""));
+        const totalLoan = parseAmount(installmentDetails.totalLoan);
 
         if (wantsInstallment && !totalLoan) return;
 
@@ -158,7 +158,7 @@ export default function TransactionList({
             if (wantsInstallment && addInstallment) {
                 const matchedCard = findCreditCardForSource(accounts, editForm.source);
                 if (matchedCard) {
-                    const monthlyAmount = Number(String(editForm.amount).replace(/[^\d]/g, ""));
+                    const monthlyAmount = parseAmount(editForm.amount);
                     await addInstallment({
                         accountId: matchedCard.id,
                         transactionId: id,
@@ -332,7 +332,7 @@ export default function TransactionList({
                                     onChange={(event) =>
                                         setEditForm((prev) => ({
                                             ...prev,
-                                            amount: event.target.value,
+                                            amount: formatThousands(event.target.value),
                                         }))
                                     }
                                     inputMode="numeric"
@@ -456,7 +456,7 @@ export default function TransactionList({
                                                 <input
                                                     value={installmentDetails.totalLoan}
                                                     onChange={(event) => {
-                                                        const value = event.target.value;
+                                                        const value = formatThousands(event.target.value);
                                                         setInstallmentDetails((prev) => ({
                                                             ...prev,
                                                             totalLoan: value,

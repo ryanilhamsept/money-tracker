@@ -35,7 +35,7 @@ import {
   deleteGoal,
   supabase,
 } from "./src/services/supabase";
-import { formatCurrency, formatDate } from "./src/utils/formatters";
+import { formatCurrency, formatDate, formatThousands, parseAmount } from "./src/utils/formatters";
 import { getAccountBalanceDeltas, findCreditCardForSource } from "./src/utils/accountBalance";
 import {
   formatInstallmentTitle,
@@ -385,12 +385,12 @@ export default function App() {
   }, [transactions, totalSpending]);
 
   const handleBudgetEditOpen = () => {
-    setBudgetInput(String(budget || ""));
+    setBudgetInput(formatThousands(String(budget || "")));
     setIsEditingBudget(true);
   };
 
   const handleBudgetSave = async () => {
-    const newBudget = Number(String(budgetInput).replace(/[^\d]/g, ""));
+    const newBudget = parseAmount(budgetInput);
     if (!newBudget) return;
     setIsSavingBudget(true);
     try {
@@ -1025,10 +1025,10 @@ export default function App() {
                     <TextInput
                       style={styles.budgetInput}
                       keyboardType="numeric"
-                      placeholder="5000000"
+                      placeholder="5.000.000"
                       placeholderTextColor="#94a3b8"
                       value={budgetInput}
-                      onChangeText={setBudgetInput}
+                      onChangeText={(v) => setBudgetInput(formatThousands(v))}
                       autoFocus
                     />
                     <Pressable

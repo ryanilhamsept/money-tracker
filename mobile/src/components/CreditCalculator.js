@@ -1,14 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { View, Text, TextInput, Pressable, ScrollView, StyleSheet } from "react-native";
-import { formatCurrency } from "../utils/formatters";
+import { formatCurrency, formatThousands, parseAmount } from "../utils/formatters";
 import { colors } from "../theme";
-
-const formatThousands = (value) => {
-  const raw = String(value || "").replace(/[^\d]/g, "");
-  return raw ? new Intl.NumberFormat("id-ID").format(Number(raw)) : "";
-};
-
-const parseAmount = (value) => Number(String(value || "").replace(/[^\d]/g, "")) || 0;
 
 function buildSchedule({ principal, annualRate, months, method }) {
   const monthlyRate = annualRate / 100 / 12;
@@ -103,7 +96,7 @@ export default function CreditCalculator({ onBack }) {
         <Text style={styles.label}>Harga Barang (Rp)</Text>
         <TextInput
           style={styles.input}
-          placeholder="300000000"
+          placeholder="300.000.000"
           placeholderTextColor="#94a3b8"
           keyboardType="numeric"
           value={price}
@@ -117,7 +110,7 @@ export default function CreditCalculator({ onBack }) {
         </Text>
         <TextInput
           style={styles.input}
-          placeholder="60000000"
+          placeholder="60.000.000"
           placeholderTextColor="#94a3b8"
           keyboardType="numeric"
           value={downPayment}

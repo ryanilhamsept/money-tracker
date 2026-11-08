@@ -13,7 +13,7 @@ import {
   Alert,
 } from "react-native";
 import Svg, { Rect, Line as SvgLine, Polyline, Circle, Text as SvgText } from "react-native-svg";
-import { formatCurrency } from "../utils/formatters";
+import { formatCurrency, formatThousands, parseAmount } from "../utils/formatters";
 import { formatMonthLabel } from "../utils/date";
 import {
   summariseNetWorth,
@@ -48,39 +48,6 @@ const CARD_COLORS = ["#0f172a", "#1e293b", "#1d4ed8", "#78350f", "#1e3a8a"];
 
 const generateId = () =>
   `acc-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
-
-// Format tampilan sambil ngetik: titik = pemisah ribuan, koma = pemisah desimal (sen), dan tanda minus di depan.
-const formatThousands = (value) => {
-  const raw = String(value || "").replace(/[^\d,-]/g, "");
-  const isNegative = raw.startsWith("-");
-  const rawNoMinus = raw.replace(/-/g, "");
-  
-  const commaIndex = rawNoMinus.indexOf(",");
-  const intRaw = (commaIndex === -1 ? rawNoMinus : rawNoMinus.slice(0, commaIndex)).replace(/[^\d]/g, "");
-  const formattedInt = intRaw ? new Intl.NumberFormat("id-ID").format(Number(intRaw)) : "";
-
-  if (commaIndex === -1) return isNegative && formattedInt ? `-${formattedInt}` : isNegative ? "-" : formattedInt;
-
-  const decRaw = rawNoMinus.slice(commaIndex + 1).replace(/[^\d]/g, "").slice(0, 2);
-  const formattedWithDec = `${formattedInt || "0"},${decRaw}`;
-  return isNegative ? `-${formattedWithDec}` : formattedWithDec;
-};
-
-// Nilai final: gabung bulat + desimal, dibulatin ke atas (Rupiah nggak ada sen beredar), dengan minus sign support.
-const parseAmountRounded = (value) => {
-  const raw = String(value || "");
-  const isNegative = raw.trim().startsWith("-");
-  const rawNoMinus = raw.replace(/-/g, "");
-  
-  const commaIndex = rawNoMinus.indexOf(",");
-  const intRaw = (commaIndex === -1 ? rawNoMinus : rawNoMinus.slice(0, commaIndex)).replace(/[^\d]/g, "");
-  const decRaw = commaIndex === -1 ? "" : rawNoMinus.slice(commaIndex + 1).replace(/[^\d]/g, "");
-
-  if (!intRaw && !decRaw) return 0;
-
-  const num = Math.ceil(Number(`${intRaw || "0"}.${decRaw || "0"}`));
-  return isNegative ? -num : num;
-};
 
 const emptyNewAccount = {
   name: "",
@@ -318,12 +285,12 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
         id: generateId(),
         name: newAccount.name.trim(),
         type: newAccount.type,
-        startingBalance: parseAmountRounded(newAccount.startingBalance),
+        startingBalance: parseAmount(newAccount.startingBalance),
         ...(isCreditCardForm && {
           issuer: newAccount.issuer.trim(),
           productName: newAccount.productName.trim(),
           sharesLimit: newAccount.sharesLimit,
-          totalLimit: parseAmountRounded(newAccount.totalLimit),
+          totalLimit: parseAmount(newAccount.totalLimit),
           dueDate: newAccount.dueDate ? Number(newAccount.dueDate) : null,
           color: newAccount.color,
         }),
@@ -339,12 +306,12 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
     setEditingId(account.id);
     if (account.type === "Kartu Kredit") {
       setEditCardVal({
-        startingBalance: formatThousands(account.startingBalance),
+        startingBalance: formatThousands(account.startingBalance, { allowNegative: true }),
         totalLimit: account.totalLimit ? formatThousands(account.totalLimit) : "",
         dueDate: account.dueDate ? String(account.dueDate) : "",
       });
     } else {
-      setEditBalanceVal(formatThousands(account.startingBalance));
+      setEditBalanceVal(formatThousands(account.startingBalance, { allowNegative: true }));
     }
   };
 
@@ -353,12 +320,12 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
     try {
       if (account.type === "Kartu Kredit") {
         await onUpdateFields(account.id, {
-          startingBalance: parseAmountRounded(editCardVal.startingBalance),
-          totalLimit: parseAmountRounded(editCardVal.totalLimit),
+          startingBalance: parseAmount(editCardVal.startingBalance),
+          totalLimit: parseAmount(editCardVal.totalLimit),
           dueDate: editCardVal.dueDate ? Number(editCardVal.dueDate) : null,
         });
       } else {
-        await onUpdateBalance(account.id, parseAmountRounded(editBalanceVal));
+        await onUpdateBalance(account.id, parseAmount(editBalanceVal));
       }
       setEditingId(null);
     } finally {
@@ -368,7 +335,7 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
 
   const handlePaymentSubmit = async () => {
     if (!paymentAccountId || !paymentForm.amount || !paymentForm.date) return;
-    const amount = parseAmountRounded(paymentForm.amount);
+    const amount = parseAmount(paymentForm.amount);
     if (amount <= 0) return;
     setPaymentLoading(true);
     try {
@@ -511,7 +478,7 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
                 style={styles.editInput}
                 keyboardType="numeric"
                 value={editBalanceVal}
-                onChangeText={(v) => setEditBalanceVal(formatThousands(v))}
+                onChangeText={(v) => setEditBalanceVal(formatThousands(v, { allowNegative: true }))}
                 autoFocus
               />
               <Pressable
@@ -567,7 +534,7 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
                   keyboardType="numeric"
                   value={editCardVal.startingBalance}
                   onChangeText={(v) =>
-                    setEditCardVal((p) => ({ ...p, startingBalance: formatThousands(v) }))
+                    setEditCardVal((p) => ({ ...p, startingBalance: formatThousands(v, { allowNegative: true }) }))
                   }
                 />
               </View>
@@ -1181,7 +1148,7 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
                       keyboardType="numeric"
                       value={newAccount.startingBalance}
                       onChangeText={(v) =>
-                        setNewAccount((p) => ({ ...p, startingBalance: formatThousands(v) }))
+                        setNewAccount((p) => ({ ...p, startingBalance: formatThousands(v, { allowNegative: true }) }))
                       }
                     />
                   </View>
@@ -1222,12 +1189,12 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
                   <Text style={styles.label}>Saldo Awal (Rp)</Text>
                   <TextInput
                     style={styles.input}
-                    placeholder="10000000"
+                    placeholder="10.000.000"
                     placeholderTextColor="#94a3b8"
                     keyboardType="numeric"
                     value={newAccount.startingBalance}
                     onChangeText={(v) =>
-                      setNewAccount((p) => ({ ...p, startingBalance: formatThousands(v) }))
+                      setNewAccount((p) => ({ ...p, startingBalance: formatThousands(v, { allowNegative: true }) }))
                     }
                   />
                 </View>

@@ -26,6 +26,7 @@ import {
   takerCount,
   splitEvenly,
 } from "../utils/splitBill";
+import { formatThousands, parseAmount } from "../utils/formatters";
 import { colors, radius, shadow, TOP_INSET } from "../theme";
 
 // Lapisan tipis di atas theme.js. Warnanya sama persis dengan layar lain --
@@ -71,6 +72,8 @@ const newId = () =>
 
 const today = () => new Date().toISOString().slice(0, 10);
 const rupiah = (n) => "Rp " + Math.round(Number(n) || 0).toLocaleString("id-ID");
+// Kolom persen: bilangan bulat saja, tanpa pemisah ribuan (tarif pajak tidak
+// pernah ribuan). Nominal Rupiah pakai parseAmount/formatThousands.
 const digits = (v) => Number(String(v).replace(/[^\d]/g, "")) || 0;
 
 const longDate = (iso) => {
@@ -147,11 +150,11 @@ function ChargeField({ label, mode, rate, amount, onMode, onRate, onAmount }) {
       ) : (
         <TextInput
           style={styles.input}
-          value={amount ? String(amount) : ""}
-          onChangeText={(v) => onAmount(digits(v))}
+          value={amount ? formatThousands(String(amount)) : ""}
+          onChangeText={(v) => onAmount(parseAmount(v))}
           placeholder="Nominal di struk"
           placeholderTextColor={C.textFaint}
-          keyboardType="number-pad"
+          keyboardType="numeric"
         />
       )}
     </View>
@@ -243,7 +246,7 @@ export default function SplitBillScreen({ onBack }) {
   // --- Item ---
   const addItem = () => {
     const name = itemForm.name.trim();
-    const price = digits(itemForm.price);
+    const price = parseAmount(itemForm.price);
     const quantity = Math.max(1, digits(itemForm.qty) || 1);
     if (!name || price <= 0) return;
 
@@ -660,10 +663,10 @@ export default function SplitBillScreen({ onBack }) {
               <TextInput
                 style={[styles.input, { flex: 1 }]}
                 value={itemForm.price}
-                onChangeText={(v) => setItemForm((f) => ({ ...f, price: v }))}
+                onChangeText={(v) => setItemForm((f) => ({ ...f, price: formatThousands(v) }))}
                 placeholder="Harga (Rp)"
                 placeholderTextColor={C.textFaint}
-                keyboardType="number-pad"
+                keyboardType="numeric"
               />
               <TextInput
                 style={[styles.input, { width: 72 }]}

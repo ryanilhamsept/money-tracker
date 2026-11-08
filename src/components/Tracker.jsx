@@ -39,7 +39,7 @@ import {
     addMonthsToDate,
 } from "../utils/date";
 
-import { formatCurrency } from "../utils/currency";
+import { formatCurrency, formatThousands, parseAmount } from "../utils/currency";
 import { findCreditCardForSource } from "../utils/accountBalance";
 import {
     findDuplicateTransaction,
@@ -154,10 +154,10 @@ export default function Tracker({
     // Amount = cicilan bulanan; begitu Total Harga Barang & Sisa Tenor keisi,
     // hitung otomatis (dibulatkan ke atas) biar konsisten.
     const recalcInstallmentAmount = (totalLoanVal, remainingTermVal) => {
-        const totalLoanNum = Number(String(totalLoanVal || "").replace(/[^\d]/g, ""));
+        const totalLoanNum = parseAmount(totalLoanVal);
         const termNum = Number(remainingTermVal || "");
         if (totalLoanNum > 0 && termNum > 0) {
-            setForm((prev) => ({ ...prev, amount: String(Math.ceil(totalLoanNum / termNum)) }));
+            setForm((prev) => ({ ...prev, amount: formatThousands(String(Math.ceil(totalLoanNum / termNum))) }));
         }
     };
 
@@ -181,7 +181,7 @@ export default function Tracker({
     // peringatan "melewati limit" nongol waktu mencatat gaji.
     const previewAmount = isIncome
         ? 0
-        : Number(String(form.amount || "").replace(/[^\d]/g, "")) || 0;
+        : parseAmount(form.amount);
 
     const selectedDateTotalAfterInput = selectedDateSpending + previewAmount;
 
@@ -337,7 +337,7 @@ export default function Tracker({
     const submitTransaction = async ({ allowDuplicate }) => {
         if (isSubmittingRef.current) return;
 
-        const amount = Number(String(form.amount || "").replace(/[^\d]/g, ""));
+        const amount = parseAmount(form.amount);
         if (!form.title.trim() || !amount) return;
 
         isSubmittingRef.current = true;
@@ -349,7 +349,7 @@ export default function Tracker({
             : (activeFundSources[0] || "Mandiri");
 
         const wantsInstallment = isSpendCC && isInstallment;
-        const totalLoan = Number(String(installmentDetails.totalLoan || "").replace(/[^\d]/g, ""));
+        const totalLoan = parseAmount(installmentDetails.totalLoan);
 
         if (wantsInstallment && !totalLoan) {
             isSubmittingRef.current = false;
@@ -458,7 +458,7 @@ export default function Tracker({
     };
 
     const handleBudgetEditOpen = () => {
-        setBudgetInput(String(budget || ""));
+        setBudgetInput(formatThousands(String(budget || "")));
         setIsEditingBudget(true);
     };
 
@@ -599,11 +599,11 @@ export default function Tracker({
                                             <input
                                                 value={budgetInput}
                                                 onChange={(event) =>
-                                                    setBudgetInput(event.target.value)
+                                                    setBudgetInput(formatThousands(event.target.value))
                                                 }
                                                 autoFocus
                                                 inputMode="numeric"
-                                                placeholder="5000000"
+                                                placeholder="5.000.000"
                                                 className="min-w-0 flex-1 bg-transparent text-xl font-bold outline-none md:text-3xl"
                                             />
                                         </div>
@@ -716,11 +716,11 @@ export default function Tracker({
                                     onChange={(event) =>
                                         setForm((prev) => ({
                                             ...prev,
-                                            amount: event.target.value,
+                                            amount: formatThousands(event.target.value),
                                         }))
                                     }
                                     inputMode="numeric"
-                                    placeholder="50000"
+                                    placeholder="50.000"
                                     className="w-full min-w-0 rounded-2xl border border-slate-200 bg-surface px-4 py-3 outline-none focus:ring-2 focus:ring-sky-500/30"
                                 />
                             </label>
@@ -825,7 +825,7 @@ export default function Tracker({
                                                 <input
                                                     value={installmentDetails.totalLoan}
                                                     onChange={(event) => {
-                                                        const value = event.target.value;
+                                                        const value = formatThousands(event.target.value);
                                                         setInstallmentDetails((prev) => ({
                                                             ...prev,
                                                             totalLoan: value,
@@ -833,7 +833,7 @@ export default function Tracker({
                                                         recalcInstallmentAmount(value, installmentDetails.remainingTerm);
                                                     }}
                                                     inputMode="numeric"
-                                                    placeholder="3000000"
+                                                    placeholder="3.000.000"
                                                     className="w-full rounded-xl border border-slate-200 bg-surface px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-sky-500/30"
                                                 />
                                             </div>

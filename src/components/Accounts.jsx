@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 
 import { payCreditCard } from "../services/api";
-import { formatCurrency, formatThousands } from "../utils/currency";
+import { formatCurrency, formatThousands, parseAmount } from "../utils/currency";
 import { findCreditCardForSource } from "../utils/accountBalance";
 import { getOutstandingWindowStart, getStatementDay } from "../utils/billingCycle";
 import {
@@ -264,12 +264,12 @@ export default function Accounts({
         const wasSaved = await addAccount({
             name: newAccount.name,
             type: newAccount.type,
-            startingBalance: Number(newAccount.startingBalance.replace(/[^\d-]/g, "")) || 0,
+            startingBalance: parseAmount(newAccount.startingBalance),
             ...(isCreditCardForm && {
                 issuer: newAccount.issuer.trim(),
                 productName: newAccount.productName.trim(),
                 sharesLimit: newAccount.sharesLimit,
-                totalLimit: Number(String(newAccount.totalLimit).replace(/[^\d]/g, "")) || 0,
+                totalLimit: parseAmount(newAccount.totalLimit),
                 dueDate: newAccount.dueDate ? Number(newAccount.dueDate) : null,
                 color: newAccount.color,
             }),
@@ -286,20 +286,20 @@ export default function Accounts({
         setEditingId(acc.id);
         if (acc.type === "Kartu Kredit") {
             setEditCardVal({
-                startingBalance: String(acc.balance),
-                totalLimit: acc.totalLimit ? String(acc.totalLimit) : "",
+                startingBalance: formatThousands(String(acc.balance), { allowNegative: true }),
+                totalLimit: acc.totalLimit ? formatThousands(String(acc.totalLimit)) : "",
                 dueDate: acc.dueDate ? String(acc.dueDate) : "",
             });
         } else {
-            setEditBalanceVal(String(acc.balance));
+            setEditBalanceVal(formatThousands(String(acc.balance), { allowNegative: true }));
         }
     };
 
     const handleEditSave = async (acc) => {
         if (acc.type === "Kartu Kredit") {
             const wasSaved = await updateAccountFields(acc.id, {
-                startingBalance: Number(String(editCardVal.startingBalance).replace(/[^\d-]/g, "")) || 0,
-                totalLimit: Number(String(editCardVal.totalLimit).replace(/[^\d]/g, "")) || 0,
+                startingBalance: parseAmount(editCardVal.startingBalance),
+                totalLimit: parseAmount(editCardVal.totalLimit),
                 dueDate: editCardVal.dueDate ? Number(editCardVal.dueDate) : null,
             });
             if (wasSaved) {
@@ -308,7 +308,7 @@ export default function Accounts({
             return;
         }
 
-        const parsedVal = Number(String(editBalanceVal).replace(/[^\d-]/g, "")) || 0;
+        const parsedVal = parseAmount(editBalanceVal);
         const wasSaved = await updateStartingBalance(acc.id, parsedVal);
         if (wasSaved) {
             setEditingId(null);
@@ -323,7 +323,7 @@ export default function Accounts({
         e.preventDefault();
         if (!paymentAccountId || !paymentForm.amount || !paymentForm.date) return;
 
-        const amount = Number(String(paymentForm.amount).replace(/[^\d-]/g, "")) || 0;
+        const amount = parseAmount(paymentForm.amount);
         if (amount <= 0) return;
 
         setPaymentLoading(true);
@@ -391,9 +391,10 @@ export default function Accounts({
         return "bg-slate-100 text-slate-600";
     };
 
-    // Format number formatting on typing starting balance
-    const handleBalanceChange = (val, setter) => {
-        setter(formatThousands(val, { allowNegative: true }));
+    // Pemisah ribuan sambil diketik. Minus hanya untuk saldo -- limit kartu dan
+    // nominal pembayaran tidak punya arti kalau negatif.
+    const handleBalanceChange = (val, setter, { allowNegative = false } = {}) => {
+        setter(formatThousands(val, { allowNegative }));
     };
 
     const renderAccountItem = (account) => {
@@ -448,7 +449,11 @@ export default function Accounts({
                                     <span className="mr-1 text-slate-500">Rp</span>
                                     <input
                                         value={editBalanceVal}
-                                        onChange={(e) => handleBalanceChange(e.target.value, setEditBalanceVal)}
+                                        onChange={(e) =>
+                                            handleBalanceChange(e.target.value, setEditBalanceVal, {
+                                                allowNegative: true,
+                                            })
+                                        }
                                         className="w-28 outline-none"
                                         autoFocus
                                     />
@@ -524,8 +529,11 @@ export default function Accounts({
                                     <input
                                         value={editCardVal.startingBalance}
                                         onChange={(e) =>
-                                            handleBalanceChange(e.target.value, (val) =>
-                                                setEditCardVal((prev) => ({ ...prev, startingBalance: val }))
+                                            handleBalanceChange(
+                                                e.target.value,
+                                                (val) =>
+                                                    setEditCardVal((prev) => ({ ...prev, startingBalance: val })),
+                                                { allowNegative: true }
                                             )
                                         }
                                         className="w-full outline-none"
@@ -593,7 +601,7 @@ export default function Accounts({
                                             <button
                                                 onClick={() => {
                                                     setPaymentAccountId(account.id);
-                                                    setPaymentForm({ amount: String(used), date: new Date().toISOString().split("T")[0] });
+                                                    setPaymentForm({ amount: formatThousands(String(used)), date: new Date().toISOString().split("T")[0] });
                                                     setShowPaymentModal(true);
                                                 }}
                                                 className="mt-3 w-full rounded-lg bg-white/20 px-3 py-2 text-sm font-bold text-white hover:bg-white/30 transition"
@@ -1433,7 +1441,8 @@ export default function Accounts({
                                                                 setNewAccount((prev) => ({
                                                                     ...prev,
                                                                     startingBalance: val,
-                                                                }))
+                                                                })),
+                                                            { allowNegative: true }
                                                         )
                                                     }
                                                     inputMode="numeric"
@@ -1520,7 +1529,8 @@ export default function Accounts({
                                                             setNewAccount((prev) => ({
                                                                 ...prev,
                                                                 startingBalance: val,
-                                                            }))
+                                                            })),
+                                                        { allowNegative: true }
                                                     )
                                                 }
                                                 inputMode="numeric"

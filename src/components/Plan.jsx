@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { Plus, Pencil, Trash2, X } from "lucide-react";
 
 import { Card, CardContent } from "./ui/card";
-import { formatCurrency, formatThousands } from "../utils/currency";
+import { formatCurrency, formatThousands, parseAmount } from "../utils/currency";
 import { formatDisplayDate } from "../utils/date";
 import {
     getGoals as getGoalsFromSupabase,
@@ -29,8 +29,6 @@ const FILTER_OPTIONS = [
 ];
 
 const emptyForm = { title: "", icon: GOAL_ICONS[0], targetAmount: "", savedAmount: "", deadline: "", note: "" };
-
-const parseAmount = (value) => Number(String(value || "").replace(/[^\d]/g, "")) || 0;
 
 export default function Plan({ userId }) {
     const [goals, setGoals] = useState([]);
@@ -228,7 +226,7 @@ export default function Plan({ userId }) {
                                         onChange={(e) =>
                                             setForm((f) => ({ ...f, targetAmount: formatThousands(e.target.value) }))
                                         }
-                                        placeholder="25000000"
+                                        placeholder="25.000.000"
                                         className="w-full rounded-2xl border-2 border-slate-100 bg-slate-50 px-4 py-3 outline-none focus:border-sky-400"
                                     />
                                 </label>

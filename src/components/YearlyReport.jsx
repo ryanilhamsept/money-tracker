@@ -23,6 +23,7 @@ export default function YearlyReport({ transactions = [] }) {
         years.includes(thisYear) ? thisYear : years[0] || thisYear
     );
     const [openCategory, setOpenCategory] = useState("");
+    const [openSource, setOpenSource] = useState("");
     const [openDana, setOpenDana] = useState("");
 
     const summary = useMemo(
@@ -181,37 +182,14 @@ export default function YearlyReport({ transactions = [] }) {
                 }
             />
 
-            <Card className="overflow-hidden rounded-3xl border-0 bg-surface shadow-xl">
-                <CardContent className="p-6">
-                    <h3 className="mb-5 text-2xl font-black text-slate-900">
-                        Spending by Sumber Dana
-                    </h3>
-                    {summary.bySource.length === 0 ? (
-                        <Empty text={emptyText} />
-                    ) : (
-                        <div className="space-y-3">
-                            {summary.bySource.map((item) => (
-                                <div
-                                    key={item.value}
-                                    className="flex min-w-0 items-center justify-between gap-4 rounded-2xl bg-slate-50 px-4 py-3"
-                                >
-                                    <p className="truncate font-black text-slate-900">
-                                        {item.label}
-                                        {item.unlisted && (
-                                            <span className="ml-2 text-xs font-bold text-amber-400">
-                                                di luar daftar
-                                            </span>
-                                        )}
-                                    </p>
-                                    <p className="shrink-0 font-black text-slate-900">
-                                        {formatCurrency(item.total)}
-                                    </p>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
+            <Breakdown
+                title="Spending by Sumber Dana"
+                rows={summary.bySource}
+                emptyText={emptyText}
+                openKey={openSource}
+                setOpenKey={setOpenSource}
+                detailFor={(bucket) => expenses.filter((t) => belongsTo(bucket, t.source))}
+            />
 
             <Breakdown
                 title="Ambil Dari Mana"

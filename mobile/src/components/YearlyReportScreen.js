@@ -56,6 +56,7 @@ export default function YearlyReportScreen({ transactions = [], onEditTransactio
   );
 
   const [openCategory, setOpenCategory] = useState("");
+  const [openSource, setOpenSource] = useState("");
   const [openDana, setOpenDana] = useState("");
 
   const index = years.indexOf(selectedYear);
@@ -157,24 +158,15 @@ export default function YearlyReportScreen({ transactions = [], onEditTransactio
         detailFor={(bucket) => expenses.filter((t) => belongsTo(bucket, t.category))}
       />
 
-      <View style={rs.section}>
-        <Text style={rs.sectionTitle}>Spending by Sumber Dana</Text>
-        {summary.bySource.length === 0 ? (
-          <Text style={rs.emptyText}>Belum ada pengeluaran di {selectedYear}.</Text>
-        ) : (
-          <View style={rs.list}>
-            {summary.bySource.map((item) => (
-              <View key={item.value} style={rs.simpleRow}>
-                <Text style={rs.simpleLabel}>
-                  {item.label}
-                  {item.unlisted ? <Text style={styles.unlisted}>  di luar daftar</Text> : null}
-                </Text>
-                <Text style={rs.simpleValue}>{formatCurrency(item.total)}</Text>
-              </View>
-            ))}
-          </View>
-        )}
-      </View>
+      <Breakdown
+        title="Spending by Sumber Dana"
+        rows={summary.bySource}
+        year={selectedYear}
+        openKey={openSource}
+        setOpenKey={setOpenSource}
+        onPressTransaction={onEditTransaction}
+        detailFor={(bucket) => expenses.filter((t) => belongsTo(bucket, t.source))}
+      />
 
       <Breakdown
         title="Ambil Dari Mana"

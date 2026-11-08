@@ -1306,3 +1306,6 @@ export default function MonthlyReport({ transactions, budget = 0, deleteTransact
         </section>
     );
 }
+// Dipakai bareng YearlyReport supaya ikon kategori di laporan bulanan dan
+// tahunan tidak mungkin beda -- satu peta, dua layar.
+export { categoryIcons };

@@ -828,3 +828,7 @@ const styles = StyleSheet.create({
   simpleLabel: { color: "#e8f3fb", fontSize: 14, fontWeight: "900" },
   simpleValue: { color: "#e8f3fb", fontSize: 14, fontWeight: "900" },
 });
+
+// Dipakai bareng YearlyReportScreen supaya kartu di laporan bulanan dan
+// tahunan tidak mungkin beda bentuk -- satu StyleSheet, dua layar.
+export { styles as reportStyles };

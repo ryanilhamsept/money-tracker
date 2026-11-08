@@ -4,6 +4,7 @@ import {
     PiggyBank,
     Home,
     PieChart,
+    CalendarRange,
     Wallet,
     RefreshCw,
 } from "lucide-react";
@@ -11,6 +12,8 @@ import {
 import Tracker from "../components/Tracker";
 import Plan from "../components/Plan";
 import MonthlyReport from "../components/MonthlyReport";
+import YearlyReport from "../components/YearlyReport";
+import { totalSpentSinceStart } from "../utils/report";
 import Accounts from "../components/Accounts";
 import Login from "../components/Login";
 import { useAccounts } from "../hooks/useAccounts";
@@ -19,7 +22,7 @@ import { useInstallments } from "../hooks/useInstallments";
 import { useTransactions } from "../hooks/useTransactions";
 import { useBudget } from "../hooks/useBudget";
 import { formatCurrency } from "../utils/currency";
-import { currentMonth, getTransactionMonth } from "../utils/date";
+import { currentMonth, getTransactionMonth, today } from "../utils/date";
 import { supabase } from "../services/supabase";
 import { getInstallmentBaseTitle } from "../utils/installmentTitle";
 
@@ -139,11 +142,10 @@ export default function App() {
 
 
 
-    const totalAllTimeSpending = useMemo(() => {
-        return transactions
-            .filter((item) => item.type !== "income" && String(item.date) >= "2026-01-01")
-            .reduce((sum, item) => sum + Number(item.amount), 0);
-    }, [transactions]);
+    const totalAllTimeSpending = useMemo(
+        () => totalSpentSinceStart(transactions, today()),
+        [transactions]
+    );
 
     const handleDeleteTransaction = async (id) => {
         const deletedTx = transactions.find(t => t.id === id);
@@ -214,8 +216,13 @@ export default function App() {
         },
         {
             id: "report",
-            label: "Monthly",
+            label: "Bulanan",
             icon: PieChart,
+        },
+        {
+            id: "yearly",
+            label: "Tahunan",
+            icon: CalendarRange,
         },
     ];
 
@@ -318,7 +325,7 @@ export default function App() {
                     </div>
                 </motion.header>
 
-                <nav className="hidden grid-cols-4 gap-3 rounded-[1.5rem] border border-white/10 bg-surface/80 p-2 shadow-lg backdrop-blur md:grid">
+                <nav className="hidden grid-cols-5 gap-3 rounded-[1.5rem] border border-white/10 bg-surface/80 p-2 shadow-lg backdrop-blur md:grid">
                     {navItems.map((item) => {
                         const Icon = item.icon;
 
@@ -430,9 +437,13 @@ export default function App() {
                         deleteTransaction={handleDeleteTransaction}
                     />
                 )}
+
+                {activePage === "yearly" && (
+                    <YearlyReport transactions={transactions} />
+                )}
             </div>
 
-            <nav className="fixed bottom-4 left-1/2 z-50 grid w-[calc(100%-2rem)] max-w-md -translate-x-1/2 grid-cols-4 items-center rounded-[2rem] border border-white/10 bg-surface/90 p-2 shadow-2xl backdrop-blur md:hidden">
+            <nav className="fixed bottom-4 left-1/2 z-50 grid w-[calc(100%-2rem)] max-w-md -translate-x-1/2 grid-cols-5 items-center rounded-[2rem] border border-white/10 bg-surface/90 p-2 shadow-2xl backdrop-blur md:hidden">
                 {navItems.map((item) => {
                     const Icon = item.icon;
 

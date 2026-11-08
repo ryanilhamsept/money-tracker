@@ -70,6 +70,8 @@ import Dropdown from "./src/components/Dropdown";
 import AccountsScreen from "./src/components/AccountsScreen";
 import PlanScreen from "./src/components/PlanScreen";
 import MonthlyReportScreen from "./src/components/MonthlyReportScreen";
+import YearlyReportScreen from "./src/components/YearlyReportScreen";
+import { totalSpentSinceStart } from "./src/utils/report";
 import JournalScreen from "./src/components/JournalScreen";
 import CreditCalculator from "./src/components/CreditCalculator";
 import SplitBillScreen from "./src/components/SplitBillScreen";
@@ -133,10 +135,11 @@ const HUB_APPS = [
 const TABS_LEFT = [
   { key: "transactions", label: "Home" },
   { key: "accounts", label: "Akun" },
+  { key: "plan", label: "Plan" },
 ];
 const TABS_RIGHT = [
-  { key: "plan", label: "Plan" },
-  { key: "monthly", label: "Monthly" },
+  { key: "monthly", label: "Bulanan" },
+  { key: "yearly", label: "Tahunan" },
 ];
 
 const CATEGORY_ICONS = {
@@ -351,10 +354,7 @@ export default function App() {
       : 0.5;
 
   const totalSpentSince2026 = useMemo(
-    () =>
-      transactions
-        .filter((t) => t.type !== "income" && String(t.date) >= "2026-01-01")
-        .reduce((sum, t) => sum + Number(t.amount), 0),
+    () => totalSpentSinceStart(transactions, today()),
     [transactions]
   );
 
@@ -1258,40 +1258,54 @@ export default function App() {
         />
       ) : null}
 
+      {activeApp === "tracker" && activeTab === "yearly" ? (
+        <YearlyReportScreen transactions={transactions} />
+      ) : null}
+
       {activeApp === "tracker" ? (
       <>
       <View style={styles.tabBar}>
-        {TABS_LEFT.map((tab) => {
-          const active = activeTab === tab.key;
-          return (
-            <Pressable
-              key={tab.key}
-              onPress={() => setActiveTab(tab.key)}
-              style={styles.tabItem}
-            >
-              <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>
-                {tab.label}
-              </Text>
-            </Pressable>
-          );
-        })}
+        <View style={styles.tabGroup}>
+          {TABS_LEFT.map((tab) => {
+            const active = activeTab === tab.key;
+            return (
+              <Pressable
+                key={tab.key}
+                onPress={() => setActiveTab(tab.key)}
+                style={styles.tabItem}
+              >
+                <Text
+                  style={[styles.tabLabel, active && styles.tabLabelActive]}
+                  numberOfLines={1}
+                >
+                  {tab.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
 
         <View style={styles.tabSpacer} />
 
-        {TABS_RIGHT.map((tab) => {
-          const active = activeTab === tab.key;
-          return (
-            <Pressable
-              key={tab.key}
-              onPress={() => setActiveTab(tab.key)}
-              style={styles.tabItem}
-            >
-              <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>
-                {tab.label}
-              </Text>
-            </Pressable>
-          );
-        })}
+        <View style={styles.tabGroup}>
+          {TABS_RIGHT.map((tab) => {
+            const active = activeTab === tab.key;
+            return (
+              <Pressable
+                key={tab.key}
+                onPress={() => setActiveTab(tab.key)}
+                style={styles.tabItem}
+              >
+                <Text
+                  style={[styles.tabLabel, active && styles.tabLabelActive]}
+                  numberOfLines={1}
+                >
+                  {tab.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
       </View>
 
       <Pressable
@@ -1714,6 +1728,10 @@ const styles = StyleSheet.create({
     paddingBottom: 18,
     paddingTop: 14,
   },
+  tabGroup: {
+    flex: 1,
+    flexDirection: "row",
+  },
   tabItem: {
     flex: 1,
     alignItems: "center",
@@ -1721,14 +1739,16 @@ const styles = StyleSheet.create({
   },
   tabLabel: {
     color: colors.textFaint,
-    fontSize: 15,
+    // 13, bukan 15: lima tab mesti muat di satu baris bareng celah FAB, dan
+    // "Bulanan"/"Tahunan" kepotong di ukuran lama.
+    fontSize: 13,
     fontWeight: "800",
   },
   tabLabelActive: {
     color: colors.accent[0],
   },
   tabSpacer: {
-    width: 60,
+    width: 56,
   },
   avatarCircle: {
     alignItems: "center",

@@ -50,7 +50,34 @@ const allowedOrigins = [
     ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(",") : []),
 ];
 
-app.use(cors({ origin: allowedOrigins, credentials: true }));
+// Di luar produksi, localhost port berapa pun diterima.
+//
+// Daftar di atas mencantumkan port satu per satu, dan itu rapuh: Vite yang
+// dijalankan di 5180 (atau 5174 karena 5173 lagi dipakai) langsung kena CORS,
+// padahal yang berubah cuma nomor port di laptop sendiri. Tiap kali itu
+// terjadi, yang kelihatan di layar bukan "port salah" tapi "Failed to load
+// data from database" -- pesan yang menunjuk ke arah yang sama sekali keliru.
+//
+// Melonggarkan ini aman: localhost cuma bisa dipanggil dari mesin ini
+// sendiri, dan setiap route tetap menuntut bearer token yang sah, jadi
+// halaman asing tidak dapat apa-apa walau originnya lolos. Di Vercel
+// NODE_ENV = "production", jadi di sana daftarnya tetap ketat.
+const isDev = process.env.NODE_ENV !== "production";
+const LOCALHOST = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/;
+
+app.use(
+    cors({
+        origin(origin, callback) {
+            // Permintaan tanpa Origin (curl, app mobile, server-to-server)
+            // bukan permintaan lintas asal, jadi tidak ada yang perlu dicegah.
+            if (!origin) return callback(null, true);
+            if (allowedOrigins.includes(origin)) return callback(null, true);
+            if (isDev && LOCALHOST.test(origin)) return callback(null, true);
+            return callback(null, false);
+        },
+        credentials: true,
+    })
+);
 
 // Daftar transaksi penuh itu 411 KB JSON mentah dan 68 KB setelah gzip --
 // 84% dari yang dikirim selama ini sebetulnya tidak perlu lewat kabel.

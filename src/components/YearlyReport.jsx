@@ -48,7 +48,17 @@ export default function YearlyReport({ transactions = [] }) {
                         t.paidAt ||
                         String(t.date).slice(0, 10) <= todayStr
                 )
-                .sort((a, b) => sortTimestamp(b) - sortTimestamp(a)),
+                // Diurutkan dari nominal TERBESAR, bukan terbaru. Rentangnya
+                // setahun: yang dicari waktu membuka "Shopping Rp 2,1 juta"
+                // itu belanja apa yang bikin angkanya segitu, bukan yang
+                // kebetulan paling baru. Ini juga yang bikin batas 30 baris
+                // masuk akal -- 30 terbesar menjelaskan totalnya, 30 terbaru
+                // tidak.
+                .sort(
+                    (a, b) =>
+                        (Number(b.amount) || 0) - (Number(a.amount) || 0) ||
+                        sortTimestamp(b) - sortTimestamp(a)
+                ),
         [transactions, selectedYear, thisYear, todayStr]
     );
 

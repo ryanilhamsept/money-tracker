@@ -36,12 +36,22 @@ export default function YearlyReportScreen({ transactions = [] }) {
   );
 
   // Daftar transaksi tahun ini, dipakai buat isi rincian yang dibuka.
+  //
+  // Diurutkan dari nominal TERBESAR, bukan terbaru. Rentangnya setahun: yang
+  // dicari waktu membuka "Shopping Rp 2,1 juta" itu belanja apa yang bikin
+  // angkanya segitu, bukan yang kebetulan paling baru. Ini juga yang bikin
+  // batas 30 baris di bawah masuk akal -- 30 terbesar menjelaskan totalnya,
+  // 30 terbaru tidak.
   const expenses = useMemo(
     () =>
       transactions
         .filter((t) => t.type !== "income" && String(t.date).slice(0, 4) === selectedYear)
         .filter((t) => selectedYear !== thisYear || t.paidAt || String(t.date).slice(0, 10) <= todayStr)
-        .sort((a, b) => sortTimestamp(b) - sortTimestamp(a)),
+        .sort(
+          (a, b) =>
+            (Number(b.amount) || 0) - (Number(a.amount) || 0) ||
+            sortTimestamp(b) - sortTimestamp(a)
+        ),
     [transactions, selectedYear, thisYear, todayStr]
   );
 

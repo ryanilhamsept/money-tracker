@@ -77,6 +77,7 @@ import CreditCalculator from "./src/components/CreditCalculator";
 import SplitBillScreen from "./src/components/SplitBillScreen";
 import PinLockScreen from "./src/components/PinLockScreen";
 import { hasPinSet } from "./src/utils/pinStorage";
+import { APP_VERSION, BUILD_DATE } from "./src/constants/version";
 import { colors, radius, shadow, TOP_INSET } from "./src/theme";
 
 // Hermes/RN nggak selalu punya crypto.randomUUID -- pakai fallback manual biar aman.
@@ -957,6 +958,9 @@ export default function App() {
               >
                 {formatDisplayDate(currentMonth() + "-01").split(" ").slice(1).join(" ")}
               </Text>
+              <Text style={styles.buildTag} numberOfLines={1}>
+                v{APP_VERSION} · {BUILD_DATE}
+              </Text>
             </View>
           </View>
 
@@ -1442,6 +1446,13 @@ const styles = StyleSheet.create({
     color: "#9cbed4",
     fontSize: 14,
     fontWeight: "700",
+  },
+  buildTag: {
+    color: colors.textFaint,
+    fontSize: 10,
+    fontWeight: "600",
+    marginTop: 2,
+    opacity: 0.75,
   },
   title: {
     color: "#e8f3fb",

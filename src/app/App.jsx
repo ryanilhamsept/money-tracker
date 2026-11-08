@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
+import { APP_VERSION, BUILD_DATE } from "../constants/version";
 import { motion } from "framer-motion";
 import {
     PiggyBank,
@@ -308,6 +309,9 @@ export default function App() {
                             <div className="min-w-0">
                                 <p className="truncate text-base sm:text-lg font-black tracking-tight text-slate-900">
                                     {user?.email?.split('@')[0] || "User"}'s Money Tracker
+                                </p>
+                                <p className="truncate text-[10px] font-semibold text-slate-400">
+                                    v{APP_VERSION} &middot; {BUILD_DATE}
                                 </p>
                             </div>
                         </div>

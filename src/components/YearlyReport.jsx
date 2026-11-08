@@ -177,7 +177,7 @@ export default function YearlyReport({ transactions = [] }) {
                 setOpenKey={setOpenCategory}
                 withIcon
                 detailFor={(bucket) =>
-                    expenses.filter((t) => belongsTo(bucket, t.category, categories))
+                    expenses.filter((t) => belongsTo(bucket, t.category))
                 }
             />
 
@@ -196,7 +196,12 @@ export default function YearlyReport({ transactions = [] }) {
                                     className="flex min-w-0 items-center justify-between gap-4 rounded-2xl bg-slate-50 px-4 py-3"
                                 >
                                     <p className="truncate font-black text-slate-900">
-                                        {item.value}
+                                        {item.label}
+                                        {item.unlisted && (
+                                            <span className="ml-2 text-xs font-bold text-amber-400">
+                                                di luar daftar
+                                            </span>
+                                        )}
                                     </p>
                                     <p className="shrink-0 font-black text-slate-900">
                                         {formatCurrency(item.total)}
@@ -215,7 +220,7 @@ export default function YearlyReport({ transactions = [] }) {
                 openKey={openDana}
                 setOpenKey={setOpenDana}
                 detailFor={(bucket) =>
-                    expenses.filter((t) => belongsTo(bucket, t.danaDipakai, danaDipakaiOptions))
+                    expenses.filter((t) => belongsTo(bucket, t.danaDipakai))
                 }
             />
         </div>
@@ -273,10 +278,15 @@ function Breakdown({ title, rows, emptyText, openKey, setOpenKey, detailFor, wit
                                                 )}
                                                 <div className="min-w-0">
                                                     <p className="truncate font-black text-slate-900">
-                                                        {item.value}
+                                                        {item.label}
                                                     </p>
                                                     <p className="text-sm font-medium text-slate-500">
                                                         {item.percentage}% dari total setahun
+                                                        {item.unlisted && (
+                                                            <span className="ml-2 font-bold text-amber-400">
+                                                                · di luar daftar pilihan
+                                                            </span>
+                                                        )}
                                                     </p>
                                                 </div>
                                             </div>
@@ -313,6 +323,7 @@ function Breakdown({ title, rows, emptyText, openKey, setOpenKey, detailFor, wit
                                                         <p className="text-xs font-medium text-slate-500">
                                                             {formatDisplayDate(t.date)}
                                                             {t.time ? ` ${t.time}` : ""} • {t.source}
+                                                            {t.danaDipakai ? ` • ${t.danaDipakai}` : ""}
                                                         </p>
                                                     </div>
                                                     <p className="shrink-0 font-black text-rose-400">

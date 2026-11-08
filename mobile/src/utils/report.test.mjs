@@ -2,7 +2,7 @@
 
 import {
   availableYears, belongsTo, expensesInYear, totalsByKey, totalsByMonth,
-  TIDAK_TERDAFTAR, totalSpentSinceStart, yearSummary,
+  TANPA_ISI, totalSpentSinceStart, yearSummary,
 } from "./report.js";
 
 let pass = 0, fail = 0;
@@ -15,6 +15,7 @@ const check = (name, actual, expected) => {
 const KATEGORI = ["Food", "Shopping", "Transportation"];
 const SUMBER = ["BCA", "Blu"];
 const DANA = ["Spend Bulanan", "Gajian"];
+const DANA_TANPA_GAJIAN = ["Spend Bulanan"];
 const HARI_INI = "2026-11-08";
 
 const tx = (date, amount, extra = {}) => ({
@@ -50,17 +51,20 @@ const aneh = [
   tx("2026-01-03", 250, { source: "Bank Yang Sudah Dihapus" }),
   tx("2026-01-04", 125, { source: "" }),
 ];
-check("sumber tak dikenal dikumpulkan, bukan hilang",
-  totalsByKey(aneh, "source", SUMBER),
-  [{ value: "BCA", total: 1000 }, { value: "Blu", total: 500 }, { value: TIDAK_TERDAFTAR, total: 375 }]);
-check("namanya bukan \"Other\" -- itu sudah jadi pilihan sumber dana betulan",
-  TIDAK_TERDAFTAR === "Other", false);
+check("tiap nilai tampil dengan namanya sendiri, tidak ditumpuk",
+  totalsByKey(aneh, "source", SUMBER).map((r) => [r.label, r.total, r.unlisted]),
+  [["BCA", 1000, false], ["Blu", 500, false],
+   ["Bank Yang Sudah Dihapus", 250, true], [TANPA_ISI, 125, true]]);
+check("spasi di ujung tidak bikin baris kembar",
+  totalsByKey([tx("2026-01-01", 10, { source: "BCA " }), tx("2026-01-02", 5, { source: "BCA" })],
+    "source", SUMBER),
+  [{ value: "BCA", label: "BCA", unlisted: false, total: 15 }]);
 check("jumlah rincian = jumlah transaksi",
   totalsByKey(aneh, "source", SUMBER).reduce((s, r) => s + r.total, 0),
   aneh.reduce((s, t) => s + t.amount, 0));
 check("nilai nol tidak ditampilkan",
   totalsByKey([tx("2026-01-01", 10, { category: "Food" })], "category", KATEGORI),
-  [{ value: "Food", total: 10 }]);
+  [{ value: "Food", label: "Food", unlisted: false, total: 10 }]);
 
 console.log("totalsByMonth");
 const duaBulan = [tx("2026-03-10", 300), tx("2026-03-20", 200), tx("2026-07-01", 700)];
@@ -86,6 +90,10 @@ check("kategori terbesar duluan", s.byCategory.map((r) => [r.value, r.total, r.p
   [["Shopping", 3000, 60], ["Food", 2000, 40]]);
 check("sumber dana", s.bySource.map((r) => r.value), ["Blu", "BCA"]);
 check("ambil dari mana", s.byDana.map((r) => r.value), ["Gajian", "Spend Bulanan"]);
+check("nilai di luar daftar ditandai, bukan disembunyikan",
+  yearSummary([tx("2026-01-01", 10, { danaDipakai: "Gajian" })], "2026",
+    { danaDipakaiOptions: DANA_TANPA_GAJIAN, todayStr: HARI_INI }).byDana,
+  [{ value: "Gajian", label: "Gajian", unlisted: true, total: 10, percentage: 100 }]);
 check("rata-rata dibagi bulan yang ada isinya", s.monthlyAverage, 2500);
 check("bulan paling boros", s.busiestMonth.label, "Februari");
 
@@ -104,11 +112,11 @@ check("bulan terboros null", kosong.busiestMonth, null);
 check("persentase tidak NaN", yearSummary([tx("2026-01-01", 0)], "2026", { categories: KATEGORI, todayStr: HARI_INI }).byCategory, []);
 
 console.log("belongsTo -- isi baris yang dibuka");
-check("baris biasa cocok dengan nilainya", belongsTo("Food", "Food", KATEGORI), true);
-check("baris biasa tidak kecolongan", belongsTo("Food", "Shopping", KATEGORI), false);
-check("keranjang menampung yang tak terdaftar", belongsTo(TIDAK_TERDAFTAR, "Bank Lama", SUMBER), true);
-check("keranjang menampung yang kosong", belongsTo(TIDAK_TERDAFTAR, "", SUMBER), true);
-check("keranjang tidak menarik yang terdaftar", belongsTo(TIDAK_TERDAFTAR, "BCA", SUMBER), false);
+check("baris cocok dengan nilainya", belongsTo("Food", "Food"), true);
+check("baris tidak kecolongan", belongsTo("Food", "Shopping"), false);
+check("nilai di luar daftar tetap ketemu barisnya", belongsTo("Gajian", "Gajian"), true);
+check("spasi di ujung tetap ketemu", belongsTo("BCA", "BCA "), true);
+check("kolom kosong ketemu baris kosong", belongsTo("", null), true);
 
 console.log("totalSpentSinceStart -- kartu di Home");
 const home = [

@@ -1259,7 +1259,7 @@ export default function App() {
       ) : null}
 
       {activeApp === "tracker" && activeTab === "yearly" ? (
-        <YearlyReportScreen transactions={transactions} />
+        <YearlyReportScreen transactions={transactions} onEditTransaction={openEditForm} />
       ) : null}
 
       {activeApp === "tracker" ? (

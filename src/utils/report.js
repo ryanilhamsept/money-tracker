@@ -5,11 +5,9 @@
 // dan daftar kategori/sumber dana dioper dari luar. Jadi isinya bisa sama
 // baris per baris di web dan mobile, dan bisa diuji tanpa menjalankan app.
 
-// Keranjang buat nilai yang sudah tidak ada di daftar pilihan. Namanya
-// sengaja BUKAN "Lainnya" atau "Other": "Other" sudah jadi pilihan sumber
-// dana betulan yang dipakai sehari-hari, dan dua baris yang sama-sama berarti
-// "lain-lain" di satu kartu bikin orang mengira datanya dobel.
-export const TIDAK_TERDAFTAR = "Tidak Terdaftar";
+// Label buat transaksi yang kolomnya memang kosong. Bukan kategori, cuma
+// cara menyebut "tidak diisi" tanpa menampilkan baris tanpa nama.
+export const TANPA_ISI = "(Tanpa isi)";
 
 export const yearOf = (date) => String(date || "").slice(0, 4);
 export const monthOf = (date) => String(date || "").slice(0, 7);
@@ -50,49 +48,59 @@ export const expensesInYear = (transactions = [], year, todayStr) => {
   return inYear.filter((t) => t.paidAt || String(t.date).slice(0, 10) <= todayStr);
 };
 
+/** Nilai sebuah kolom, dirapikan jadi satu bentuk baku. */
+const valueOf = (row, key) => {
+  const raw = row ? row[key] : "";
+  return raw === undefined || raw === null ? "" : String(raw).trim();
+};
+
 /**
- * Jumlahkan per nilai sebuah kolom.
+ * Jumlahkan per nilai sebuah kolom, dikelompokkan menurut isi datanya.
  *
- * Nilai yang tidak ada di daftar pilihan TIDAK dibuang, tapi dikumpulkan ke
- * "Lainnya". Versi lama di laporan bulanan memetakan daftar pilihan lalu
- * menyaring yang nol, sehingga transaksi dengan sumber dana yang sudah tidak
- * terdaftar hilang diam-diam dari rincian -- jumlah rinciannya jadi lebih
- * kecil dari totalnya tanpa ada yang memberi tahu. Di laporan setahun selisih
- * seperti itu bisa jutaan.
+ * Yang jadi baris adalah nilai yang BENAR-BENAR ada di transaksi, bukan
+ * daftar pilihan di app. Dua versi sebelumnya sama-sama keliru:
+ *
+ *   - Laporan bulanan memetakan daftar pilihan lalu membuang yang nol,
+ *     sehingga nilai yang tidak terdaftar hilang diam-diam dari rincian
+ *     walaupun tetap ikut dijumlahkan ke total.
+ *   - Laporan tahunan versi pertama mengumpulkan semuanya jadi satu baris
+ *     "Tidak Terdaftar". Uangnya memang tidak hilang lagi, tapi beberapa
+ *     nilai berbeda tertumpuk jadi satu angka besar tanpa nama -- dan baris
+ *     berisi Rp 33 juta tanpa keterangan apa pun justru lebih membingungkan
+ *     daripada tidak ditampilkan sama sekali.
+ *
+ * Sekarang tiap nilai tampil dengan namanya sendiri. `knownValues` tinggal
+ * dipakai untuk MENANDAI mana yang di luar daftar pilihan (`unlisted`),
+ * bukan untuk menentukan baris mana yang ada.
  */
 export const totalsByKey = (expenses = [], key, knownValues = []) => {
-  const sums = new Map(knownValues.map((v) => [v, 0]));
-  let lainnya = 0;
+  const sums = new Map();
 
   expenses.forEach((t) => {
-    const raw = t[key];
-    const value = raw === undefined || raw === null || raw === "" ? "" : String(raw);
-    const amount = Number(t.amount) || 0;
-    if (sums.has(value)) sums.set(value, sums.get(value) + amount);
-    else lainnya += amount;
+    const value = valueOf(t, key);
+    sums.set(value, (sums.get(value) || 0) + (Number(t.amount) || 0));
   });
 
-  const rows = [...sums.entries()]
-    .map(([value, total]) => ({ value, total }))
-    .filter((r) => r.total > 0);
-
-  if (lainnya > 0) rows.push({ value: TIDAK_TERDAFTAR, total: lainnya });
-  return rows.sort((a, b) => b.total - a.total);
+  return [...sums.entries()]
+    .filter(([, total]) => total > 0)
+    .map(([value, total]) => ({
+      value,
+      label: value === "" ? TANPA_ISI : value,
+      unlisted: !knownValues.includes(value),
+      total,
+    }))
+    .sort((a, b) => b.total - a.total);
 };
 
 /**
- * Apakah sebuah transaksi masuk ke baris rincian ini?
+ * Apakah transaksi ini isi dari baris rincian tersebut?
  *
- * Dipakai waktu barisnya dibuka untuk menampilkan isinya. Baris
- * "Tidak Terdaftar" harus dicocokkan TERBALIK -- tidak ada transaksi yang
- * nilainya benar-benar "Tidak Terdaftar", yang masuk ke sana justru semua
- * yang nilainya di luar daftar pilihan.
+ * Barisnya sekarang bernilai sama persis dengan isi datanya, jadi tinggal
+ * dibandingkan -- lewat valueOf, supaya nilai yang kelebihan spasi di ujung
+ * ("BCA ") tetap ketemu barisnya, sama seperti waktu dijumlahkan di atas.
  */
-export const belongsTo = (bucket, value, knownValues = []) => {
-  const normalized = value === undefined || value === null ? "" : String(value);
-  if (bucket === TIDAK_TERDAFTAR) return !knownValues.includes(normalized);
-  return normalized === bucket;
-};
+export const belongsTo = (bucket, value) =>
+  valueOf({ v: value }, "v") === bucket;
 
 /** Dua belas bulan, lengkap dengan yang kosong, supaya bentuk setahunnya kelihatan. */
 export const totalsByMonth = (expenses = [], year) => {

@@ -15,7 +15,7 @@ import { reportStyles as rs } from "./MonthlyReportScreen";
 // daftar 400 baris di dalam kartu bukan "lengkap", cuma nggak kebaca.
 const MAX_DETAIL = 30;
 
-export default function YearlyReportScreen({ transactions = [] }) {
+export default function YearlyReportScreen({ transactions = [], onEditTransaction }) {
   const years = useMemo(() => availableYears(transactions), [transactions]);
   const todayStr = today();
   const thisYear = todayStr.slice(0, 4);
@@ -153,9 +153,8 @@ export default function YearlyReportScreen({ transactions = [] }) {
         year={selectedYear}
         openKey={openCategory}
         setOpenKey={setOpenCategory}
-        detailFor={(bucket) =>
-          expenses.filter((t) => belongsTo(bucket, t.category, categories))
-        }
+        onPressTransaction={onEditTransaction}
+        detailFor={(bucket) => expenses.filter((t) => belongsTo(bucket, t.category))}
       />
 
       <View style={rs.section}>
@@ -166,7 +165,10 @@ export default function YearlyReportScreen({ transactions = [] }) {
           <View style={rs.list}>
             {summary.bySource.map((item) => (
               <View key={item.value} style={rs.simpleRow}>
-                <Text style={rs.simpleLabel}>{item.value}</Text>
+                <Text style={rs.simpleLabel}>
+                  {item.label}
+                  {item.unlisted ? <Text style={styles.unlisted}>  di luar daftar</Text> : null}
+                </Text>
                 <Text style={rs.simpleValue}>{formatCurrency(item.total)}</Text>
               </View>
             ))}
@@ -180,9 +182,8 @@ export default function YearlyReportScreen({ transactions = [] }) {
         year={selectedYear}
         openKey={openDana}
         setOpenKey={setOpenDana}
-        detailFor={(bucket) =>
-          expenses.filter((t) => belongsTo(bucket, t.danaDipakai, danaDipakaiOptions))
-        }
+        onPressTransaction={onEditTransaction}
+        detailFor={(bucket) => expenses.filter((t) => belongsTo(bucket, t.danaDipakai))}
       />
 
       <View style={{ height: 120 }} />
@@ -200,7 +201,7 @@ function StatBox({ label, value, meta }) {
   );
 }
 
-function Breakdown({ title, rows, year, openKey, setOpenKey, detailFor }) {
+function Breakdown({ title, rows, year, openKey, setOpenKey, detailFor, onPressTransaction }) {
   return (
     <View style={rs.section}>
       <Text style={rs.sectionTitle}>{title}</Text>
@@ -215,13 +216,16 @@ function Breakdown({ title, rows, year, openKey, setOpenKey, detailFor }) {
               <View key={item.value} style={rs.categoryCard}>
                 <Pressable onPress={() => setOpenKey(expanded ? "" : item.value)}>
                   <View style={rs.categoryRow}>
-                    <Text style={rs.categoryName}>{item.value}</Text>
+                    <Text style={rs.categoryName}>{item.label}</Text>
                     <View style={rs.danaAmountRow}>
                       <Text style={rs.categoryAmount}>{formatCurrency(item.total)}</Text>
                       <Text style={rs.danaChevron}>{expanded ? "▲" : "▼"}</Text>
                     </View>
                   </View>
-                  <Text style={rs.categoryPercent}>{item.percentage}% dari total setahun</Text>
+                  <Text style={rs.categoryPercent}>
+                    {item.percentage}% dari total setahun
+                    {item.unlisted ? "  ·  di luar daftar pilihan" : ""}
+                  </Text>
                   <View style={rs.barTrack}>
                     <View style={[rs.barFill, { width: `${item.percentage}%` }]} />
                   </View>
@@ -230,16 +234,22 @@ function Breakdown({ title, rows, year, openKey, setOpenKey, detailFor }) {
                 {expanded ? (
                   <View style={rs.dayDetail}>
                     {detail.slice(0, MAX_DETAIL).map((t) => (
-                      <View key={t.id} style={rs.detailRow}>
+                      <Pressable
+                        key={t.id}
+                        style={rs.detailRow}
+                        onPress={() => onPressTransaction && onPressTransaction(t)}
+                        disabled={!onPressTransaction}
+                      >
                         <View style={{ flex: 1 }}>
                           <Text style={rs.detailTitle}>{t.title}</Text>
                           <Text style={rs.detailMeta}>
                             {formatDisplayDate(t.date)}
                             {t.time ? ` ${t.time}` : ""} · {t.source}
+                            {t.danaDipakai ? ` · ${t.danaDipakai}` : ""}
                           </Text>
                         </View>
                         <Text style={rs.detailAmount}>-{formatCurrency(t.amount)}</Text>
-                      </View>
+                      </Pressable>
                     ))}
                     {detail.length > MAX_DETAIL ? (
                       <Text style={styles.moreText}>
@@ -271,5 +281,6 @@ const styles = StyleSheet.create({
   monthValue: { width: 104, textAlign: "right", color: colors.text, fontSize: 12, fontWeight: "800" },
   monthValueEmpty: { color: colors.textFaint, fontWeight: "600" },
 
+  unlisted: { color: "#fbbf24", fontSize: 11, fontWeight: "700" },
   moreText: { color: colors.textFaint, fontSize: 11, fontWeight: "600", paddingTop: 8, paddingHorizontal: 4 },
 });

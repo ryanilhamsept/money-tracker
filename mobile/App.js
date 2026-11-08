@@ -132,12 +132,10 @@ const HUB_APPS = [
   },
 ];
 
-const TABS_LEFT = [
+const TABS = [
   { key: "transactions", label: "Home" },
   { key: "accounts", label: "Akun" },
   { key: "plan", label: "Plan" },
-];
-const TABS_RIGHT = [
   { key: "monthly", label: "Bulanan" },
   { key: "yearly", label: "Tahunan" },
 ];
@@ -1086,13 +1084,26 @@ export default function App() {
                   numberOfLines={1}
                   adjustsFontSizeToFit
                   minimumFontScale={0.75}
-                  numberOfLines={1}
                 >
                   {formatCurrency(leftBudget)}
                 </Text>
               </View>
             </View>
           </View>
+
+          {/* Dulu tombol bulat melayang di atas tab bar. Posisi itu menutupi
+              baris transaksi paling bawah, dan sesudah tab bertambah jadi lima
+              dia harus berbagi tempat dengan celah di tengah tab bar. Di sini
+              dia tidak menutupi apa pun, dan duduk tepat setelah angka sisa
+              budget -- yang memang jadi alasan orang membuka app ini untuk
+              mencatat belanja. */}
+          <Pressable
+            onPress={openAddForm}
+            style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}
+          >
+            <Text style={styles.addButtonPlus}>+</Text>
+            <Text style={styles.addButtonText}>Tambah Transaksi</Text>
+          </Pressable>
 
           <Pressable
             onPress={() => setActiveTab("monthly")}
@@ -1298,55 +1309,24 @@ export default function App() {
       {activeApp === "tracker" ? (
       <>
       <View style={styles.tabBar}>
-        <View style={styles.tabGroup}>
-          {TABS_LEFT.map((tab) => {
-            const active = activeTab === tab.key;
-            return (
-              <Pressable
-                key={tab.key}
-                onPress={() => setActiveTab(tab.key)}
-                style={styles.tabItem}
+        {TABS.map((tab) => {
+          const active = activeTab === tab.key;
+          return (
+            <Pressable
+              key={tab.key}
+              onPress={() => setActiveTab(tab.key)}
+              style={styles.tabItem}
+            >
+              <Text
+                style={[styles.tabLabel, active && styles.tabLabelActive]}
+                numberOfLines={1}
               >
-                <Text
-                  style={[styles.tabLabel, active && styles.tabLabelActive]}
-                  numberOfLines={1}
-                >
-                  {tab.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-
-        <View style={styles.tabSpacer} />
-
-        <View style={styles.tabGroup}>
-          {TABS_RIGHT.map((tab) => {
-            const active = activeTab === tab.key;
-            return (
-              <Pressable
-                key={tab.key}
-                onPress={() => setActiveTab(tab.key)}
-                style={styles.tabItem}
-              >
-                <Text
-                  style={[styles.tabLabel, active && styles.tabLabelActive]}
-                  numberOfLines={1}
-                >
-                  {tab.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
+                {tab.label}
+              </Text>
+            </Pressable>
+          );
+        })}
       </View>
-
-      <Pressable
-        onPress={openAddForm}
-        style={({ pressed }) => [styles.fab, pressed && styles.pressed]}
-      >
-        <Text style={styles.fabText}>+</Text>
-      </Pressable>
 
       <TransactionForm
         visible={formVisible}
@@ -1730,28 +1710,31 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
   },
-  fab: {
+  addButton: {
     alignItems: "center",
     backgroundColor: colors.accent[0],
-    borderRadius: 30,
-    bottom: 38,
-    elevation: 6,
-    height: 60,
+    borderRadius: radius.md,
+    elevation: 4,
+    flexDirection: "row",
+    gap: 8,
     justifyContent: "center",
-    left: "50%",
-    marginLeft: -30,
-    position: "absolute",
+    marginTop: 12,
+    paddingVertical: 15,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    width: 60,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
   },
-  fabText: {
+  addButtonPlus: {
     color: "#ffffff",
-    fontSize: 30,
+    fontSize: 20,
     fontWeight: "900",
     marginTop: -2,
+  },
+  addButtonText: {
+    color: "#ffffff",
+    fontSize: 15,
+    fontWeight: "800",
   },
   tabBar: {
     flexDirection: "row",
@@ -1761,10 +1744,6 @@ const styles = StyleSheet.create({
     paddingBottom: 18,
     paddingTop: 14,
   },
-  tabGroup: {
-    flex: 1,
-    flexDirection: "row",
-  },
   tabItem: {
     flex: 1,
     alignItems: "center",
@@ -1772,16 +1751,13 @@ const styles = StyleSheet.create({
   },
   tabLabel: {
     color: colors.textFaint,
-    // 13, bukan 15: lima tab mesti muat di satu baris bareng celah FAB, dan
-    // "Bulanan"/"Tahunan" kepotong di ukuran lama.
-    fontSize: 13,
+    // 14: lima tab dibagi rata tanpa celah FAB lagi, jadi ada ruang lebih
+    // dari waktu mereka masih berebut tempat dengan tombol bulat di tengah.
+    fontSize: 14,
     fontWeight: "800",
   },
   tabLabelActive: {
     color: colors.accent[0],
-  },
-  tabSpacer: {
-    width: 56,
   },
   avatarCircle: {
     alignItems: "center",

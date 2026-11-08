@@ -1743,11 +1743,20 @@ const styles = StyleSheet.create({
     borderTopColor: colors.surfaceBorder,
     paddingBottom: 18,
     paddingTop: 14,
+    // Jaraknya dibagi rata ANTAR tulisan, bukan lebar kotaknya yang disamakan.
+    // Dengan kotak sama lebar, tiap label memang duduk di tengah kotaknya
+    // masing-masing -- tapi karena panjang katanya beda jauh ("Plan" vs
+    // "Tahunan"), jarak yang kelihatan jadi timpang: "Bulanan Tahunan" nempel
+    // sementara "Akun" dan "Plan" berjauhan. space-evenly menyamakan enam
+    // celahnya, termasuk yang di kiri dan kanan layar.
+    justifyContent: "space-evenly",
   },
   tabItem: {
-    flex: 1,
     alignItems: "center",
     paddingVertical: 4,
+    // Kotaknya ikut lebar tulisan, jadi area sentuhnya diberi sedikit ruang
+    // tambahan supaya "Plan" tidak jadi target yang sempit.
+    paddingHorizontal: 6,
   },
   tabLabel: {
     color: colors.textFaint,

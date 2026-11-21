@@ -1,10 +1,15 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { View, Text, Pressable, Modal, ScrollView, StyleSheet } from "react-native";
 import { colors } from "../theme";
+import { withCurrentValue } from "../utils/optionList";
 
 export default function Dropdown({ value, options, onChange, placeholder = "Pilih" }) {
   const [open, setOpen] = useState(false);
-  const selectedOption = options.find((o) => o.value === value);
+
+  // Nilai yang tersimpan belum tentu ada di `options` -- kalau tidak ikut
+  // ditawarkan, pemakai cuma lihat placeholder dan tidak tahu isinya apa.
+  const allOptions = useMemo(() => withCurrentValue(options, value), [options, value]);
+  const selectedOption = allOptions.find((o) => o.value === value);
 
   return (
     <>
@@ -22,7 +27,7 @@ export default function Dropdown({ value, options, onChange, placeholder = "Pili
         <Pressable style={styles.backdrop} onPress={() => setOpen(false)}>
           <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
             <ScrollView style={styles.optionList} showsVerticalScrollIndicator={false}>
-              {options.map((option) => {
+              {allOptions.map((option) => {
                 const selected = option.value === value;
                 return (
                   <Pressable

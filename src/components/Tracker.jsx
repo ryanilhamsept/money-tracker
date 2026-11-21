@@ -54,6 +54,7 @@ import {
     getInstallmentBaseTitle,
 } from "../utils/installmentTitle";
 import { isExpense } from "../utils/report";
+import { withUsedValues } from "../utils/optionList";
 
 export default function Tracker({
     transactions,
@@ -1000,9 +1001,9 @@ export default function Tracker({
                                 >
                                     <option value="all">All categories</option>
 
-                                    {categories.map((category) => (
-                                        <option key={category} value={category}>
-                                            {category}
+                                    {withUsedValues(categories, transactions, "category").map((category) => (
+                                        <option key={category.value} value={category.value}>
+                                            {category.label}
                                         </option>
                                     ))}
                                 </select>
@@ -1017,9 +1018,9 @@ export default function Tracker({
                                 >
                                     <option value="all">All sources</option>
 
-                                    {activeFundSources.map((source) => (
-                                        <option key={source} value={source}>
-                                            {source}
+                                    {withUsedValues(activeFundSources, transactions, "source").map((source) => (
+                                        <option key={source.value} value={source.value}>
+                                            {source.label}
                                         </option>
                                     ))}
                                 </select>
@@ -1034,9 +1035,9 @@ export default function Tracker({
                                 >
                                     <option value="all">Semua dana</option>
 
-                                    {danaDipakaiOptions.map((dana) => (
-                                        <option key={dana} value={dana}>
-                                            {dana}
+                                    {withUsedValues(danaDipakaiOptions, transactions, "danaDipakai").map((dana) => (
+                                        <option key={dana.value} value={dana.value}>
+                                            {dana.label}
                                         </option>
                                     ))}
                                 </select>

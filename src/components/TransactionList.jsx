@@ -21,6 +21,7 @@ import {
     danaDipakaiOptions,
     fundSources,
 } from "../constants/options";
+import { withCurrentValue } from "../utils/optionList";
 
 // Emoji + warna disamain persis sama mobile app (mobile/App.js CATEGORY_ICONS)
 // biar tampilan list transaksi konsisten di web & mobile.
@@ -377,9 +378,9 @@ export default function TransactionList({
                                     }
                                     className="w-full min-w-0 max-w-full rounded-2xl border-2 border-slate-100 bg-surface px-3 py-2 outline-none focus:border-sky-400"
                                 >
-                                    {categories.map((item) => (
-                                        <option key={item} value={item}>
-                                            {item}
+                                    {withCurrentValue(categories, editForm.category).map((item) => (
+                                        <option key={item.value} value={item.value}>
+                                            {item.label}
                                         </option>
                                     ))}
                                 </select>
@@ -394,9 +395,9 @@ export default function TransactionList({
                                     }
                                     className="w-full min-w-0 max-w-full rounded-2xl border-2 border-slate-100 bg-surface px-3 py-2 outline-none focus:border-sky-400"
                                 >
-                                    {fundSources.map((item) => (
-                                        <option key={item} value={item}>
-                                            {item}
+                                    {withCurrentValue(fundSources, editForm.source).map((item) => (
+                                        <option key={item.value} value={item.value}>
+                                            {item.label}
                                         </option>
                                     ))}
                                 </select>
@@ -415,9 +416,9 @@ export default function TransactionList({
                                         }}
                                         className="w-full min-w-0 max-w-full rounded-2xl border-2 border-slate-100 bg-surface px-3 py-2 outline-none focus:border-sky-400"
                                     >
-                                        {danaDipakaiOptions.map((item) => (
-                                            <option key={item} value={item}>
-                                                {item}
+                                        {withCurrentValue(danaDipakaiOptions, editForm.danaDipakai).map((item) => (
+                                            <option key={item.value} value={item.value}>
+                                                {item.label}
                                             </option>
                                         ))}
                                     </select>

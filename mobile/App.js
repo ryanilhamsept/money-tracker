@@ -72,6 +72,7 @@ import PlanScreen from "./src/components/PlanScreen";
 import MonthlyReportScreen from "./src/components/MonthlyReportScreen";
 import YearlyReportScreen from "./src/components/YearlyReportScreen";
 import { isExpense, totalSpentSinceStart } from "./src/utils/report";
+import { withUsedValues } from "./src/utils/optionList";
 import JournalScreen from "./src/components/JournalScreen";
 import CreditCalculator from "./src/components/CreditCalculator";
 import SplitBillScreen from "./src/components/SplitBillScreen";
@@ -1150,8 +1151,7 @@ export default function App() {
                 onChange={setCategoryFilter}
                 options={[
                   { label: "All categories", value: "all" },
-                  ...categories.map((c) => ({ label: c, value: c })),
-                  ...incomeCategories.map((c) => ({ label: c, value: c })),
+                  ...withUsedValues([...categories, ...incomeCategories], transactions, "category"),
                 ]}
               />
             </View>
@@ -1162,7 +1162,7 @@ export default function App() {
                 onChange={setSourceFilter}
                 options={[
                   { label: "All sources", value: "all" },
-                  ...fundSources.map((s) => ({ label: s, value: s })),
+                  ...withUsedValues(fundSources, transactions, "source"),
                 ]}
               />
             </View>
@@ -1175,7 +1175,7 @@ export default function App() {
                 onChange={setDanaFilter}
                 options={[
                   { label: "Semua dana", value: "all" },
-                  ...danaDipakaiOptions.map((d) => ({ label: d, value: d })),
+                  ...withUsedValues(danaDipakaiOptions, transactions, "danaDipakai"),
                 ]}
               />
             </View>

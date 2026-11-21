@@ -8,6 +8,7 @@ import { formatDisplayDate, today } from "../utils/date";
 import { availableYears, belongsTo, isExpense, yearSummary } from "../utils/report";
 import { sortTimestamp } from "../utils/transactions";
 import { categoryIcons } from "./MonthlyReport";
+import { withCurrentValue } from "../utils/optionList";
 
 // Rincian yang dibuka bisa ratusan baris kalau rentangnya setahun. Dibatasi,
 // dengan sisanya disebut terus terang -- daftar 400 baris di dalam kartu
@@ -296,9 +297,9 @@ function TransactionRow({ transaction: t, onRemap, onDelete }) {
                 onChange={(e) => setDraft((d) => ({ ...d, [key]: e.target.value }))}
                 className="w-full rounded-xl border border-slate-200 bg-surface px-3 py-2 text-sm font-semibold text-slate-900 outline-none focus:ring-2 focus:ring-sky-500/30"
             >
-                {options.map((o) => (
-                    <option key={o} value={o}>
-                        {o}
+                {withCurrentValue(options, draft[key]).map((o) => (
+                    <option key={o.value} value={o.value}>
+                        {o.label}
                     </option>
                 ))}
             </select>

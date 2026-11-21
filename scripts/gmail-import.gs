@@ -26,6 +26,12 @@ const BANK_CONFIG = [
   { match: 'noreply.livin@bankmandiri.co.id', source: 'Mandiri', dana: 'Spend Bulanan' },
   { match: 'superbank.id', source: 'Superbank', dana: 'Spend Bulanan' },
   { match: 'wondr@bni.co.id', source: 'BNI', dana: 'Spend Bulanan', card: 'Credit Card - BNI' },
+  // Kartu kredit BNI kirim notifikasi dari alamat SENDIRI, bukan dari wondr@.
+  // Selama alamat ini belum terdaftar, belanja kartunya masuk sebagai
+  // "Perlu Dicek"/"Spend Bulanan": utang kartunya nggak nambah, dan belanja
+  // kartu ikut makan budget bulanan. Disamakan dengan pola kartu kredit BCA
+  // di atas: source kartunya langsung, dana 'Spend CC'.
+  { match: 'bnicreditcard@bni.co.id', source: 'Credit Card - BNI', dana: 'Spend CC' },
   { match: 'receipts@blubybcadigital.id', source: 'Blu', dana: 'Spend Bulanan' },
   { match: 'bca@bca.co.id', source: 'BCA', dana: 'Spend Bulanan', card: 'Credit Card - BCA' },
   { match: 'no-reply@grab.com', source: 'Superbank', dana: 'Spend Bulanan', defaultTitle: 'Grab', isGrab: true },

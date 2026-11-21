@@ -7,7 +7,7 @@ import Dropdown from "./Dropdown";
 import { categories, fundSources, danaDipakaiOptions } from "../constants/options";
 import { formatCurrency } from "../utils/formatters";
 import { formatDisplayDate, today } from "../utils/date";
-import { availableYears, belongsTo, yearSummary } from "../utils/report";
+import { availableYears, belongsTo, isExpense, yearSummary } from "../utils/report";
 import { sortTimestamp } from "../utils/transactions";
 import { colors } from "../theme";
 import { reportStyles as rs } from "./MonthlyReportScreen";
@@ -47,7 +47,7 @@ export default function YearlyReportScreen({ transactions = [], onRemap, onDelet
   const expenses = useMemo(
     () =>
       transactions
-        .filter((t) => t.type !== "income" && String(t.date).slice(0, 4) === selectedYear)
+        .filter((t) => isExpense(t) && String(t.date).slice(0, 4) === selectedYear)
         .filter((t) => selectedYear !== thisYear || t.paidAt || String(t.date).slice(0, 10) <= todayStr)
         .sort(
           (a, b) =>

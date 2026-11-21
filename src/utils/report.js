@@ -8,6 +8,23 @@
 // Label buat transaksi yang kolomnya memang kosong. Bukan kategori, cuma
 // cara menyebut "tidak diisi" tanpa menampilkan baris tanpa nama.
 export const TANPA_ISI = "(Tanpa isi)";
+// Bayar tagihan kartu kredit BUKAN pengeluaran baru. Belanjanya sudah
+// tercatat satu per satu waktu kartunya dipakai; bayar tagihan cuma
+// memindahkan uang dari rekening ke kartu buat melunasi utang yang sudah
+// dihitung itu. Kalau ikut dijumlahkan, belanja yang sama kehitung dua kali:
+// sekali sebagai belanjanya, sekali lagi sebagai bayarannya.
+//
+// Penandanya judul berawalan "Bayar CC" -- konvensi yang sama yang dipakai
+// src/utils/accountBalance.js (dan importir Gmail yang menulis barisnya),
+// yang justru PERLU baris ini supaya saldo rekening dan utang kartunya
+// bergerak. Jadi barisnya tetap ada dan tetap mengubah saldo; yang berubah
+// cuma: dia tidak lagi dihitung sebagai uang keluar di laporan.
+export const isCcBillPayment = (t) =>
+  String((t && t.title) || "").trim().toLowerCase().startsWith("bayar cc");
+
+/** Transaksi yang benar-benar uang keluar -- bukan pemasukan, bukan transfer. */
+export const isExpense = (t) => !!t && t.type !== "income" && !isCcBillPayment(t);
+
 
 export const yearOf = (date) => String(date || "").slice(0, 4);
 export const monthOf = (date) => String(date || "").slice(0, 7);
@@ -21,7 +38,7 @@ export const BULAN = [
 export const availableYears = (transactions = []) => {
   const years = new Set();
   transactions.forEach((t) => {
-    if (t && t.type !== "income" && yearOf(t.date).length === 4) years.add(yearOf(t.date));
+    if (isExpense(t) && yearOf(t.date).length === 4) years.add(yearOf(t.date));
   });
   return [...years].sort().reverse();
 };
@@ -41,7 +58,7 @@ export const availableYears = (transactions = []) => {
  */
 export const expensesInYear = (transactions = [], year, todayStr) => {
   const inYear = transactions.filter(
-    (t) => t && t.type !== "income" && yearOf(t.date) === String(year)
+    (t) => isExpense(t) && yearOf(t.date) === String(year)
   );
 
   if (String(year) !== yearOf(todayStr)) return inYear;
@@ -179,8 +196,7 @@ export const totalSpentSinceStart = (transactions = [], todayStr = "") =>
   transactions
     .filter(
       (t) =>
-        t &&
-        t.type !== "income" &&
+        isExpense(t) &&
         String(t.date) >= "2026-01-01" &&
         (t.paidAt || String(t.date).slice(0, 10) <= todayStr)
     )

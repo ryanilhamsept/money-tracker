@@ -14,7 +14,7 @@ import Tracker from "../components/Tracker";
 import Plan from "../components/Plan";
 import MonthlyReport from "../components/MonthlyReport";
 import YearlyReport from "../components/YearlyReport";
-import { totalSpentSinceStart } from "../utils/report";
+import { isExpense, totalSpentSinceStart } from "../utils/report";
 import Accounts from "../components/Accounts";
 import Login from "../components/Login";
 import { useAccounts } from "../hooks/useAccounts";
@@ -93,7 +93,7 @@ export default function App() {
 
     const currentMonthSpendBulanan = useMemo(() => {
         return transactions
-            .filter((item) => getTransactionMonth(item.date) === currentMonth() && item.danaDipakai === "Spend Bulanan" && item.type !== "income")
+            .filter((item) => getTransactionMonth(item.date) === currentMonth() && item.danaDipakai === "Spend Bulanan" && isExpense(item))
             .reduce((sum, item) => sum + Number(item.amount), 0);
     }, [transactions]);
 

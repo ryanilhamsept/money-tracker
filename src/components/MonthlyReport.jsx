@@ -45,6 +45,7 @@ import {
 } from "../utils/date";
 import { formatCurrency } from "../utils/currency";
 import { reviewSpending, replyToReview } from "../services/api";
+import { isExpense } from "../utils/report";
 const categoryIcons = {
     "Account Transfer": {
         icon: ArrowLeftRight,
@@ -201,7 +202,7 @@ export default function MonthlyReport({ transactions, budget = 0, deleteTransact
     // Laporan spending di bawah ini semua soal pengeluaran -- pemasukan
     // dipisah biar nggak ngaco-in "Total bulan ini" dkk.
     const monthlyExpenses = useMemo(() => {
-        return monthlyTransactions.filter((item) => item.type !== "income");
+        return monthlyTransactions.filter(isExpense);
     }, [monthlyTransactions]);
     const monthlyTotal = useMemo(() => {
         return monthlyExpenses.reduce(
@@ -236,7 +237,7 @@ export default function MonthlyReport({ transactions, budget = 0, deleteTransact
                     (a, b) => sortTimestamp(b) - sortTimestamp(a)
                 ),
                 amount: list
-                    .filter((item) => item.type !== "income")
+                    .filter(isExpense)
                     .reduce((sum, item) => sum + Number(item.amount), 0),
                 incomeCount: list.filter((item) => item.type === "income").length,
                 incomeAmount: list
@@ -370,7 +371,7 @@ export default function MonthlyReport({ transactions, budget = 0, deleteTransact
 
     const prevMonthTotal = useMemo(() => {
         return prevMonthTransactions
-            .filter((item) => item.type !== "income")
+            .filter(isExpense)
             .reduce((sum, item) => sum + Number(item.amount), 0);
     }, [prevMonthTransactions]);
 
@@ -935,7 +936,7 @@ export default function MonthlyReport({ transactions, budget = 0, deleteTransact
                                                         transaksi" di samping total yang hanya
                                                         menjumlahkan 22 bikin angkanya mustahil
                                                         dicocokkan sendiri. */}
-                                                    {item.transactions.filter((t) => t.type !== "income").length}{" "}
+                                                    {item.transactions.filter(isExpense).length}{" "}
                                                     pengeluaran
                                                     {item.incomeCount > 0 && (
                                                         <span className="text-emerald-400">

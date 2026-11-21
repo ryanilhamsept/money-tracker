@@ -16,6 +16,7 @@ import {
 } from "../utils/date";
 import { colors } from "../theme";
 import { sortTimestamp } from "../utils/transactions";
+import { isExpense } from "../utils/report";
 
 function StatCard({ label, value, meta, tone }) {
   return (
@@ -163,7 +164,7 @@ export default function MonthlyReportScreen({ transactions, budget = 0, onDelete
   // Semua laporan/statistik di bawah ini soal pengeluaran -- pemasukan
   // dipisah biar nggak ngaco-in angka "Total bulan ini" dkk.
   const monthExpenses = useMemo(
-    () => monthTransactions.filter((t) => t.type !== "income"),
+    () => monthTransactions.filter(isExpense),
     [monthTransactions]
   );
 
@@ -227,7 +228,7 @@ export default function MonthlyReportScreen({ transactions, budget = 0, onDelete
         date,
         transactions: list.sort((a, b) => sortTimestamp(b) - sortTimestamp(a)),
         amount: list
-          .filter((t) => t.type !== "income")
+          .filter(isExpense)
           .reduce((sum, t) => sum + Number(t.amount), 0),
       }));
   }, [monthTransactions]);
@@ -237,7 +238,7 @@ export default function MonthlyReportScreen({ transactions, budget = 0, onDelete
     const points = Array.from({ length: MONTHS_BACK }, (_, i) => {
       const m = shiftMonth(month, -(MONTHS_BACK - 1 - i));
       const total = transactions
-        .filter((t) => getTransactionMonth(t.date) === m && t.type !== "income")
+        .filter((t) => getTransactionMonth(t.date) === m && isExpense(t))
         .reduce((sum, t) => sum + Number(t.amount), 0);
       return { label: formatMonthLabel(m).slice(0, 3), total };
     });
@@ -270,7 +271,7 @@ export default function MonthlyReportScreen({ transactions, budget = 0, onDelete
   const prevMonthTotal = useMemo(
     () =>
       transactions
-        .filter((t) => getTransactionMonth(t.date) === prevMonth && t.type !== "income")
+        .filter((t) => getTransactionMonth(t.date) === prevMonth && isExpense(t))
         .reduce((sum, t) => sum + Number(t.amount), 0),
     [transactions, prevMonth]
   );

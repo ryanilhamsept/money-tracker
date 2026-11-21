@@ -71,7 +71,7 @@ import AccountsScreen from "./src/components/AccountsScreen";
 import PlanScreen from "./src/components/PlanScreen";
 import MonthlyReportScreen from "./src/components/MonthlyReportScreen";
 import YearlyReportScreen from "./src/components/YearlyReportScreen";
-import { totalSpentSinceStart } from "./src/utils/report";
+import { isExpense, totalSpentSinceStart } from "./src/utils/report";
 import JournalScreen from "./src/components/JournalScreen";
 import CreditCalculator from "./src/components/CreditCalculator";
 import SplitBillScreen from "./src/components/SplitBillScreen";
@@ -293,7 +293,7 @@ export default function App() {
         // Total per hari cuma ngitung pengeluaran, biar konsisten sama makna
         // "Total Spending" -- pemasukan tetap kelihatan di baris masing-masing.
         total: items
-          .filter((t) => t.type !== "income")
+          .filter(isExpense)
           .reduce((sum, t) => sum + Number(t.amount), 0),
       }));
   }, [filteredTransactions]);
@@ -335,7 +335,7 @@ export default function App() {
     );
 
     const spending = realised
-      .filter((t) => t.type !== "income")
+      .filter(isExpense)
       .reduce((sum, t) => sum + Number(t.amount), 0);
 
     const income = realised
@@ -360,7 +360,7 @@ export default function App() {
   const currentMonthSpendBulanan = useMemo(
     () =>
       currentMonthTransactions
-        .filter((t) => t.danaDipakai === "Spend Bulanan")
+        .filter((t) => t.danaDipakai === "Spend Bulanan" && isExpense(t))
         .reduce((sum, t) => sum + Number(t.amount), 0),
     [currentMonthTransactions]
   );
@@ -373,7 +373,7 @@ export default function App() {
   const spendingComparison = useMemo(() => {
     const prevMonth = shiftMonth(currentMonth(), -1);
     const prevTotal = transactions
-      .filter((t) => getTransactionMonth(t.date) === prevMonth && t.type !== "income")
+      .filter((t) => getTransactionMonth(t.date) === prevMonth && isExpense(t))
       .reduce((sum, t) => sum + Number(t.amount), 0);
     if (prevTotal === 0) return null;
     const diff = totalSpending - prevTotal;

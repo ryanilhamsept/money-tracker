@@ -5,7 +5,7 @@ import { Card, CardContent } from "./ui/card";
 import { categories, danaDipakaiOptions, fundSources } from "../constants/options";
 import { formatCurrency } from "../utils/currency";
 import { formatDisplayDate, today } from "../utils/date";
-import { availableYears, belongsTo, yearSummary } from "../utils/report";
+import { availableYears, belongsTo, isExpense, yearSummary } from "../utils/report";
 import { sortTimestamp } from "../utils/transactions";
 import { categoryIcons } from "./MonthlyReport";
 
@@ -41,7 +41,7 @@ export default function YearlyReport({ transactions = [], onRemap, onDelete }) {
         () =>
             transactions
                 .filter(
-                    (t) => t.type !== "income" && String(t.date).slice(0, 4) === selectedYear
+                    (t) => isExpense(t) && String(t.date).slice(0, 4) === selectedYear
                 )
                 .filter(
                     (t) =>

@@ -2,7 +2,7 @@
 
 import {
   availableYears, belongsTo, expensesInYear, totalsByKey, totalsByMonth,
-  TANPA_ISI, totalSpentSinceStart, yearSummary,
+  TANPA_ISI, totalSpentSinceStart, yearSummary, isCcBillPayment, isExpense,
 } from "./report.js";
 
 let pass = 0, fail = 0;
@@ -132,6 +132,54 @@ const satuTahun = [tx("2026-01-05", 100), tx("2026-12-20", 777), tx("2026-06-01"
 check("total 2026 = total kartu Home",
   yearSummary(satuTahun, "2026", { todayStr: HARI_INI }).total,
   totalSpentSinceStart(satuTahun, HARI_INI));
+
+
+// Bayar tagihan CC bukan pengeluaran baru: belanjanya sudah tercatat satu per
+// satu waktu kartunya dipakai. Kalau bayar tagihannya ikut dijumlahkan,
+// belanja yang sama kehitung dua kali.
+console.log("isCcBillPayment / isExpense");
+check("judul 'Bayar CC' dikenali, apa pun besar-kecil hurufnya",
+  [{ title: "Bayar CC BCA" }, { title: "bayar cc bni" }, { title: "  Bayar CC BCA  " }]
+    .map(isCcBillPayment),
+  [true, true, true]);
+check("belanja biasa tidak kena",
+  [{ title: "Bayar Listrik" }, { title: "Tagihan CC BCA" }, { title: "" }, {}]
+    .map(isCcBillPayment),
+  [false, false, false, false]);
+check("isExpense membuang pemasukan dan bayar tagihan CC",
+  [
+    { type: "expense", title: "Kopi" },
+    { title: "Kopi" },
+    { type: "income", title: "Gaji" },
+    { type: "expense", title: "Bayar CC BCA" },
+    null,
+  ].map(isExpense),
+  [true, true, false, false, false]);
+
+console.log("bayar tagihan CC tidak dobel-hitung");
+const belanjaCc = [
+  tx("2026-03-02", 2000000, { title: "Laptop", danaDipakai: "Spend CC", source: "Credit Card - BCA" }),
+  tx("2026-03-09", 500000, { title: "Sepatu", danaDipakai: "Spend CC", source: "Credit Card - BCA" }),
+];
+const bayarTagihan = tx("2026-04-10", 2500000, {
+  title: "Bayar CC BCA", category: "Account Transfer", source: "BCA", danaDipakai: "Gajian",
+});
+const jumlah = (rows) => rows.reduce((s, t) => s + t.amount, 0);
+
+check("total tahunan tidak berubah saat baris bayar tagihan ditambahkan",
+  [jumlah(expensesInYear(belanjaCc, 2026, "2026-12-31")),
+   jumlah(expensesInYear([...belanjaCc, bayarTagihan], 2026, "2026-12-31"))],
+  [2500000, 2500000]);
+check("barisnya tidak ikut masuk daftar pengeluaran",
+  expensesInYear([...belanjaCc, bayarTagihan], 2026, "2026-12-31").length, 2);
+check("totalSpentSinceStart juga mengabaikannya",
+  totalSpentSinceStart([...belanjaCc, bayarTagihan], "2026-12-31"), 2500000);
+check("tahun yang isinya cuma bayar tagihan tidak dianggap punya pengeluaran",
+  availableYears([tx("2025-05-01", 100, { title: "Bayar CC BNI" })]), []);
+check("rincian per sumber dana tidak kebagian baris bayar tagihan",
+  totalsByKey(expensesInYear([...belanjaCc, bayarTagihan], 2026, "2026-12-31"), "source", SUMBER)
+    .map((r) => r.value),
+  ["Credit Card - BCA"]);
 
 console.log(`\n${pass} lolos, ${fail} gagal`);
 process.exit(fail ? 1 : 0);

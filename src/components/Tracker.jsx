@@ -53,6 +53,7 @@ import {
     formatInstallmentTitle,
     getInstallmentBaseTitle,
 } from "../utils/installmentTitle";
+import { isExpense } from "../utils/report";
 
 export default function Tracker({
     transactions,
@@ -171,7 +172,7 @@ export default function Tracker({
         const selectedDate = normalizeDate(form.date);
 
         return transactions
-            .filter((item) => normalizeDate(item.date) === selectedDate && item.type !== "income")
+            .filter((item) => normalizeDate(item.date) === selectedDate && isExpense(item))
             .reduce((sum, item) => sum + Number(item.amount), 0);
     }, [transactions, form.date]);
 
@@ -201,7 +202,7 @@ export default function Tracker({
         );
 
         const totalSpending = realised
-            .filter((item) => item.type !== "income")
+            .filter(isExpense)
             .reduce((sum, item) => sum + Number(item.amount), 0);
 
         const totalIncome = realised
@@ -224,7 +225,7 @@ export default function Tracker({
         const prevTotal = transactions
             .filter(
                 (item) =>
-                    getTransactionMonth(item.date) === prevMonth && item.type !== "income"
+                    getTransactionMonth(item.date) === prevMonth && isExpense(item)
             )
             .reduce((sum, item) => sum + Number(item.amount), 0);
 
@@ -286,7 +287,7 @@ export default function Tracker({
                 date,
                 items,
                 total: items
-                    .filter((item) => item.type !== "income")
+                    .filter(isExpense)
                     .reduce((sum, item) => sum + Number(item.amount), 0),
             }));
     }, [filteredTransactions]);

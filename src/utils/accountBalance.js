@@ -1,3 +1,5 @@
+import { isCcBillPayment } from "./report";
+
 const normalizeName = (value) => String(value || "").trim().toLowerCase();
 
 const GENERIC_SOURCE_WORDS = new Set(["credit", "card", "kartu", "kredit", "cc", "bayar"]);
@@ -62,12 +64,7 @@ const getTransactionAccountEffects = (accounts, transaction) => {
 
     const isIncome = transaction.type === "income";
 
-    const isCcBillPayment = String(transaction.title || "")
-        .trim()
-        .toLowerCase()
-        .startsWith("bayar cc");
-
-    if (isCcBillPayment) {
+    if (isCcBillPayment(transaction)) {
         const effects = [];
 
         // Cash leaves the paying account like a normal expense.

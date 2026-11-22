@@ -400,10 +400,17 @@ export default function MonthlyReportScreen({ transactions, budget = 0, onDelete
     }
   };
 
+  // Efek ini TIDAK boleh memanggil AI. Dulu ia memanggil generateReview(false),
+  // jadi tiap kali tab Bulanan dibuka satu panggilan API berbayar langsung
+  // jalan tanpa diminta -- dan cache-nya useRef, yang ikut hilang waktu tab
+  // di-unmount, jadi membuka tab bolak-balik membakar kuota tiap kali.
+  //
+  // Yang benar sama seperti web: efeknya cuma memulihkan hasil yang sudah
+  // pernah dibuat buat bulan itu, dan pemanggilan AI menunggu tombol ditekan.
   useEffect(() => {
-    generateReview(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [month, monthTransactions.length, budget]);
+    setReviewError("");
+    setAiReview(reviewCacheRef.current[month] || "");
+  }, [month, monthTransactions.length]);
 
   return (
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -466,7 +473,9 @@ export default function MonthlyReportScreen({ transactions, budget = 0, onDelete
               disabled={isReviewLoading}
               style={styles.aiRefreshButton}
             >
-              <Text style={styles.aiRefreshText}>{isReviewLoading ? "..." : "↻ Ulangi"}</Text>
+              <Text style={styles.aiRefreshText}>
+                {isReviewLoading ? "..." : aiReview || reviewError ? "↻ Ulangi" : "Jalankan"}
+              </Text>
             </Pressable>
           </View>
 
@@ -479,7 +488,11 @@ export default function MonthlyReportScreen({ transactions, budget = 0, onDelete
             <Text style={styles.aiErrorText}>{reviewError}</Text>
           ) : aiReview ? (
             <Text style={styles.aiReviewText}>{aiReview}</Text>
-          ) : null}
+          ) : (
+            <Text style={styles.aiEmptyText}>
+              Klik "Jalankan" buat lihat AI Review bulan ini.
+            </Text>
+          )}
         </View>
       ) : null}
 
@@ -789,6 +802,7 @@ const styles = StyleSheet.create({
   aiLoadingRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   aiLoadingText: { color: "#f9a8d4", fontSize: 13, fontWeight: "600" },
   aiReviewText: { color: "#f9a8d4", fontSize: 14, fontWeight: "600", lineHeight: 21 },
+  aiEmptyText: { color: "#f9a8d4", fontSize: 14, fontWeight: "600", lineHeight: 21, opacity: 0.8 },
   aiErrorText: { color: "#fda4af", fontSize: 13, fontWeight: "700" },
   weeklyMetaRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 6 },
   weeklyMeta: { color: "#7aa0b8", fontSize: 12, fontWeight: "700" },

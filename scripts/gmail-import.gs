@@ -22,7 +22,15 @@ const OWNER_NAME = /ryan\s*ilham(?:\s*septiyanto)?/i;
 // bukan parser custom per bank -- biar nggak gampang patah tiap kali salah satu
 // bank ubah sedikit template emailnya.
 const BANK_CONFIG = [
-  { match: 'kartukreditbca@klikbca.com', source: 'Credit Card - BCA', dana: 'Spend CC' },
+  // PENTING: pencocokan di bawah memakai indexOf, jadi entri yang alamatnya
+  // merupakan POTONGAN alamat lain harus ditaruh BELAKANGAN. 'bca@bca.co.id'
+  // adalah substring dari 'kartukreditbca@bca.co.id', jadi notifikasi kartu
+  // kredit BCA sempat nyangkut ke entri BCA debit dan tercatat
+  // "BCA / Spend Bulanan" -- bukan utang kartu.
+  //
+  // Dicocokkan ke 'kartukreditbca@' saja supaya kebal perubahan domain: BCA
+  // mengirim dari bca.co.id maupun klikbca.com untuk kartu yang sama.
+  { match: 'kartukreditbca@', source: 'Credit Card - BCA', dana: 'Spend CC' },
   { match: 'noreply.livin@bankmandiri.co.id', source: 'Mandiri', dana: 'Spend Bulanan' },
   { match: 'superbank.id', source: 'Superbank', dana: 'Spend Bulanan' },
   { match: 'wondr@bni.co.id', source: 'BNI', dana: 'Spend Bulanan', card: 'Credit Card - BNI' },
@@ -412,8 +420,12 @@ function parseTransactionEmail(body, subject, bank, dateHeader) {
     source = bank.card;
     dana = 'Spend CC';
   }
-  // Notifikasi kartu kredit BCA kadang tidak menyebut "Sumber dana", cuma nomor kartu masked.
-  if (/\d{6}X+4904\b/i.test(body)) {
+  // Notifikasi kartu kredit BCA tidak menyebut "Sumber dana", jadi
+  // paidByCreditCard() di atas tidak kena. Dulu ini dicocokkan ke satu nomor
+  // kartu (…4904) yang di-hardcode, sehingga kartu BCA lain (mis. …9755)
+  // lolos dan tercatat sebagai rekening debit. Sekarang yang dibaca kalimat
+  // pembuka emailnya, yang sama untuk semua kartu kredit BCA.
+  if (/Pemegang\s+Kartu\s+Kredit\s+BCA|menggunakan\s+Kartu\s+Kredit\s+BCA/i.test(body)) {
     source = 'Credit Card - BCA';
     dana = 'Spend CC';
   }
@@ -570,6 +582,27 @@ function extractDateTime(body, dateHeader) {
 // notifikasi ride-hailing yang emang nggak punya field nama merchant), atau
 // terakhir fallback ke subject email.
 function extractTitle(body, subject, bank) {
+  // Struk Grab dan notifikasi banknya adalah DUA email untuk SATU pembelian.
+  // Idealnya struk Grab dilewati lewat `ownEmail` di GRAB_PAYMENT_SOURCES,
+  // tapi itu butuh 4 digit kartu -- dan struk GrabFood berbahasa Indonesia
+  // cuma menulis "Detail Pembayaran: Mastercard", tanpa angka sama sekali.
+  // Jadi kartunya tidak terbaca, struknya lolos, dan belanjanya tercatat dua
+  // kali: sekali dari bank, sekali dari Grab dengan nama restoran.
+  //
+  // Yang selalu ada di dua-duanya: ID pesanan. Bank menulisnya sebagai nama
+  // merchant ("Grab* A-A43XX9PGXCQSAV"), jadi struk Grab diberi judul yang
+  // sama persis. Index unik (date + title + amount) di database lalu menolak
+  // yang kedua dengan 409, yang memang sudah diperlakukan sebagai sukses.
+  //
+  // Yang tersimpan jadi versi bank, karena notifikasi bank dikirim saat
+  // pembayaran sedangkan struk Grab baru dikirim setelah pesanan selesai --
+  // bank selalu lebih dulu. Itu juga yang diminta: sumber dananya jelas
+  // (mis. Blu), bukan tebakan default.
+  if (bank.isGrab) {
+    const order = body.match(/(?:Pesanan ID|Order ID)\s*:?\s*\n?\s*([A-Z0-9-]{6,40})/i);
+    if (order) return 'Grab* ' + order[1].trim();
+  }
+
   const labelRe = /(?:Merchant\s*\/\s*ATM|Merchant|Pembayaran Ke|Kepada|Penerima|Nama Penerima|Nama Tujuan|Tujuan Pembayaran|Recipient|Order from|Pesanan dari|Nama Produk|bluAccount)\s*:?\s*\n?\s*([^\n]{2,60})/i;
   const m = body.match(labelRe);
   if (m) return remapKnownMerchant(m[1].trim());

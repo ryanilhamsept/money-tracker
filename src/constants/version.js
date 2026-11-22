@@ -9,5 +9,5 @@
 // kali build APK. Kalau versionCode tidak naik, Android tidak menganggapnya
 // update dan app lama tetap terpasang.
 
-export const APP_VERSION = "1.1.0";
-export const BUILD_DATE = "2026-11-08";
+export const APP_VERSION = "1.1.1";
+export const BUILD_DATE = "2026-11-22";

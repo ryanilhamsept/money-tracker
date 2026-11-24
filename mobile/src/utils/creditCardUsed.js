@@ -24,6 +24,26 @@ import { findCreditCardForSource } from "./accountBalance";
 import { getInstallmentBaseTitle } from "./installmentTitle";
 import { isCcBillPayment } from "./report";
 
+// Rencana cicilan yang sisanya masih jalan tapi tidak punya satu pun baris
+// angsuran di jendela tagihan -- entah semua angsurannya sudah ditandai lunas,
+// entah angsuran berikutnya belum kebuat barisnya.
+//
+// Grup cicilan di daftar kartu cuma kebentuk dari baris transaksi, dan sisa
+// jadwalnya numpang ke grup itu. Tanpa jalur ini, baris terakhir yang ditandai
+// lunas bikin grupnya hilang dan sisa jadwalnya ikut berhenti dihitung: utang
+// yang masih ditagih bank nguap dari kartu tanpa pemberitahuan apa pun.
+//
+// Aman dipakai justru karena menandai angsuran lunas sekarang ikut mengurangi
+// sisa rencananya (lihat installmentPaydown.js) -- begitu angsuran terakhir
+// ditandai, sisanya nol sendiri dan rencananya berhenti dihitung.
+export const unlistedPlans = (installments = [], groupedBaseTitles = new Set()) =>
+  installments.filter(
+    (plan) =>
+      plan &&
+      Number(plan.remainingBalance) > 0 &&
+      !groupedBaseTitles.has(getInstallmentBaseTitle(plan.name))
+  );
+
 // Bayar tagihan dan refund mengurangi, belanja menambah. Baris dari tombol
 // Bayar Tagihan ikut tersaring ke sini karena sumbernya nama kartunya sendiri
 // dan dana dipakainya "Spend CC" -- tanpa tanda minus dia malah kehitung
@@ -56,8 +76,6 @@ export const recomputeCardUsed = (
       t.date >= windowStart &&
       findCreditCardForSource(accounts, t.source)?.id === account.id
   );
-
-  if (cardTransactions.length === 0) return 0;
 
   const cardInstallments = installments.filter(
     (i) => i && i.accountId === account.id
@@ -104,6 +122,10 @@ export const recomputeCardUsed = (
     used += cardTransactions
       .filter((x) => getInstallmentBaseTitle(x.title) === baseTitle)
       .reduce((sum, x) => sum + signedAmount(x), 0);
+  });
+
+  unlistedPlans(cardInstallments, groups).forEach((plan) => {
+    used += Number(plan.remainingBalance) || 0;
   });
 
   // Utang kartu tidak pernah negatif dan tidak bisa melewati limit -- batas

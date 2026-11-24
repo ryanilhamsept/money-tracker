@@ -111,5 +111,26 @@ check("skenario kartu CC BCA",
     ]
   ), 2884002 + 216667 + 609334 + 410020 + 831820 + 49500 + 80000 + 173300 + 159500 + 311900);
 
+// Lubang yang ditutup: grup cicilan cuma kebentuk dari baris transaksi, jadi
+// baris terakhir yang ditandai lunas dulu bikin sisa jadwalnya ikut hilang.
+const onCloudPlan = [{ accountId: "cc-bca", name: "On cloud", remainingBalance: 2403335, totalLoan: 2884002 }];
+const lunas = { paidAt: "2026-12-01T00:00:00Z" };
+
+check("semua angsuran ditandai lunas, sisa jadwalnya tetap dihitung",
+  hitung([belanja(480667, { title: "On cloud ke 1", ...lunas }), belanja(480667, { title: "On cloud ke 2", ...lunas })], onCloudPlan),
+  2403335);
+
+check("angsuran berikutnya belum kebuat barisnya, sisa jadwalnya tetap dihitung",
+  hitung([], onCloudPlan), 2403335);
+
+check("rencana yang sudah nol tidak ikut dihitung",
+  hitung([], [{ accountId: "cc-bca", name: "On cloud", remainingBalance: 0, totalLoan: 2884002 }]), 0);
+
+check("rencana tidak dihitung dua kali waktu angsurannya masih tampil",
+  hitung([belanja(480667, { title: "On cloud ke 2" })], onCloudPlan), 2403335);
+
+check("rencana kartu lain tetap tidak ikut",
+  hitung([], [{ accountId: "cc-bni", name: "Sofa", remainingBalance: 3000000, totalLoan: 6000000 }]), 0);
+
 console.log(`\n${pass} lolos, ${fail} gagal`);
 process.exit(fail ? 1 : 0);

@@ -36,7 +36,7 @@ const NET_WORTH_GROUPS = [
 ];
 import { findCreditCardForSource } from "../utils/accountBalance";
 import { getOutstandingWindowStart, getStatementDay } from "../utils/billingCycle";
-import { recomputeCardUsed } from "../utils/creditCardUsed";
+import { recomputeCardUsed, unlistedPlans } from "../utils/creditCardUsed";
 import { planPaydowns } from "../utils/installmentPaydown";
 import {
   getInstallmentBaseTitle,
@@ -470,6 +470,18 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
       }
     });
 
+    // Rencana cicilan yang sisanya masih jalan tapi tidak punya satu pun baris
+    // angsuran di jendela ini tetap tampil sebagai grup tanpa anak. Tanpa ini,
+    // angsuran terakhir yang ditandai lunas bikin grupnya hilang dan sisa
+    // jadwalnya ikut berhenti dihitung. Mirror dari Accounts.jsx (web).
+    unlistedPlans(cardInstallments, historyGroups).forEach((installment) => {
+      historyGroups.set(getInstallmentBaseTitle(installment.name), {
+        parent: null,
+        installment,
+        children: [],
+      });
+    });
+
     // Yang benar-benar dirender: baris lepas + seluruh angsuran tiap grup.
     // Jadi acuan buat angka "Riwayat Transaksi (N)" sekaligus buat pilihan
     // centang -- kalau pilihannya pakai daftar yang tersaring siklus, angsuran
@@ -638,7 +650,7 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
           )
         )}
         
-        {isCard && cardTransactions.length > 0 && (
+        {isCard && (cardTransactions.length > 0 || historyGroups.size > 0) && (
             <View style={styles.installmentsWrap}>
                 <Text style={styles.historyTitle}>
                     RIWAYAT TRANSAKSI ({historyShownCount})

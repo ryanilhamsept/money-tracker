@@ -19,7 +19,7 @@ import { payCreditCard } from "../services/api";
 import { formatCurrency, formatThousands, parseAmount } from "../utils/currency";
 import { findCreditCardForSource } from "../utils/accountBalance";
 import { getOutstandingWindowStart, getStatementDay } from "../utils/billingCycle";
-import { recomputeCardUsed } from "../utils/creditCardUsed";
+import { recomputeCardUsed, unlistedPlans } from "../utils/creditCardUsed";
 import { planPaydowns } from "../utils/installmentPaydown";
 import {
     getInstallmentBaseTitle,
@@ -677,11 +677,16 @@ export default function Accounts({
                             t.date >= windowStart &&
                             findCreditCardForSource(accounts, t.source)?.id === account.id
                     );
-                    if (cardTransactions.length === 0) return null;
-
                     const cardInstallments = installments.filter(
                         (i) => i.accountId === account.id
                     );
+
+                    if (
+                        cardTransactions.length === 0 &&
+                        unlistedPlans(cardInstallments).length === 0
+                    ) {
+                        return null;
+                    }
 
                     // Cari baris "ke 1" (yang nyimpen total pinjaman) di SELURUH
                     // transaksi kartu, bukan cuma yang lolos filter siklus. Angsuran
@@ -738,6 +743,19 @@ export default function Accounts({
                                     ),
                             });
                         }
+                    });
+
+                    // Rencana cicilan yang sisanya masih jalan tapi tidak punya satu pun
+                    // baris angsuran di jendela ini tetap tampil sebagai grup tanpa anak.
+                    // Tanpa ini, angsuran terakhir yang ditandai lunas bikin grupnya
+                    // hilang dari daftar dan sisa jadwalnya ikut berhenti dihitung --
+                    // utang yang masih ditagih bank nguap tanpa jejak.
+                    unlistedPlans(cardInstallments, groups).forEach((installment) => {
+                        groups.set(getInstallmentBaseTitle(installment.name), {
+                            parent: null,
+                            installment,
+                            children: [],
+                        });
                     });
 
                     // Yang benar-benar dirender: baris lepas + seluruh angsuran tiap

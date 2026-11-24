@@ -19,8 +19,7 @@ import { payCreditCard } from "../services/api";
 import { formatCurrency, formatThousands, parseAmount } from "../utils/currency";
 import { findCreditCardForSource } from "../utils/accountBalance";
 import { getOutstandingWindowStart, getStatementDay } from "../utils/billingCycle";
-import { recomputeCardUsed, unlistedPlans } from "../utils/creditCardUsed";
-import { planPaydowns } from "../utils/installmentPaydown";
+import { recomputeCardUsed } from "../utils/creditCardUsed";
 import {
     getInstallmentBaseTitle,
     formatInstallmentTitle,
@@ -258,15 +257,6 @@ export default function Accounts({
         const utilization = totalLimit > 0 ? (used / totalLimit) * 100 : 0;
         return { totalLimit, used, remaining: totalLimit - used, utilization };
     }, [creditCardAccounts, installments]);
-
-    // Angsuran yang ditandai lunas ikut mengurangi sisa rencana cicilannya.
-    // Diperlihatkan dulu di layar konfirmasi: sisa yang tersimpan sekarang
-    // sudah memuat sebagian pembayaran lama, jadi menandai angsuran yang
-    // memang sudah dihitung bakal motong dua kali.
-    const paydownPreview = useMemo(
-        () => planPaydowns(confirmingPaidIds || [], installments),
-        [confirmingPaidIds, installments]
-    );
 
     const handleAddSubmit = async (e) => {
         e.preventDefault();
@@ -586,8 +576,7 @@ export default function Accounts({
                                 const recomputedUsed = recomputeCardUsed(
                                     account,
                                     accountsWithBalances,
-                                    transactions,
-                                    installments
+                                    transactions
                                 );
                                 const usedDrift = recomputedUsed - used;
                                 const remaining = totalLimit - used;
@@ -677,16 +666,11 @@ export default function Accounts({
                             t.date >= windowStart &&
                             findCreditCardForSource(accounts, t.source)?.id === account.id
                     );
+                    if (cardTransactions.length === 0) return null;
+
                     const cardInstallments = installments.filter(
                         (i) => i.accountId === account.id
                     );
-
-                    if (
-                        cardTransactions.length === 0 &&
-                        unlistedPlans(cardInstallments).length === 0
-                    ) {
-                        return null;
-                    }
 
                     // Cari baris "ke 1" (yang nyimpen total pinjaman) di SELURUH
                     // transaksi kartu, bukan cuma yang lolos filter siklus. Angsuran
@@ -743,19 +727,6 @@ export default function Accounts({
                                     ),
                             });
                         }
-                    });
-
-                    // Rencana cicilan yang sisanya masih jalan tapi tidak punya satu pun
-                    // baris angsuran di jendela ini tetap tampil sebagai grup tanpa anak.
-                    // Tanpa ini, angsuran terakhir yang ditandai lunas bikin grupnya
-                    // hilang dari daftar dan sisa jadwalnya ikut berhenti dihitung --
-                    // utang yang masih ditagih bank nguap tanpa jejak.
-                    unlistedPlans(cardInstallments, groups).forEach((installment) => {
-                        groups.set(getInstallmentBaseTitle(installment.name), {
-                            parent: null,
-                            installment,
-                            children: [],
-                        });
                     });
 
                     // Yang benar-benar dirender: baris lepas + seluruh angsuran tiap
@@ -853,10 +824,16 @@ export default function Accounts({
                                                         {title}
                                                     </p>
                                                     <p className="text-[11px] font-semibold text-slate-500">
+                                                        {/* Sisanya dijumlah dari angsuran yang memang masih ada,
+                                                            bukan dari installment.remainingBalance -- angka tersimpan
+                                                            itu cuma berubah kalau rencananya diedit, jadi dia
+                                                            ketinggalan dari barisnya sendiri. */}
                                                         {installment
-                                                            ? `Sisa ${formatCurrency(installment.remainingBalance)} dari ${formatCurrency(installment.totalLoan)}`
+                                                            ? `Sisa ${formatCurrency(
+                                                                  children.reduce((sum, t) => sum + (Number(t.amount) || 0), 0)
+                                                              )} dari ${formatCurrency(installment.totalLoan)}`
                                                             : `Cicilan • ${children.length}x pembayaran`}
-                                                        {installment?.remainingTerm ? ` • ${installment.remainingTerm}x` : ""}
+                                                        {children.length ? ` • ${children.length}x` : ""}
                                                         {installment?.dueDate ? ` • Tgl ${installment.dueDate}` : ""}
                                                     </p>
                                                 </div>
@@ -1665,28 +1642,6 @@ export default function Accounts({
                                 ))}
                             </div>
 
-                            {paydownPreview.length > 0 && (
-                                <div className="rounded-2xl border border-sky-100 bg-sky-50 px-4 py-3 mb-4 space-y-1.5">
-                                    <p className="text-xs font-bold uppercase tracking-wide text-sky-600">
-                                        Sisa cicilan ikut berkurang
-                                    </p>
-                                    {paydownPreview.map((plan) => (
-                                        <div key={plan.id} className="flex items-center justify-between gap-3">
-                                            <p className="truncate text-xs font-semibold text-slate-600">
-                                                {plan.name}
-                                            </p>
-                                            <p className="shrink-0 text-xs font-bold text-slate-700">
-                                                {formatCurrency(plan.from)} → {formatCurrency(plan.to)}
-                                            </p>
-                                        </div>
-                                    ))}
-                                    <p className="pt-1 text-[11px] font-semibold text-sky-700/70">
-                                        Cek dulu angka sesudahnya. Kalau angsuran ini sebenarnya sudah
-                                        pernah dikurangi, sisanya bakal kepotong dua kali.
-                                    </p>
-                                </div>
-                            )}
-
                             <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 mb-6">
                                 <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
                                     Total yang harus dibayar ({confirmingPaidIds.length} transaksi)
@@ -1723,15 +1678,6 @@ export default function Accounts({
                                         // lands -- that double-counted the balance delta.
                                         for (const id of ids) {
                                             await markTransactionPaid?.(id, true);
-                                        }
-                                        // Baru sesudah angsurannya benar-benar
-                                        // tertandai lunas -- kalau salah satu gagal,
-                                        // sisa rencananya tidak ikut terpotong.
-                                        for (const plan of paydownPreview) {
-                                            await updateInstallment?.(plan.id, {
-                                                remainingBalance: plan.to,
-                                                remainingTerm: plan.toTerm,
-                                            });
                                         }
                                         setSelectedPaidIds((prev) => {
                                             const next = new Set(prev);

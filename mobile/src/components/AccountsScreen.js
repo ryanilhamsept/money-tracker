@@ -36,8 +36,7 @@ const NET_WORTH_GROUPS = [
 ];
 import { findCreditCardForSource } from "../utils/accountBalance";
 import { getOutstandingWindowStart, getStatementDay } from "../utils/billingCycle";
-import { recomputeCardUsed, unlistedPlans } from "../utils/creditCardUsed";
-import { planPaydowns } from "../utils/installmentPaydown";
+import { recomputeCardUsed } from "../utils/creditCardUsed";
 import {
   getInstallmentBaseTitle,
   formatInstallmentTitle,
@@ -138,22 +137,9 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
     if (dipilih.length === 0 || isMarkingPaid) return;
     const total = dipilih.reduce((sum, t) => sum + Number(t.amount || 0), 0);
 
-    // Angsuran yang ditandai lunas ikut mengurangi sisa rencana cicilannya.
-    // Diperlihatkan dulu: sisa yang tersimpan sekarang sudah memuat sebagian
-    // pembayaran lama, jadi menandai angsuran yang memang sudah dihitung
-    // bakal motong dua kali. Mirror dari dialog di app web.
-    const paydowns = planPaydowns(dipilih, installments);
-    const rincianCicilan = paydowns.length
-      ? "\n\nSisa cicilan ikut berkurang:\n" +
-        paydowns
-          .map((p) => `\u2022 ${p.name}: ${formatCurrency(p.from)} \u2192 ${formatCurrency(p.to)}`)
-          .join("\n") +
-        "\n\nCek dulu angka sesudahnya."
-      : "";
-
     Alert.alert(
       "Tandai Lunas",
-      `${dipilih.length} transaksi \u2022 ${formatCurrency(total)}\n\nBarisnya tetap ada di daftar transaksi, cuma keluar dari kartu ini.${rincianCicilan}`,
+      `${dipilih.length} transaksi \u2022 ${formatCurrency(total)}\n\nBarisnya tetap ada di daftar transaksi, cuma keluar dari kartu ini.`,
       [
         { text: "Batal", style: "cancel" },
         {
@@ -163,17 +149,6 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
             try {
               for (const t of dipilih) {
                 await onMarkPaid?.(t.id, true);
-              }
-              // Baru sesudah angsurannya benar-benar tertandai lunas -- kalau
-              // salah satu gagal, sisa rencananya tidak ikut terpotong.
-              for (const plan of paydowns) {
-                const rencana = installments.find((i) => i.id === plan.id);
-                if (!rencana) continue;
-                await onUpdateInstallment?.({
-                  ...rencana,
-                  remainingBalance: plan.to,
-                  remainingTerm: plan.toTerm,
-                });
               }
               setSelectedPaidIds((prev) => {
                 const next = new Set(prev);
@@ -398,9 +373,7 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
     // "Used" itu angka tersimpan yang cuma bergerak lewat app. Daftar di bawah
     // kartu dihitung ulang tiap render, jadi keduanya bisa cerita beda -- dan
     // kalau beda, yang benar hampir selalu barisnya. Mirror dari Accounts.jsx.
-    const recomputedUsed = isCard
-      ? recomputeCardUsed(account, accounts, transactions, installments)
-      : 0;
+    const recomputedUsed = isCard ? recomputeCardUsed(account, accounts, transactions) : 0;
     const usedDrift = recomputedUsed - used;
     const remaining = totalLimit - used;
     const usedPct = totalLimit > 0 ? Math.min(100, Math.max(0, (used / totalLimit) * 100)) : 0;
@@ -468,18 +441,6 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
             .sort((a, b) => String(a.date).localeCompare(String(b.date))),
         });
       }
-    });
-
-    // Rencana cicilan yang sisanya masih jalan tapi tidak punya satu pun baris
-    // angsuran di jendela ini tetap tampil sebagai grup tanpa anak. Tanpa ini,
-    // angsuran terakhir yang ditandai lunas bikin grupnya hilang dan sisa
-    // jadwalnya ikut berhenti dihitung. Mirror dari Accounts.jsx (web).
-    unlistedPlans(cardInstallments, historyGroups).forEach((installment) => {
-      historyGroups.set(getInstallmentBaseTitle(installment.name), {
-        parent: null,
-        installment,
-        children: [],
-      });
     });
 
     // Yang benar-benar dirender: baris lepas + seluruh angsuran tiap grup.
@@ -650,7 +611,7 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
           )
         )}
         
-        {isCard && (cardTransactions.length > 0 || historyGroups.size > 0) && (
+        {isCard && cardTransactions.length > 0 && (
             <View style={styles.installmentsWrap}>
                 <Text style={styles.historyTitle}>
                     RIWAYAT TRANSAKSI ({historyShownCount})
@@ -728,9 +689,11 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
                                         </Text>
                                         <Text style={styles.installmentTerm} numberOfLines={2}>
                                             {installment
-                                                ? `Sisa ${formatCurrency(installment.remainingBalance)} dari ${formatCurrency(installment.totalLoan)}`
+                                                ? `Sisa ${formatCurrency(
+                                          children.reduce((sum, t) => sum + (Number(t.amount) || 0), 0)
+                                        )} dari ${formatCurrency(installment.totalLoan)}`
                                                 : `Cicilan • ${children.length}x pembayaran`}
-                                            {installment?.remainingTerm ? ` • ${installment.remainingTerm}x` : ""}
+                                            {children.length ? ` • ${children.length}x` : ""}
                                             {installment?.dueDate ? ` • Tgl ${installment.dueDate}` : ""}
                                         </Text>
                                     </View>

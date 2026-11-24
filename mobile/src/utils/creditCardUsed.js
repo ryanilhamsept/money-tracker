@@ -8,41 +8,26 @@
 // ikut tahu -- angkanya melenceng, dan tidak ada apa pun yang akan
 // membetulkannya sendiri.
 //
-// Yang dihitung di sini SAMA PERSIS dengan yang ditampilkan daftar "Riwayat
-// Transaksi" di bawah kartu: belanja yang belum dibayar sejak satu siklus
-// tagihan ke belakang, plus sisa tiap cicilan. Itu yang bikin angka ini
-// berguna -- dua angka di layar yang sama akhirnya cerita hal yang sama.
+// Yang dihitung di sini sama persis dengan yang ditampilkan daftar "Riwayat
+// Transaksi" di bawah kartu: setiap baris belanja kartu yang belum dibayar
+// sejak satu siklus tagihan ke belakang, angsuran cicilan termasuk. Jadwal
+// cicilan memang sudah tersimpan utuh sebagai baris per bulan (termasuk yang
+// jatuh temponya masih tahun depan), jadi menjumlahkan barisnya saja sudah
+// mencakup seluruh sisa cicilan.
 //
-// Yang SENGAJA tidak dipakai: menjumlah seluruh riwayat kartu sejak awal.
-// Tagihan bulan-bulan lalu yang sudah lunas di bank sering tidak punya baris
-// pembayaran di app (bayarnya lewat myBCA, bukan lewat app), jadi
-// menjumlahkan semuanya bikin utang lama kehitung lagi dan hasilnya jauh
-// lebih besar dari tagihan yang sebenarnya.
+// Yang SENGAJA tidak dipakai: `installments.remainingBalance`. Angka itu cuma
+// berubah kalau rencananya diedit, jadi dia gampang ketinggalan dari barisnya
+// sendiri -- di kartu CC BCA dia kelebihan Rp 990.344 dari jumlah angsuran
+// yang benar-benar masih ada. Barisnya yang dipercaya, bukan ringkasannya.
+//
+// Juga tidak dipakai: menjumlah seluruh riwayat kartu sejak awal. Tagihan
+// bulan-bulan lalu yang sudah lunas di bank hampir tidak pernah punya baris
+// pembayaran di app (bayarnya lewat myBCA), jadi itu bikin utang lama
+// kehitung lagi.
 
 import { getOutstandingWindowStart, getStatementDay } from "./billingCycle";
 import { findCreditCardForSource } from "./accountBalance";
-import { getInstallmentBaseTitle } from "./installmentTitle";
 import { isCcBillPayment } from "./report";
-
-// Rencana cicilan yang sisanya masih jalan tapi tidak punya satu pun baris
-// angsuran di jendela tagihan -- entah semua angsurannya sudah ditandai lunas,
-// entah angsuran berikutnya belum kebuat barisnya.
-//
-// Grup cicilan di daftar kartu cuma kebentuk dari baris transaksi, dan sisa
-// jadwalnya numpang ke grup itu. Tanpa jalur ini, baris terakhir yang ditandai
-// lunas bikin grupnya hilang dan sisa jadwalnya ikut berhenti dihitung: utang
-// yang masih ditagih bank nguap dari kartu tanpa pemberitahuan apa pun.
-//
-// Aman dipakai justru karena menandai angsuran lunas sekarang ikut mengurangi
-// sisa rencananya (lihat installmentPaydown.js) -- begitu angsuran terakhir
-// ditandai, sisanya nol sendiri dan rencananya berhenti dihitung.
-export const unlistedPlans = (installments = [], groupedBaseTitles = new Set()) =>
-  installments.filter(
-    (plan) =>
-      plan &&
-      Number(plan.remainingBalance) > 0 &&
-      !groupedBaseTitles.has(getInstallmentBaseTitle(plan.name))
-  );
 
 // Bayar tagihan dan refund mengurangi, belanja menambah. Baris dari tombol
 // Bayar Tagihan ikut tersaring ke sini karena sumbernya nama kartunya sendiri
@@ -55,20 +40,14 @@ const signedAmount = (transaction) => {
   return transaction.type === "income" ? -amount : amount;
 };
 
-export const recomputeCardUsed = (
-  account,
-  accounts = [],
-  transactions = [],
-  installments = []
-) => {
-  if (!account) return 0;
-
-  // Jendela yang sama dengan daftar di bawah kartu: mulai satu siklus ke
-  // belakang, supaya tagihan yang jatuh tempo dan belanja sesudahnya sama-sama
-  // kelihatan.
+// Baris kartu yang masih membebani tagihan: jendelanya sama dengan daftar di
+// bawah kartu, mulai satu siklus ke belakang supaya tagihan yang jatuh tempo
+// dan belanja sesudahnya sama-sama kelihatan.
+export const outstandingCardRows = (account, accounts = [], transactions = []) => {
+  if (!account) return [];
   const windowStart = getOutstandingWindowStart(getStatementDay(account));
 
-  const cardTransactions = transactions.filter(
+  return transactions.filter(
     (t) =>
       t &&
       t.danaDipakai === "Spend CC" &&
@@ -76,57 +55,15 @@ export const recomputeCardUsed = (
       t.date >= windowStart &&
       findCreditCardForSource(accounts, t.source)?.id === account.id
   );
+};
 
-  const cardInstallments = installments.filter(
-    (i) => i && i.accountId === account.id
+export const recomputeCardUsed = (account, accounts = [], transactions = []) => {
+  if (!account) return 0;
+
+  const used = outstandingCardRows(account, accounts, transactions).reduce(
+    (sum, transaction) => sum + signedAmount(transaction),
+    0
   );
-
-  const parentByBaseTitle = new Map();
-  cardTransactions.forEach((t) => {
-    if (Number(t.installmentTotalLoan) > 0) {
-      parentByBaseTitle.set(getInstallmentBaseTitle(t.title), t);
-    }
-  });
-
-  const installmentByBaseTitle = new Map();
-  cardInstallments.forEach((i) => {
-    installmentByBaseTitle.set(getInstallmentBaseTitle(i.name), i);
-  });
-
-  const groups = new Map();
-  let used = 0;
-
-  cardTransactions.forEach((t) => {
-    const baseTitle = getInstallmentBaseTitle(t.title);
-    const parent = parentByBaseTitle.get(baseTitle);
-    const installment = installmentByBaseTitle.get(baseTitle);
-
-    // Baris lepas: langsung dijumlah.
-    if (!parent && !installment) {
-      used += signedAmount(t);
-      return;
-    }
-
-    if (groups.has(baseTitle)) return;
-    groups.set(baseTitle, true);
-
-    // Cicilan dihitung dari sisa jadwalnya, bukan dari angsuran yang kebetulan
-    // jatuh di jendela ini -- persis angka "Sisa Rp..." yang ditampilkan.
-    // Kalau rencana cicilannya tidak ketemu, jatuh balik ke menjumlahkan
-    // angsuran yang memang tampil.
-    if (installment) {
-      used += Number(installment.remainingBalance) || 0;
-      return;
-    }
-
-    used += cardTransactions
-      .filter((x) => getInstallmentBaseTitle(x.title) === baseTitle)
-      .reduce((sum, x) => sum + signedAmount(x), 0);
-  });
-
-  unlistedPlans(cardInstallments, groups).forEach((plan) => {
-    used += Number(plan.remainingBalance) || 0;
-  });
 
   // Utang kartu tidak pernah negatif dan tidak bisa melewati limit -- batas
   // yang sama dipakai waktu saldo digeser per transaksi.

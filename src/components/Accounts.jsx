@@ -576,7 +576,8 @@ export default function Accounts({
                                 const recomputedUsed = recomputeCardUsed(
                                     account,
                                     accountsWithBalances,
-                                    transactions
+                                    transactions,
+                                    installments
                                 );
                                 const usedDrift = recomputedUsed - used;
                                 const remaining = totalLimit - used;

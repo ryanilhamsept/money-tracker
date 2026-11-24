@@ -373,7 +373,9 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
     // "Used" itu angka tersimpan yang cuma bergerak lewat app. Daftar di bawah
     // kartu dihitung ulang tiap render, jadi keduanya bisa cerita beda -- dan
     // kalau beda, yang benar hampir selalu barisnya. Mirror dari Accounts.jsx.
-    const recomputedUsed = isCard ? recomputeCardUsed(account, accounts, transactions) : 0;
+    const recomputedUsed = isCard
+      ? recomputeCardUsed(account, accounts, transactions, installments)
+      : 0;
     const usedDrift = recomputedUsed - used;
     const remaining = totalLimit - used;
     const usedPct = totalLimit > 0 ? Math.min(100, Math.max(0, (used / totalLimit) * 100)) : 0;

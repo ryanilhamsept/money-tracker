@@ -3,67 +3,107 @@
 //
 // "Used" di kartu kredit itu penghitung TERSIMPAN: dia cuma bergerak waktu ada
 // transaksi ditambah/diubah/dihapus lewat app atau importir. Sekali saja ada
-// yang lewat jalur lain -- baris yang sumbernya nyasar ke rekening debit,
-// baris yang dihapus langsung di database, saldo yang diketik manual, atau
-// tombol Bayar Tagihan yang motong saldonya di server tanpa app ikut tahu --
-// angkanya melenceng, dan tidak ada apa pun yang akan membetulkannya sendiri.
+// yang lewat jalur lain -- baris dihapus langsung di database, saldo diketik
+// manual, atau tombol Bayar Tagihan yang motong saldonya di server tanpa app
+// ikut tahu -- angkanya melenceng, dan tidak ada apa pun yang akan
+// membetulkannya sendiri.
 //
-// Padahal daftar "Riwayat Transaksi" di bawah kartu justru dihitung ulang tiap
-// kali dirender. Jadi dua angka di layar yang sama bisa cerita beda, dan yang
-// salah selalu yang di atas.
+// Yang dihitung di sini SAMA PERSIS dengan yang ditampilkan daftar "Riwayat
+// Transaksi" di bawah kartu: belanja yang belum dibayar sejak satu siklus
+// tagihan ke belakang, plus sisa tiap cicilan. Itu yang bikin angka ini
+// berguna -- dua angka di layar yang sama akhirnya cerita hal yang sama.
 //
-// Fungsi ini menghitung ulang utang kartu dari barisnya sendiri, pakai aturan
-// yang sama persis dengan accountBalance.js supaya hasilnya bukan tafsiran
-// kedua: belanja kartu nambah, refund dan pembayaran ngurangi, angsuran yang
-// sudah dilunasi tidak dihitung.
+// Yang SENGAJA tidak dipakai: menjumlah seluruh riwayat kartu sejak awal.
+// Tagihan bulan-bulan lalu yang sudah lunas di bank sering tidak punya baris
+// pembayaran di app (bayarnya lewat myBCA, bukan lewat app), jadi
+// menjumlahkan semuanya bikin utang lama kehitung lagi dan hasilnya jauh
+// lebih besar dari tagihan yang sebenarnya.
 
+import { getOutstandingWindowStart, getStatementDay } from "./billingCycle";
 import { findCreditCardForSource } from "./accountBalance";
+import { getInstallmentBaseTitle } from "./installmentTitle";
 import { isCcBillPayment } from "./report";
 
-export const recomputeCardUsed = (account, accounts = [], transactions = []) => {
+// Bayar tagihan dan refund mengurangi, belanja menambah. Baris dari tombol
+// Bayar Tagihan ikut tersaring ke sini karena sumbernya nama kartunya sendiri
+// dan dana dipakainya "Spend CC" -- tanpa tanda minus dia malah kehitung
+// sebagai belanja baru.
+const signedAmount = (transaction) => {
+  const amount = Number(transaction && transaction.amount) || 0;
+  if (amount <= 0) return 0;
+  if (isCcBillPayment(transaction)) return -amount;
+  return transaction.type === "income" ? -amount : amount;
+};
+
+export const recomputeCardUsed = (
+  account,
+  accounts = [],
+  transactions = [],
+  installments = []
+) => {
   if (!account) return 0;
 
+  // Jendela yang sama dengan daftar di bawah kartu: mulai satu siklus ke
+  // belakang, supaya tagihan yang jatuh tempo dan belanja sesudahnya sama-sama
+  // kelihatan.
+  const windowStart = getOutstandingWindowStart(getStatementDay(account));
+
+  const cardTransactions = transactions.filter(
+    (t) =>
+      t &&
+      t.danaDipakai === "Spend CC" &&
+      !t.paidAt &&
+      t.date >= windowStart &&
+      findCreditCardForSource(accounts, t.source)?.id === account.id
+  );
+
+  if (cardTransactions.length === 0) return 0;
+
+  const cardInstallments = installments.filter(
+    (i) => i && i.accountId === account.id
+  );
+
+  const parentByBaseTitle = new Map();
+  cardTransactions.forEach((t) => {
+    if (Number(t.installmentTotalLoan) > 0) {
+      parentByBaseTitle.set(getInstallmentBaseTitle(t.title), t);
+    }
+  });
+
+  const installmentByBaseTitle = new Map();
+  cardInstallments.forEach((i) => {
+    installmentByBaseTitle.set(getInstallmentBaseTitle(i.name), i);
+  });
+
+  const groups = new Map();
   let used = 0;
 
-  transactions.forEach((transaction) => {
-    if (!transaction) return;
-    // Angsuran yang sudah ditandai lunas berhenti membebani kartu -- barisnya
-    // tetap ada di riwayat, cuma efeknya yang dinolkan. Sama seperti di
-    // accountBalance.js.
-    if (transaction.paidAt) return;
+  cardTransactions.forEach((t) => {
+    const baseTitle = getInstallmentBaseTitle(t.title);
+    const parent = parentByBaseTitle.get(baseTitle);
+    const installment = installmentByBaseTitle.get(baseTitle);
 
-    const amount = Number(transaction.amount) || 0;
-    if (amount <= 0) return;
-
-    const isIncome = transaction.type === "income";
-
-    if (isCcBillPayment(transaction)) {
-      // Dua jalur ini TIDAK boleh ditukar atau dijadikan cadangan satu sama
-      // lain. Baris yang ditulis tangan menyebut kartunya di judul ("Bayar CC
-      // BCA") sementara sumbernya rekening yang membayar -- dan sumber "BCA"
-      // itu cocok ke kartu "CC BCA" kalau ikut dicoba, jadi "Bayar CC BNI"
-      // yang dibayar dari BCA malah ngurangin utang kartu BCA. Sebaliknya
-      // baris dari tombol Bayar Tagihan judulnya cuma "CC Payment", tidak
-      // menyebut kartu sama sekali, dan justru sumbernya yang berisi nama
-      // kartunya.
-      const fromButton =
-        String(transaction.category || "").trim().toLowerCase() === "pembayaran cc";
-      const paidCard = fromButton
-        ? findCreditCardForSource([account], transaction.source)
-        : findCreditCardForSource([account], transaction.title);
-      if (paidCard) used += isIncome ? amount : -amount;
+    // Baris lepas: langsung dijumlah.
+    if (!parent && !installment) {
+      used += signedAmount(t);
       return;
     }
 
-    const isCardSpend =
-      transaction.danaDipakai === "Spend CC" ||
-      String(transaction.source || "").toLowerCase().includes("credit card");
-    if (!isCardSpend) return;
+    if (groups.has(baseTitle)) return;
+    groups.set(baseTitle, true);
 
-    const card = findCreditCardForSource(accounts, transaction.source);
-    if (!card || card.id !== account.id) return;
+    // Cicilan dihitung dari sisa jadwalnya, bukan dari angsuran yang kebetulan
+    // jatuh di jendela ini -- persis angka "Sisa Rp..." yang ditampilkan.
+    // Kalau rencana cicilannya tidak ketemu, jatuh balik ke menjumlahkan
+    // angsuran yang memang tampil.
+    if (installment) {
+      used += Number(installment.remainingBalance) || 0;
+      return;
+    }
 
-    used += isIncome ? -amount : amount;
+    used += cardTransactions
+      .filter((x) => getInstallmentBaseTitle(x.title) === baseTitle)
+      .reduce((sum, x) => sum + signedAmount(x), 0);
   });
 
   // Utang kartu tidak pernah negatif dan tidak bisa melewati limit -- batas

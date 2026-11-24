@@ -111,12 +111,24 @@ module.exports = function accountRoutes(pool) {
         );
         const newBalance = Number(updatedRows[0].starting_balance);
 
-        // Log transaction for audit trail
+        // Log transaction for audit trail.
+        //
+        // Judulnya WAJIB diawali "Bayar CC" -- itu satu-satunya penanda yang
+        // dipakai laporan (src/utils/report.js) dan saldo kartu
+        // (src/utils/accountBalance.js) buat tahu baris ini bayar tagihan,
+        // bukan belanja baru. Dulu di sini tertulis "CC Payment", yang tidak
+        // kena penanda itu, jadi tiap pembayaran lewat tombol ini kehitung
+        // sebagai uang keluar -- dobel dengan belanja kartunya yang sudah
+        // tercatat satu per satu.
+        //
+        // Nama kartunya ikut di judul karena itu yang dipakai buat nentukan
+        // utang kartu mana yang turun. Awalan "CC"/"Kartu Kredit" di nama akun
+        // dibuang dulu supaya tidak jadi "Bayar CC CC BCA".
         const txId = require("crypto").randomUUID();
         await pool.query(
             `INSERT INTO transactions (id, date, title, category, amount, source, dana_dipakai, type, user_id)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-            [txId, date, "CC Payment", "Pembayaran CC", amount, account.name, "Spend CC", "cc_payment", req.userId]
+            [txId, date, ccPaymentTitle(account.name), "Account Transfer", amount, account.name, "Spend CC", "cc_payment", req.userId]
         );
 
         mirrorToGoogleSheet({
@@ -166,6 +178,15 @@ module.exports = function accountRoutes(pool) {
 
     return router;
 };
+
+// "CC BCA" -> "Bayar CC BCA", "Kartu Kredit BNI" -> "Bayar CC BNI",
+// "BCA Everyday" -> "Bayar CC BCA Everyday".
+function ccPaymentTitle(accountName) {
+    const bare = String(accountName || "")
+        .replace(/^\s*(?:kartu\s+kredit|credit\s+card|cc)\b[\s-]*/i, "")
+        .trim();
+    return bare ? `Bayar CC ${bare}` : "Bayar CC";
+}
 
 function mapFromDB(row) {
     return {

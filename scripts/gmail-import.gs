@@ -1,37 +1,17 @@
-// ===== CONFIG =====
 const SUPABASE_URL = 'https://jzwaajojwoqvrgzvyvyt.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp6d2Fham9qd29xdnJnenZ5dnl0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUwMzU4MDgsImV4cCI6MjEwMDYxMTgwOH0.au6DtFhgjo1TBsGkJvBEqmwmnGvmWPVHxZLCFboTOUI';
 const GMAIL_QUERY = 'label:transaction';
-// Auto-imported transactions get attributed to this account (RLS now scopes
-// data per-user; the anon key has no login session, so this must be explicit).
+
 const IMPORT_USER_ID = 'd09a1edc-3042-4e9f-886d-d5136ff379cc';
-// Kalau ada email yang gagal diekstrak lengkap atau dari pengirim yang belum
-// dikenal, transaksinya TETEP di-insert (ditandai "Perlu Dicek") dan email
-// pemberitahuan dikirim ke sini -- biar end-user nggak pernah perlu buka
-// Gmail/Apps Script, developer yang benerin parser/BANK_CONFIG-nya.
+
 const ADMIN_EMAIL = 'ryanilhamsept@gmail.com';
 
-// Nama pemilik akun -- dipakai buat skip transfer ke rekening/dompet sendiri
-// (kalau nama penerima yang ke-extract cocok sama ini, berarti transfer ke diri
-// sendiri, bukan pengeluaran).
 const OWNER_NAME = /ryan\s*ilham(?:\s*septiyanto)?/i;
 
-// Label yang menyebut PENERIMA uang. Dipakai dua arah: buat ngambil judul
-// transaksi, dan buat ngenalin transfer ke rekening sendiri.
-//
-// Sengaja cuma label penerima, bukan seluruh badan email. Hampir semua bank
-// menyapa pemiliknya di baris pertama ("Hello RYAN ILHAM SEPTIYANTO") dan
-// wondr by BNI menulis nama yang sama di "Sumber dana" sebagai pembayar --
-// kalau yang dicocokkan seluruh body, SEMUA transaksi bakal dikira transfer
-// ke diri sendiri dan nggak ada yang pernah tercatat.
 const RECIPIENT_LABELS =
   'Beneficiary Name|Nama Penerima|Penerima|Nama Tujuan|Tujuan Pembayaran|' +
   'Pembayaran Ke|Kepada|Recipient|bluAccount';
 
-// Transfer ke rekening/dompet sendiri, bank mana pun: uangnya cuma pindah
-// tempat, bukan pengeluaran. Dicek ke SEMUA label penerima yang ketemu, bukan
-// cuma yang pertama -- satu email bisa punya beberapa (mis. "Beneficiary
-// Account" lalu "Beneficiary Name" di bawahnya).
 function isTransferToSelf(body) {
   const re = new RegExp('(?:' + RECIPIENT_LABELS + ')\\s*:?\\s*\\n?\\s*([^\\n]{2,80})', 'gi');
   let m;
@@ -41,44 +21,19 @@ function isTransferToSelf(body) {
   return false;
 }
 
-// Satu-satunya bagian yang "hardcode per pengirim" -- info sumber dana/akun
-// emang cuma bisa didapat dari alamat pengirim, bukan dari isi email. Selain
-// ini, SEMUA email diparse pakai satu logic generic yang sama (parseTransactionEmail),
-// bukan parser custom per bank -- biar nggak gampang patah tiap kali salah satu
-// bank ubah sedikit template emailnya.
 const BANK_CONFIG = [
-  // PENTING: pencocokan di bawah memakai indexOf, jadi entri yang alamatnya
-  // merupakan POTONGAN alamat lain harus ditaruh BELAKANGAN. 'bca@bca.co.id'
-  // adalah substring dari 'kartukreditbca@bca.co.id', jadi notifikasi kartu
-  // kredit BCA sempat nyangkut ke entri BCA debit dan tercatat
-  // "BCA / Spend Bulanan" -- bukan utang kartu.
-  //
-  // Dicocokkan ke 'kartukreditbca@' saja supaya kebal perubahan domain: BCA
-  // mengirim dari bca.co.id maupun klikbca.com untuk kartu yang sama.
+
   { match: 'kartukreditbca@', source: 'Credit Card - BCA', dana: 'Spend CC' },
   { match: 'noreply.livin@bankmandiri.co.id', source: 'Mandiri', dana: 'Spend Bulanan' },
   { match: 'superbank.id', source: 'Superbank', dana: 'Spend Bulanan' },
   { match: 'wondr@bni.co.id', source: 'BNI', dana: 'Spend Bulanan', card: 'Credit Card - BNI' },
-  // Kartu kredit BNI kirim notifikasi dari alamat SENDIRI, bukan dari wondr@.
-  // Selama alamat ini belum terdaftar, belanja kartunya masuk sebagai
-  // "Perlu Dicek"/"Spend Bulanan": utang kartunya nggak nambah, dan belanja
-  // kartu ikut makan budget bulanan. Disamakan dengan pola kartu kredit BCA
-  // di atas: source kartunya langsung, dana 'Spend CC'.
+
   { match: 'bnicreditcard@bni.co.id', source: 'Credit Card - BNI', dana: 'Spend CC' },
   { match: 'receipts@blubybcadigital.id', source: 'Blu', dana: 'Spend Bulanan' },
   { match: 'bca@bca.co.id', source: 'BCA', dana: 'Spend Bulanan', card: 'Credit Card - BCA' },
   { match: 'no-reply@grab.com', source: 'Superbank', dana: 'Spend Bulanan', defaultTitle: 'Grab', isGrab: true },
 ];
 
-// Grab bisa dibayar dari beberapa sumber berbeda -- ini satu-satunya bagian
-// selain BANK_CONFIG yang "spesifik", karena kalau di-generalisir jadi satu
-// source tetap, saldo akun yang salah bakal jadi keliru tiap kali bayar Grab
-// pake kartu/rekening yang berbeda.
-// Empat digit terakhir kartu pada blok "Paid by" di struk Grab.
-// `ownEmail` menandai sumber dana yang banknya mengirim notifikasi sendiri
-// untuk perjalanan itu -- struk Grab-nya jadi salinan kedua dan dilewati.
-// Superbank tidak mengirim email untuk pembayaran Grab, jadi struknya justru
-// satu-satunya catatan dan tetap diimpor.
 const GRAB_PAYMENT_SOURCES = {
   '9628': { source: 'Superbank', dana: 'Spend Bulanan' },
   '8818': { source: 'Blu', dana: 'Spend Bulanan', ownEmail: true },
@@ -86,19 +41,8 @@ const GRAB_PAYMENT_SOURCES = {
   '7095': { source: 'BCA', dana: 'Spend Bulanan' },
 };
 
-// Dipakai kalau alamat pengirim belum ada di BANK_CONFIG -- transaksinya
-// tetep di-insert (ditandai "Perlu Dicek"), bukan hilang diam-diam.
 const UNKNOWN_BANK = { source: 'Perlu Dicek', dana: 'Spend Bulanan' };
 
-// ===== SETUP (jalankan SEKALI aja) =====
-
-/**
- * Pasang trigger otomatis biar processTransactionEmails jalan sendiri tiap 15
- * menit, tanpa perlu buka Apps Script & klik Run manual tiap ada transaksi
- * baru. Jalankan fungsi ini SEKALI (Run → setupAutoTrigger), nanti browser
- * minta izin akses Gmail/trigger -- setujui aja. Abis itu bisa dilupain,
- * jalan sendiri terus di background Google.
- */
 function setupAutoTrigger() {
   ScriptApp.getProjectTriggers().forEach(function (t) {
     if (t.getHandlerFunction() === 'processTransactionEmails') {
@@ -112,9 +56,6 @@ function setupAutoTrigger() {
   Logger.log('Trigger terpasang: processTransactionEmails jalan otomatis tiap 15 menit.');
 }
 
-/**
- * Copot trigger otomatis di atas, kalau suatu saat mau balik ke manual lagi.
- */
 function removeAutoTrigger() {
   let removed = 0;
   ScriptApp.getProjectTriggers().forEach(function (t) {
@@ -126,7 +67,6 @@ function removeAutoTrigger() {
   Logger.log('Trigger dicopot: ' + removed);
 }
 
-// ===== DEDUP =====
 function isProcessed(messageId) {
   return PropertiesService.getScriptProperties().getProperty('msg_' + messageId) !== null;
 }
@@ -135,13 +75,6 @@ function markProcessed(messageId) {
   PropertiesService.getScriptProperties().setProperty('msg_' + messageId, '1');
 }
 
-// ===== UTILS (jalankan manual sekali kalau perlu) =====
-
-/**
- * Reset status processed SEMUA email yang match GMAIL_QUERY. Jalankan ini
- * SEKALI abis ganti parser, biar email yang ke-skip diem-diem gara-gara
- * nyangkut status lama ke-proses ulang. Abis ini jalankan processTransactionEmails.
- */
 function resetAllTransactionMessages() {
   const list = Gmail.Users.Messages.list('me', { q: GMAIL_QUERY, maxResults: 100 });
   const messages = list.messages || [];
@@ -154,10 +87,6 @@ function resetAllTransactionMessages() {
   Logger.log('Reset ' + count + ' pesan (status processed dicopot).');
 }
 
-/**
- * Debug: cek status dedup (processed) dari 10 email transaksi terbaru, tanpa
- * mroses apa-apa.
- */
 function debugCheckStatus() {
   const list = Gmail.Users.Messages.list('me', { q: GMAIL_QUERY, maxResults: 10 });
   const messages = list.messages || [];
@@ -169,10 +98,6 @@ function debugCheckStatus() {
   });
 }
 
-/**
- * Debug: log isi teks (getEmailBody) + hasil parse dari 5 email transaksi
- * terbaru, tanpa peduli status processed/read.
- */
 function debugDumpBodies() {
   const list = Gmail.Users.Messages.list('me', { q: GMAIL_QUERY, maxResults: 5 });
   const messages = list.messages || [];
@@ -191,26 +116,10 @@ function debugDumpBodies() {
   });
 }
 
-// ===== MAIN ENTRY POINT =====
-// Pakai Advanced Gmail Service (Gmail.Users.*) alih-alih GmailApp bawaan.
-// GmailApp punya kuota harian sendiri yang ketat buat akun consumer ("Service
-// invoked too many times for one day: gmail"); Advanced Gmail Service manggil
-// Gmail API asli yang kuotanya jauh lebih besar. Ini butuh Gmail API
-// diaktifkan sekali lewat Apps Script editor: Services (ikon +) → Gmail API → Add.
 function processTransactionEmails() {
   const list = Gmail.Users.Messages.list('me', { q: GMAIL_QUERY, maxResults: 50 });
   const messages = list.messages || [];
 
-  // Gmail mengembalikan daftarnya dari yang PALING BARU. Untuk satu transaksi
-  // yang dikabarkan dua email -- QRIS kartu kredit BNI dikirimi wondr dan BNI
-  // Credit Card sekaligus, atau satu perjalanan Grab dikirimi banknya dan
-  // Grab sendiri -- yang diproses duluan jadi yang tercatat, dan yang kedua
-  // ditolak penyaring duplikat. Mengikuti urutan bawaan Gmail berarti yang
-  // menang justru email yang dikirim BELAKANGAN.
-  //
-  // Jadi diurutkan dulu dari yang paling lama: yang datang duluan yang
-  // tercatat, sisanya dilewati. Pengambilannya tetap satu kali per email --
-  // sama seperti sebelumnya, cuma dipisah dari pemrosesannya.
   const fetched = [];
   messages.forEach(function (m) {
     if (isProcessed(m.id)) return;
@@ -244,11 +153,6 @@ function markReadAPI(messageId) {
   Gmail.Users.Messages.modify({ removeLabelIds: ['UNREAD'] }, 'me', messageId);
 }
 
-// Kalau extraction gagal total (nominal/tanggal nggak ketemu, atau pengirimnya
-// nggak dikenal), email pemilik app biar TAHU ada yang perlu dibenerin di kode
-// -- daripada nyuruh end-user bolak-balik ke Gmail/Apps Script buat ngecek
-// sendiri. Transaksinya sendiri TETEP di-insert (lihat parseTransactionEmail)
-// jadi datanya nggak ilang, cuma butuh dirapiin manual di app.
 function notifyAdminOfReviewNeeded(subject, from, reason) {
   if (!ADMIN_EMAIL) return;
   try {
@@ -295,11 +199,6 @@ function handleMessage(message) {
   }
 }
 
-// ===== EMAIL BODY HELPER =====
-// Beberapa bank kirim email HTML-only, jadi selalu coba text/plain dulu lalu
-// fallback ke text/html yang di-strip jadi teks biasa. Body Gmail API
-// dikirim base64url-encoded dan bisa nested di beberapa parts (multipart/alternative,
-// multipart/mixed, dst) makanya perlu collectParts.
 function collectParts(payload) {
   if (!payload) return [];
   var result = [];
@@ -316,24 +215,16 @@ function collectParts(payload) {
 
 function decodeBase64Url(data) {
   if (!data) return '';
-  // Advanced Gmail Service quirk: "bytes"-typed fields like body.data are
-  // sometimes handed back already decoded into a raw byte array instead of
-  // the base64url string the REST API docs describe -- so only base64-decode
-  // when we actually got a string.
+
   if (typeof data !== 'string') {
     return Utilities.newBlob(data).getDataAsString();
   }
-  // Gmail API base64url data comes without "=" padding, which
-  // base64DecodeWebSafe() sometimes chokes on ("Could not decode string").
-  // Convert to standard base64 + pad, then use the regular decoder.
+
   var normalized = data.replace(/-/g, '+').replace(/_/g, '/');
   while (normalized.length % 4) normalized += '=';
   return Utilities.newBlob(Utilities.base64Decode(normalized)).getDataAsString();
 }
 
-// Sengaja dibikin simpel (strip tag + rapiin baris baru) tanpa akal-akalan
-// nyisipin colon dsb di antara sel tabel -- parser generic di bawah udah
-// toleran ke jarak/baris-kosong sembarang, jadi nggak perlu presisi.
 function getEmailBody(message) {
   var parts = collectParts(message.payload);
   var plainPart = parts.find(function (p) { return p.mimeType === 'text/plain'; });
@@ -362,26 +253,12 @@ function getEmailBody(message) {
   return html.trim();
 }
 
-// ===== GENERIC PARSER =====
-// Satu fungsi buat SEMUA bank -- gantiin 7 parser custom (KartuKreditBCA,
-// Livin, Superbank, wondr, blu, BCA, Grab) yang isinya puluhan regex spesifik
-// per format email. Alih-alih cocokin struktur label persis, ini cuma nyari
-// pola generic yang ada di hampir semua notifikasi transaksi: nominal (Rp/IDR),
-// tanggal, dan nama merchant/penerima dari label yang umum dipakai. Lebih
-// nggak presisi dibanding parser lama, tapi jauh lebih tahan banting kalau
-// bank ubah sedikit tata letak emailnya.
 function parseTransactionEmail(body, subject, bank, dateHeader) {
-  // Pengembalian dana / refund -- reversal dari pengeluaran sebelumnya, bukan
-  // pemasukan baru. Terlalu rumit buat dicocokkan balik ke transaksi aslinya,
-  // jadi tetap dilewati, bukan dicatat sebagai apa pun.
+
   if (/pengembalian dana|refund/i.test(body)) {
     return 'SKIP_MARK_READ';
   }
 
-  // Dana masuk dari orang lain (ditransfer balik, dibayar teman, dst) itu
-  // pemasukan beneran -- dicatat sebagai income. Dana masuk dari diri
-  // sendiri (top up / pindah saldo antar rekening sendiri) BUKAN pemasukan,
-  // itu cuma uang pindah tempat, jadi tetap dilewati seperti sebelumnya.
   const incoming = body.match(
     /(?:Dana Masuk dari|Transfer Masuk dari|Transaksi Masuk dari)\s*:?\s*\n?\s*([^\n|]{2,60})/i
   );
@@ -405,28 +282,16 @@ function parseTransactionEmail(body, subject, bank, dateHeader) {
     };
   }
 
-  // Dana masuk dengan format yang belum kecocokan pola di atas -- tetap
-  // dilewati daripada salah dicatat sebagai pengeluaran.
   if (/dana masuk|transaksi masuk|transfer masuk/i.test(body)) {
     return 'SKIP_MARK_READ';
   }
-  // Transaksi yang gagal tidak memindahkan uang -- jangan dicatat sebagai belanja.
+
   if (/Status\s*\|?\s*:?\s*\|?\s*Gagal\b/i.test(body)) {
     return 'SKIP_MARK_READ';
   }
-  // Transfer ke rekening/dompet sendiri, bank mana pun. Dulu ini cuma kena
-  // kalau judul yang sudah jadi kebetulan berisi nama pemiliknya -- padahal
-  // format transfer BCA tidak punya label judul yang dikenali sama sekali,
-  // jadi judulnya jatuh ke subjek dan pemeriksaannya tidak pernah kena.
+
   if (isTransferToSelf(body)) return 'SKIP_MARK_READ';
-  // Pembayaran tagihan kartu kredit lewat myBCA. Belanjanya sendiri memang
-  // sudah tercatat dari email kartu kredit, jadi ini BUKAN belanja baru --
-  // tapi uangnya benar-benar keluar dari rekening dan utang kartunya
-  // berkurang. Dulu email ini dilewati begitu saja, sehingga dua pergerakan
-  // itu tidak pernah tercatat dan saldo di app terus melenceng dari bank.
-  // Dicatat sebagai "Bayar CC <kartu>": judul itu sudah dikenali
-  // src/utils/accountBalance.js, yang mendebet rekening pembayar sekaligus
-  // mengurangi saldo terpakai kartunya.
+
   const ccBill = body.match(
     /Jenis Transaksi\s*\|?\s*:?\s*\|?\s*Kartu Kredit\s*&\s*Paylater\s*-\s*([A-Za-z]+)/i
   );
@@ -446,16 +311,10 @@ function parseTransactionEmail(body, subject, bank, dateHeader) {
     };
   }
 
-  // Sisanya: format pembayaran tagihan yang belum dikenali. Tetap dilewati
-  // supaya tidak tercatat sebagai belanja baru dan jadi double-count.
   if (bank.dana !== 'Spend CC' && /kartu kredit/i.test(body) && /tagihan/i.test(body) && /(?:bayar|pembayaran)/i.test(body)) {
     return 'SKIP_MARK_READ';
   }
-  // Skip: BCA Poket -- mindahin duit antar kantong tabungan sendiri ("Tambah
-  // Dana Poket", "Pindahkan Poket"). Uangnya nggak ke mana-mana, jadi bukan
-  // pengeluaran. Email ini nggak punya label penerima sama sekali, jadi
-  // OWNER_NAME di bawah nggak akan pernah kena: judulnya jatuh ke subjek
-  // ("Internet Transaction Journal") dan transaksinya lolos masuk.
+
   if (/Jenis Transaksi\s*\|?\s*:?\s*\|?\s*Transaksi Poket/i.test(body) ||
       /Status\s*\|?\s*:?\s*\|?\s*[^\n|]*Poket[^\n|]*Berhasil/i.test(body)) {
     return 'SKIP_MARK_READ';
@@ -465,7 +324,7 @@ function parseTransactionEmail(body, subject, bank, dateHeader) {
   const dateTime = extractDateTime(body, dateHeader);
 
   const title = extractTitle(body, subject, bank);
-  if (OWNER_NAME.test(title)) return 'SKIP_MARK_READ'; // transfer ke diri sendiri
+  if (OWNER_NAME.test(title)) return 'SKIP_MARK_READ';
 
   let source = bank.source;
   let dana = bank.dana;
@@ -473,11 +332,7 @@ function parseTransactionEmail(body, subject, bank, dateHeader) {
     source = bank.card;
     dana = 'Spend CC';
   }
-  // Notifikasi kartu kredit BCA tidak menyebut "Sumber dana", jadi
-  // paidByCreditCard() di atas tidak kena. Dulu ini dicocokkan ke satu nomor
-  // kartu (…4904) yang di-hardcode, sehingga kartu BCA lain (mis. …9755)
-  // lolos dan tercatat sebagai rekening debit. Sekarang yang dibaca kalimat
-  // pembuka emailnya, yang sama untuk semua kartu kredit BCA.
+
   if (/Pemegang\s+Kartu\s+Kredit\s+BCA|menggunakan\s+Kartu\s+Kredit\s+BCA/i.test(body)) {
     source = 'Credit Card - BCA';
     dana = 'Spend CC';
@@ -486,30 +341,19 @@ function parseTransactionEmail(body, subject, bank, dateHeader) {
   if (bank.isGrab) {
     const payment = extractGrabPaymentSource(body);
     if (payment) {
-      // Dibayar dari rekening yang banknya mengirim notifikasi sendiri:
-      // perjalanan ini sudah tercatat dari sana, lengkap dengan sumber dana
-      // yang benar. Struknya dilewati supaya tidak tercatat dua kali.
+
       if (payment.ownEmail) return 'SKIP_MARK_READ';
 
       source = payment.source;
       dana = payment.dana;
     } else {
-      // Nomor kartunya nggak kebaca di struk. Dulu transaksinya diam-diam
-      // jatuh ke source default BANK_CONFIG (Superbank) -- tiga perjalanan
-      // Oktober 2026 yang dibayar pakai kartu debit blu nyangkut di Superbank
-      // gara-gara ini, dan baru ketahuan waktu dicocokin sama rekening koran.
-      // Akun yang salah jauh lebih susah ketahuan daripada akun yang kosong,
-      // jadi lebih baik ditandai minta dicek daripada ditebak.
+
       source = UNKNOWN_BANK.source;
       dana = UNKNOWN_BANK.dana;
       grabSourceUnknown = true;
     }
   }
 
-  // Kalau nominal/tanggal nggak ketemu, JANGAN skip -- tetep insert apa
-  // adanya biar datanya nggak ilang, tapi ditandai "Perlu Dicek" biar user
-  // liat & lengkapin sendiri di app (lihat notifyAdminOfReviewNeeded di
-  // handleMessage buat pemberitahuan ke developer).
   const needsReview = !amount || !dateTime.date || grabSourceUnknown;
 
   return {
@@ -527,26 +371,16 @@ function parseTransactionEmail(body, subject, bank, dateHeader) {
   };
 }
 
-// Kalau body-nya sama sekali nggak punya tanggal yang bisa di-parse, pakai
-// tanggal email diterima (header Date) sebagai pendekatan -- lebih baik ada
-// tanggal yang mendekati daripada gagal insert gara-gara field kosong.
 function headerDateFallback(dateHeader) {
   try {
     const d = dateHeader ? new Date(dateHeader) : new Date();
     if (!isNaN(d.getTime())) return Utilities.formatDate(d, 'Asia/Jakarta', 'yyyy-MM-dd');
   } catch (e) {
-    // lanjut ke fallback di bawah
+
   }
   return Utilities.formatDate(new Date(), 'Asia/Jakarta', 'yyyy-MM-dd');
 }
 
-// Ambil semua kemunculan "Rp ..."/"IDR ..." di body, lalu pilih yang paling
-// deket sama kata kunci total-ish (total/nominal/jumlah/sejumlah) -- itu
-// biasanya nominal transaksi utama, bukan breakdown/komponen lain (VAT,
-// promo, dst). Kalau nggak ada kata kunci sama sekali, pakai angka pertama.
-// Ambil nominal dari label tertentu. extractAmount() menebak lewat kata kunci
-// terdekat -- di email tagihan kartu kredit ada tiga angka berdampingan
-// (Jumlah Tagihan, Total Bayar, Sisa Tagihan) dan yang dimaksud cuma satu.
 function extractLabelledAmount(body, label) {
   const re = new RegExp(
     label + '\\s*\\|?\\s*:?\\s*\\|?\\s*(?:IDR|Rp\\.?)\\s*([\\d.,]+)',
@@ -555,19 +389,12 @@ function extractLabelledAmount(body, label) {
   const m = body.match(re);
   if (!m) return null;
   const raw = m[1];
-  // "2,491,587.00" (IDR) vs "2.491.587" (Rp)
+
   return /\.\d{2}$/.test(raw) ? parseIDR(raw) : parseRupiah(raw);
 }
 
 function extractAmount(body) {
-  // QRIS Tap (MRT, Transjakarta) lewat Livin' by Mandiri: banknya nahan dana
-  // di awal perjalanan ("Nominal Tertahan" Rp 14.000), lalu mengembalikan
-  // sisanya begitu tap keluar ("Dana Dikembalikan" Rp 9.000). Yang benar-benar
-  // keluar dari rekening cuma "Biaya Perjalanan" (Rp 5.000).
-  //
-  // Harus dicek lebih dulu: pencarian umum di bawah mencari kata "nominal",
-  // dan "Nominal Tertahan" kena duluan -- jadi yang tercatat jumlah yang
-  // ditahan, bukan ongkos aslinya.
+
   const trip = body.match(/Biaya\s+Perjalanan[\s\S]{0,40}?Rp\.?\s?([\d.,]{3,})/i);
   if (trip) {
     const tripVal = parseRupiah(trip[1]);
@@ -593,10 +420,6 @@ function extractAmount(body) {
   return candidates[0].val;
 }
 
-// Pola "DD Bulan YYYY", lalu "DD-MM-YYYY" sebagai cadangan. Dicari kandidat
-// pertama yang BENERAN valid, bukan yang pertama ketemu regex. Jam diambil
-// dari 60 karakter sesudah tanggalnya, atau dari header Date kalau emailnya
-// nggak nyebut jam.
 function extractDateTime(body, dateHeader) {
   const dateRe = /(\d{1,2})\s+([A-Za-z]{3,9})\s+(\d{2,4})/g;
   let dm;
@@ -632,42 +455,20 @@ function extractDateTime(body, dateHeader) {
         time = Utilities.formatDate(received, 'Asia/Jakarta', 'HH:mm');
       }
     } catch (e) {
-      // biarin kosong kalau header Date-nya gagal di-parse
+
     }
   }
 
   return { date: date, time: time };
 }
 
-// Nama merchant/penerima biasanya ada di baris/sel abis salah satu label
-// umum ini. Kalau nggak ketemu, pakai default per-bank (mis. "Grab" buat
-// notifikasi ride-hailing yang emang nggak punya field nama merchant), atau
-// terakhir fallback ke subject email.
 function extractTitle(body, subject, bank) {
-  // Struk Grab dan notifikasi banknya adalah DUA email untuk SATU pembelian.
-  // Idealnya struk Grab dilewati lewat `ownEmail` di GRAB_PAYMENT_SOURCES,
-  // tapi itu butuh 4 digit kartu -- dan struk GrabFood berbahasa Indonesia
-  // cuma menulis "Detail Pembayaran: Mastercard", tanpa angka sama sekali.
-  // Jadi kartunya tidak terbaca, struknya lolos, dan belanjanya tercatat dua
-  // kali: sekali dari bank, sekali dari Grab dengan nama restoran.
-  //
-  // Yang selalu ada di dua-duanya: ID pesanan. Bank menulisnya sebagai nama
-  // merchant ("Grab* A-A43XX9PGXCQSAV"), jadi struk Grab diberi judul yang
-  // sama persis. Index unik (date + title + amount) di database lalu menolak
-  // yang kedua dengan 409, yang memang sudah diperlakukan sebagai sukses.
-  //
-  // Yang tersimpan jadi versi bank, karena notifikasi bank dikirim saat
-  // pembayaran sedangkan struk Grab baru dikirim setelah pesanan selesai --
-  // bank selalu lebih dulu. Itu juga yang diminta: sumber dananya jelas
-  // (mis. Blu), bukan tebakan default.
+
   if (bank.isGrab) {
     const order = body.match(/(?:Pesanan ID|Order ID)\s*:?\s*\n?\s*([A-Z0-9-]{6,40})/i);
     if (order) return 'Grab* ' + order[1].trim();
   }
 
-  // Transfer BCA ke bank lain memakai label "Beneficiary Name". Tanpa itu,
-  // judulnya jatuh ke subjek email ("Internet Transaction Journal") dan
-  // transaksinya tidak bisa dikenali dari daftar.
   const labelRe = new RegExp(
     '(?:Merchant\\s*\\/\\s*ATM|Merchant|Order from|Pesanan dari|Nama Produk|' +
       RECIPIENT_LABELS +
@@ -680,13 +481,6 @@ function extractTitle(body, subject, bank) {
   return subject.trim();
 }
 
-// Pindah uang antar rekening -- ke rekening orang lain maupun antar bank --
-// bukan belanja. Kategorinya dipisah supaya gampang dikenali di laporan dan
-// nggak nyampur sama pengeluaran biasa yang ditebak guessCategory().
-//
-// Penandanya diambil dari label jenis/metode transfer, bukan dari kata
-// "transfer" yang berserakan di badan email: hampir semua notifikasi
-// menyebut kata itu di kalimat basa-basinya.
 function isAccountTransfer(body) {
   return (
     /Transfer\s+Type\s*\|?\s*:?\s*\|?\s*Transfer\s+to\b/i.test(body) ||
@@ -700,12 +494,6 @@ function remapKnownMerchant(name) {
   return name;
 }
 
-// Grab bisa dibayar dari beberapa sumber -- cari 4 digit terakhir kartu/rekening
-// di deket label "Paid by"/"Dibayar dengan", atau deteksi cash.
-// Satu email bisa berasal dari rekening ATAU kartu kredit bank yang sama --
-// wondr by BNI memakai template identik untuk keduanya, dan yang membedakan
-// cuma label "Sumber dana". Tanpa membacanya, belanja kartu kredit tercatat
-// sebagai debit rekening dan utang kartunya tidak pernah bertambah.
 function paidByCreditCard(body) {
   const m = body.match(/Sumber\s*dana\s*:?\s*\n?([\s\S]{0,160})/i);
   if (!m) return false;
@@ -759,7 +547,6 @@ function guessCategory(name) {
   return 'Shopping';
 }
 
-// ===== SUPABASE =====
 function supabaseRequest(path, method, payload) {
   const options = {
     method: method,
@@ -775,22 +562,8 @@ function supabaseRequest(path, method, payload) {
   return UrlFetchApp.fetch(SUPABASE_URL + path, options);
 }
 
-// Cek transaksi identik (judul+nominal+tanggal+jam persis sama) udah ada apa
-// belum. Ini jaring pengaman kalau isProcessed ke-reset (mis. abis jalanin
-// resetAllTransactionMessages buat retry satu email yang macet) -- tanpa ini,
-// SEMUA email lain yang udah bener ke-insert bakal ke-insert ULANG dobel tiap
-// kali status-nya di-reset, bukan cuma email yang bermasalah.
 function transactionAlreadyExists(tx) {
-  // Satu perjalanan Grab mengirim DUA email: notifikasi bank (judulnya memuat
-  // kode perjalanan, "Grab* A-9ST...", sumber dananya benar) lalu struk dari
-  // Grab sendiri (judulnya cuma "Grab", sumber dananya tebakan). Judulnya
-  // berbeda, jadi pencocokan biasa tidak menangkapnya dan satu perjalanan
-  // tercatat dua kali dari dua rekening.
-  //
-  // Yang dilewati HANYA struk polos ketika notifikasi bank untuk perjalanan
-  // yang sama sudah tersimpan. Dua baris yang sama-sama berkode dibiarkan:
-  // kodenya berbeda berarti perjalanannya memang berbeda, dan beberapa
-  // perjalanan bertarif sama dalam sehari itu hal biasa.
+
   const GRAB_CODE = /\bA-[A-Z0-9]{6,}/i;
   if (/^grab\b/i.test(tx.title) && !GRAB_CODE.test(tx.title)) {
     const grabParams = [
@@ -808,15 +581,6 @@ function transactionAlreadyExists(tx) {
     }
   }
 
-  // Satu gesekan bisa dikabarkan DUA email sekaligus. QRIS kartu kredit BNI
-  // misalnya: wondr by BNI mengirim satu ("Penerima: TITIK DESA KOTA WISATA")
-  // dan BNI Credit Card mengirim satunya lagi ("Nama Merchant: QRIS-TITIK
-  // DESA KOTA"). Nama merchantnya ditulis beda, jadi pencocokan judul di
-  // bawah tidak menangkapnya dan satu transaksi tercatat dua kali.
-  //
-  // Yang dicocokkan di sini: akun, nominal, tanggal, dan JAM yang sama
-  // persis -- tanpa judul. Dua belanja berbeda dengan rupiah yang sama, di
-  // akun yang sama, pada menit yang sama, praktis tidak terjadi.
   if (tx.time) {
     const momentParams = [
       'user_id=eq.' + encodeURIComponent(IMPORT_USER_ID),
@@ -881,18 +645,13 @@ function insertTransaction(tx) {
       : (tx.dana_dipakai === 'Spend CC' ? tx.amount : -tx.amount);
     applyAccountBalanceDelta(tx.source, delta);
 
-    // Bayar tagihan menyentuh DUA akun: rekening pembayar berkurang (di atas)
-    // dan saldo terpakai kartunya ikut berkurang. Nama kartunya diambil dari
-    // judul, karena sumber dana cuma menyebut rekening pembayarnya.
     if (/^bayar cc/i.test(tx.title)) {
       applyAccountBalanceDelta(tx.title.replace(/^bayar\s+/i, '').trim(), delta);
     }
 
     return true;
   }
-  // 409 = indeks unik di database menolak karena barisnya sudah ada. Itu
-  // hasil yang benar, bukan kegagalan: kalau dianggap gagal, emailnya tidak
-  // pernah ditandai selesai dan dicoba ulang terus setiap 15 menit.
+
   if (code === 409) {
     Logger.log('Skip (ditolak indeks unik, sudah ada): ' + tx.title + ' Rp' + tx.amount);
     return true;
@@ -924,10 +683,6 @@ function applyAccountBalanceDelta(source, delta) {
     return;
   }
 
-  // Atomic increment via a Postgres RPC (increment_account_balance) instead of
-  // read-then-write -- the old GET-then-PATCH here raced with the web/mobile
-  // app's own read-then-write and could clobber each other's updates, which is
-  // how CC balances used to drift (even go negative) over time.
   const updateResp = supabaseRequest('/rest/v1/rpc/increment_account_balance', 'post', {
     p_account_id: account.id,
     p_delta: delta,

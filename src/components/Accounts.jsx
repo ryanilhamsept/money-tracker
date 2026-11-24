@@ -20,6 +20,7 @@ import { formatCurrency, formatThousands, parseAmount } from "../utils/currency"
 import { findCreditCardForSource } from "../utils/accountBalance";
 import { getOutstandingWindowStart, getStatementDay } from "../utils/billingCycle";
 import { recomputeCardUsed } from "../utils/creditCardUsed";
+import { planPaydowns } from "../utils/installmentPaydown";
 import {
     getInstallmentBaseTitle,
     formatInstallmentTitle,
@@ -257,6 +258,15 @@ export default function Accounts({
         const utilization = totalLimit > 0 ? (used / totalLimit) * 100 : 0;
         return { totalLimit, used, remaining: totalLimit - used, utilization };
     }, [creditCardAccounts, installments]);
+
+    // Angsuran yang ditandai lunas ikut mengurangi sisa rencana cicilannya.
+    // Diperlihatkan dulu di layar konfirmasi: sisa yang tersimpan sekarang
+    // sudah memuat sebagian pembayaran lama, jadi menandai angsuran yang
+    // memang sudah dihitung bakal motong dua kali.
+    const paydownPreview = useMemo(
+        () => planPaydowns(confirmingPaidIds || [], installments),
+        [confirmingPaidIds, installments]
+    );
 
     const handleAddSubmit = async (e) => {
         e.preventDefault();
@@ -1637,6 +1647,28 @@ export default function Accounts({
                                 ))}
                             </div>
 
+                            {paydownPreview.length > 0 && (
+                                <div className="rounded-2xl border border-sky-100 bg-sky-50 px-4 py-3 mb-4 space-y-1.5">
+                                    <p className="text-xs font-bold uppercase tracking-wide text-sky-600">
+                                        Sisa cicilan ikut berkurang
+                                    </p>
+                                    {paydownPreview.map((plan) => (
+                                        <div key={plan.id} className="flex items-center justify-between gap-3">
+                                            <p className="truncate text-xs font-semibold text-slate-600">
+                                                {plan.name}
+                                            </p>
+                                            <p className="shrink-0 text-xs font-bold text-slate-700">
+                                                {formatCurrency(plan.from)} → {formatCurrency(plan.to)}
+                                            </p>
+                                        </div>
+                                    ))}
+                                    <p className="pt-1 text-[11px] font-semibold text-sky-700/70">
+                                        Cek dulu angka sesudahnya. Kalau angsuran ini sebenarnya sudah
+                                        pernah dikurangi, sisanya bakal kepotong dua kali.
+                                    </p>
+                                </div>
+                            )}
+
                             <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 mb-6">
                                 <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
                                     Total yang harus dibayar ({confirmingPaidIds.length} transaksi)
@@ -1673,6 +1705,15 @@ export default function Accounts({
                                         // lands -- that double-counted the balance delta.
                                         for (const id of ids) {
                                             await markTransactionPaid?.(id, true);
+                                        }
+                                        // Baru sesudah angsurannya benar-benar
+                                        // tertandai lunas -- kalau salah satu gagal,
+                                        // sisa rencananya tidak ikut terpotong.
+                                        for (const plan of paydownPreview) {
+                                            await updateInstallment?.(plan.id, {
+                                                remainingBalance: plan.to,
+                                                remainingTerm: plan.toTerm,
+                                            });
                                         }
                                         setSelectedPaidIds((prev) => {
                                             const next = new Set(prev);

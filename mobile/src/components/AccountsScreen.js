@@ -37,6 +37,7 @@ const NET_WORTH_GROUPS = [
 import { findCreditCardForSource } from "../utils/accountBalance";
 import { getOutstandingWindowStart, getStatementDay } from "../utils/billingCycle";
 import { recomputeCardUsed } from "../utils/creditCardUsed";
+import { planPaydowns } from "../utils/installmentPaydown";
 import {
   getInstallmentBaseTitle,
   formatInstallmentTitle,
@@ -137,9 +138,22 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
     if (dipilih.length === 0 || isMarkingPaid) return;
     const total = dipilih.reduce((sum, t) => sum + Number(t.amount || 0), 0);
 
+    // Angsuran yang ditandai lunas ikut mengurangi sisa rencana cicilannya.
+    // Diperlihatkan dulu: sisa yang tersimpan sekarang sudah memuat sebagian
+    // pembayaran lama, jadi menandai angsuran yang memang sudah dihitung
+    // bakal motong dua kali. Mirror dari dialog di app web.
+    const paydowns = planPaydowns(dipilih, installments);
+    const rincianCicilan = paydowns.length
+      ? "\n\nSisa cicilan ikut berkurang:\n" +
+        paydowns
+          .map((p) => `\u2022 ${p.name}: ${formatCurrency(p.from)} \u2192 ${formatCurrency(p.to)}`)
+          .join("\n") +
+        "\n\nCek dulu angka sesudahnya."
+      : "";
+
     Alert.alert(
       "Tandai Lunas",
-      `${dipilih.length} transaksi \u2022 ${formatCurrency(total)}\n\nBarisnya tetap ada di daftar transaksi, cuma keluar dari kartu ini.`,
+      `${dipilih.length} transaksi \u2022 ${formatCurrency(total)}\n\nBarisnya tetap ada di daftar transaksi, cuma keluar dari kartu ini.${rincianCicilan}`,
       [
         { text: "Batal", style: "cancel" },
         {
@@ -149,6 +163,17 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
             try {
               for (const t of dipilih) {
                 await onMarkPaid?.(t.id, true);
+              }
+              // Baru sesudah angsurannya benar-benar tertandai lunas -- kalau
+              // salah satu gagal, sisa rencananya tidak ikut terpotong.
+              for (const plan of paydowns) {
+                const rencana = installments.find((i) => i.id === plan.id);
+                if (!rencana) continue;
+                await onUpdateInstallment?.({
+                  ...rencana,
+                  remainingBalance: plan.to,
+                  remainingTerm: plan.toTerm,
+                });
               }
               setSelectedPaidIds((prev) => {
                 const next = new Set(prev);

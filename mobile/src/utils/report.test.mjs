@@ -181,5 +181,19 @@ check("rincian per sumber dana tidak kebagian baris bayar tagihan",
     .map((r) => r.value),
   ["Credit Card - BCA"]);
 
+// Baris yang ditulis tombol "Bayar" di halaman Akun: judulnya bukan
+// "Bayar CC ...", jadi dulu dia lolos dari saringan dan kehitung sebagai
+// uang keluar -- padahal maksudnya sama persis.
+const bayarDariTombol = tx("2026-04-10", 2500000, {
+  title: "CC Payment", category: "Pembayaran CC",
+  source: "CC BCA", danaDipakai: "Spend CC",
+});
+check("baris dari tombol Bayar juga tidak dihitung sebagai uang keluar",
+  totalSpentSinceStart([...belanjaCc, bayarDariTombol], "2026-12-31"), 2500000);
+check("baris dari tombol Bayar tidak muncul di daftar pengeluaran",
+  expensesInYear([...belanjaCc, bayarDariTombol], 2026, "2026-12-31").length, 2);
+check("belanja biasa berkategori lain tetap dihitung",
+  totalSpentSinceStart([tx("2026-05-01", 70000, { category: "Makanan" })], "2026-12-31"), 70000);
+
 console.log(`\n${pass} lolos, ${fail} gagal`);
 process.exit(fail ? 1 : 0);

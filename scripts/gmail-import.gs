@@ -16,6 +16,31 @@ const ADMIN_EMAIL = 'ryanilhamsept@gmail.com';
 // sendiri, bukan pengeluaran).
 const OWNER_NAME = /ryan\s*ilham(?:\s*septiyanto)?/i;
 
+// Label yang menyebut PENERIMA uang. Dipakai dua arah: buat ngambil judul
+// transaksi, dan buat ngenalin transfer ke rekening sendiri.
+//
+// Sengaja cuma label penerima, bukan seluruh badan email. Hampir semua bank
+// menyapa pemiliknya di baris pertama ("Hello RYAN ILHAM SEPTIYANTO") dan
+// wondr by BNI menulis nama yang sama di "Sumber dana" sebagai pembayar --
+// kalau yang dicocokkan seluruh body, SEMUA transaksi bakal dikira transfer
+// ke diri sendiri dan nggak ada yang pernah tercatat.
+const RECIPIENT_LABELS =
+  'Beneficiary Name|Nama Penerima|Penerima|Nama Tujuan|Tujuan Pembayaran|' +
+  'Pembayaran Ke|Kepada|Recipient|bluAccount';
+
+// Transfer ke rekening/dompet sendiri, bank mana pun: uangnya cuma pindah
+// tempat, bukan pengeluaran. Dicek ke SEMUA label penerima yang ketemu, bukan
+// cuma yang pertama -- satu email bisa punya beberapa (mis. "Beneficiary
+// Account" lalu "Beneficiary Name" di bawahnya).
+function isTransferToSelf(body) {
+  const re = new RegExp('(?:' + RECIPIENT_LABELS + ')\\s*:?\\s*\\n?\\s*([^\\n]{2,80})', 'gi');
+  let m;
+  while ((m = re.exec(body)) !== null) {
+    if (OWNER_NAME.test(m[1])) return true;
+  }
+  return false;
+}
+
 // Satu-satunya bagian yang "hardcode per pengirim" -- info sumber dana/akun
 // emang cuma bisa didapat dari alamat pengirim, bukan dari isi email. Selain
 // ini, SEMUA email diparse pakai satu logic generic yang sama (parseTransactionEmail),
@@ -366,6 +391,11 @@ function parseTransactionEmail(body, subject, bank, dateHeader) {
   if (/Status\s*\|?\s*:?\s*\|?\s*Gagal\b/i.test(body)) {
     return 'SKIP_MARK_READ';
   }
+  // Transfer ke rekening/dompet sendiri, bank mana pun. Dulu ini cuma kena
+  // kalau judul yang sudah jadi kebetulan berisi nama pemiliknya -- padahal
+  // format transfer BCA tidak punya label judul yang dikenali sama sekali,
+  // jadi judulnya jatuh ke subjek dan pemeriksaannya tidak pernah kena.
+  if (isTransferToSelf(body)) return 'SKIP_MARK_READ';
   // Pembayaran tagihan kartu kredit lewat myBCA. Belanjanya sendiri memang
   // sudah tercatat dari email kartu kredit, jadi ini BUKAN belanja baru --
   // tapi uangnya benar-benar keluar dari rekening dan utang kartunya
@@ -464,7 +494,11 @@ function parseTransactionEmail(body, subject, bank, dateHeader) {
     date: dateTime.date || headerDateFallback(dateHeader),
     time: dateTime.time,
     amount: amount || 0,
-    category: needsReview ? 'Perlu Dicek' : guessCategory(title),
+    category: needsReview
+      ? 'Perlu Dicek'
+      : isAccountTransfer(body)
+        ? 'Account Transfer'
+        : guessCategory(title),
     source: source,
     dana_dipakai: dana,
   };
@@ -617,11 +651,34 @@ function extractTitle(body, subject, bank) {
     if (order) return 'Grab* ' + order[1].trim();
   }
 
-  const labelRe = /(?:Merchant\s*\/\s*ATM|Merchant|Pembayaran Ke|Kepada|Penerima|Nama Penerima|Nama Tujuan|Tujuan Pembayaran|Recipient|Order from|Pesanan dari|Nama Produk|bluAccount)\s*:?\s*\n?\s*([^\n]{2,60})/i;
+  // Transfer BCA ke bank lain memakai label "Beneficiary Name". Tanpa itu,
+  // judulnya jatuh ke subjek email ("Internet Transaction Journal") dan
+  // transaksinya tidak bisa dikenali dari daftar.
+  const labelRe = new RegExp(
+    '(?:Merchant\\s*\\/\\s*ATM|Merchant|Order from|Pesanan dari|Nama Produk|' +
+      RECIPIENT_LABELS +
+      ')\\s*:?\\s*\\n?\\s*([^\\n]{2,60})',
+    'i'
+  );
   const m = body.match(labelRe);
   if (m) return remapKnownMerchant(m[1].trim());
   if (bank.defaultTitle) return bank.defaultTitle;
   return subject.trim();
+}
+
+// Pindah uang antar rekening -- ke rekening orang lain maupun antar bank --
+// bukan belanja. Kategorinya dipisah supaya gampang dikenali di laporan dan
+// nggak nyampur sama pengeluaran biasa yang ditebak guessCategory().
+//
+// Penandanya diambil dari label jenis/metode transfer, bukan dari kata
+// "transfer" yang berserakan di badan email: hampir semua notifikasi
+// menyebut kata itu di kalimat basa-basinya.
+function isAccountTransfer(body) {
+  return (
+    /Transfer\s+Type\s*\|?\s*:?\s*\|?\s*Transfer\s+to\b/i.test(body) ||
+    /Tipe\s+Transaksi\s*\|?\s*:?\s*\|?\s*(?:BI\s*-?\s*FAST|SKN|RTGS|Transfer)/i.test(body) ||
+    /Transfer\s+Method\s*\|?\s*:?\s*\|?\s*BI\s*-?\s*FAST\b/i.test(body)
+  );
 }
 
 function remapKnownMerchant(name) {
@@ -734,6 +791,32 @@ function transactionAlreadyExists(tx) {
     if (grabResponse.getResponseCode() >= 200 && grabResponse.getResponseCode() < 300) {
       const grabRows = JSON.parse(grabResponse.getContentText());
       if (Array.isArray(grabRows) && grabRows.length > 0) return true;
+    }
+  }
+
+  // Satu gesekan bisa dikabarkan DUA email sekaligus. QRIS kartu kredit BNI
+  // misalnya: wondr by BNI mengirim satu ("Penerima: TITIK DESA KOTA WISATA")
+  // dan BNI Credit Card mengirim satunya lagi ("Nama Merchant: QRIS-TITIK
+  // DESA KOTA"). Nama merchantnya ditulis beda, jadi pencocokan judul di
+  // bawah tidak menangkapnya dan satu transaksi tercatat dua kali.
+  //
+  // Yang dicocokkan di sini: akun, nominal, tanggal, dan JAM yang sama
+  // persis -- tanpa judul. Dua belanja berbeda dengan rupiah yang sama, di
+  // akun yang sama, pada menit yang sama, praktis tidak terjadi.
+  if (tx.time) {
+    const momentParams = [
+      'user_id=eq.' + encodeURIComponent(IMPORT_USER_ID),
+      'source=eq.' + encodeURIComponent(tx.source),
+      'amount=eq.' + encodeURIComponent(tx.amount),
+      'date=eq.' + encodeURIComponent(tx.date),
+      'time=eq.' + encodeURIComponent(tx.time),
+      'select=id',
+      'limit=1',
+    ].join('&');
+    const momentResponse = supabaseRequest('/rest/v1/transactions?' + momentParams, 'get');
+    if (momentResponse.getResponseCode() >= 200 && momentResponse.getResponseCode() < 300) {
+      const momentRows = JSON.parse(momentResponse.getContentText());
+      if (Array.isArray(momentRows) && momentRows.length > 0) return true;
     }
   }
 

@@ -19,6 +19,7 @@ import { payCreditCard } from "../services/api";
 import { formatCurrency, formatThousands, parseAmount } from "../utils/currency";
 import { findCreditCardForSource } from "../utils/accountBalance";
 import { getOutstandingWindowStart, getStatementDay } from "../utils/billingCycle";
+import { recomputeCardUsed } from "../utils/creditCardUsed";
 import {
     getInstallmentBaseTitle,
     formatInstallmentTitle,
@@ -568,6 +569,16 @@ export default function Accounts({
                             {(() => {
                                 const totalLimit = Number(account.totalLimit) || 0;
                                 const used = Number(account.balance) || 0;
+                                // "Used" itu angka tersimpan yang cuma bergerak lewat app.
+                                // Daftar di bawah kartu dihitung ulang tiap render, jadi
+                                // keduanya bisa cerita beda -- dan kalau beda, yang benar
+                                // hampir selalu barisnya.
+                                const recomputedUsed = recomputeCardUsed(
+                                    account,
+                                    accountsWithBalances,
+                                    transactions
+                                );
+                                const usedDrift = recomputedUsed - used;
                                 const remaining = totalLimit - used;
                                 const usedPct = totalLimit > 0
                                     ? Math.min(100, Math.max(0, (used / totalLimit) * 100))
@@ -597,6 +608,25 @@ export default function Accounts({
                                                 <span>Due Day {account.dueDate}</span>
                                             ) : null}
                                         </div>
+                                        {usedDrift !== 0 && (
+                                            <div className="mt-3 rounded-xl bg-white/10 p-3">
+                                                <p className="text-xs font-bold text-white">
+                                                    Dihitung ulang dari transaksi: {formatCurrency(recomputedUsed)}
+                                                </p>
+                                                <p className="mt-0.5 text-[11px] font-semibold text-white/60">
+                                                    Angka di atas {usedDrift > 0 ? "kurang" : "lebih"}{" "}
+                                                    {formatCurrency(Math.abs(usedDrift))} dari jumlah barisnya.
+                                                </p>
+                                                <button
+                                                    onClick={() =>
+                                                        updateStartingBalance(account.id, recomputedUsed)
+                                                    }
+                                                    className="mt-2 w-full rounded-lg border border-white/40 px-3 py-1.5 text-xs font-bold text-white hover:bg-white/15 transition"
+                                                >
+                                                    Samakan dengan transaksi
+                                                </button>
+                                            </div>
+                                        )}
                                         {used > 0 && (
                                             <button
                                                 onClick={() => {

@@ -36,6 +36,7 @@ const NET_WORTH_GROUPS = [
 ];
 import { findCreditCardForSource } from "../utils/accountBalance";
 import { getOutstandingWindowStart, getStatementDay } from "../utils/billingCycle";
+import { recomputeCardUsed } from "../utils/creditCardUsed";
 import {
   getInstallmentBaseTitle,
   formatInstallmentTitle,
@@ -369,6 +370,11 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
     // transaksi biasa, jadi ini nggak perlu nambahin installments.remainingBalance
     // lagi (itu dobel hitung -- lihat riwayat transaksi di bawah buat rinciannya).
     const used = Number(account.startingBalance) || 0;
+    // "Used" itu angka tersimpan yang cuma bergerak lewat app. Daftar di bawah
+    // kartu dihitung ulang tiap render, jadi keduanya bisa cerita beda -- dan
+    // kalau beda, yang benar hampir selalu barisnya. Mirror dari Accounts.jsx.
+    const recomputedUsed = isCard ? recomputeCardUsed(account, accounts, transactions) : 0;
+    const usedDrift = recomputedUsed - used;
     const remaining = totalLimit - used;
     const usedPct = totalLimit > 0 ? Math.min(100, Math.max(0, (used / totalLimit) * 100)) : 0;
 
@@ -572,6 +578,23 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
                   <Text style={styles.remainingMetaText}>Due Day {account.dueDate}</Text>
                 ) : null}
               </View>
+              {usedDrift !== 0 && (
+                <View style={styles.driftPanel}>
+                  <Text style={styles.driftTitle}>
+                    Dihitung ulang dari transaksi: {formatCurrency(recomputedUsed)}
+                  </Text>
+                  <Text style={styles.driftNote}>
+                    Angka di atas {usedDrift > 0 ? "kurang" : "lebih"}{" "}
+                    {formatCurrency(Math.abs(usedDrift))} dari jumlah barisnya.
+                  </Text>
+                  <Pressable
+                    onPress={() => onUpdateBalance(account.id, recomputedUsed)}
+                    style={styles.driftButton}
+                  >
+                    <Text style={styles.driftButtonText}>Samakan dengan transaksi</Text>
+                  </Pressable>
+                </View>
+              )}
               {used > 0 && (
                 <Pressable
                   onPress={() => {
@@ -1356,6 +1379,11 @@ const styles = StyleSheet.create({
   remainingMetaText: { color: "rgba(255,255,255,0.7)", fontSize: 11, fontWeight: "700" },
   paymentButton: { backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 12, paddingVertical: 10, marginTop: 12 },
   paymentButtonText: { color: "#ffffff", fontSize: 13, fontWeight: "700", textAlign: "center" },
+  driftPanel: { backgroundColor: "rgba(255,255,255,0.1)", borderRadius: 12, padding: 12, marginTop: 12 },
+  driftTitle: { color: "#ffffff", fontSize: 12, fontWeight: "800" },
+  driftNote: { color: "rgba(255,255,255,0.6)", fontSize: 11, fontWeight: "700", marginTop: 2 },
+  driftButton: { borderColor: "rgba(255,255,255,0.4)", borderWidth: 1, borderRadius: 10, paddingVertical: 7, marginTop: 8 },
+  driftButtonText: { color: "#ffffff", fontSize: 12, fontWeight: "700", textAlign: "center" },
   editCardPanel: { backgroundColor: colors.surfaceMuted, borderRadius: 16, padding: 14, gap: 10 },
   editCardRow: { flexDirection: "row", gap: 10 },
   editCardField: { flex: 1, gap: 6 },

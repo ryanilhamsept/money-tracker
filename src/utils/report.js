@@ -19,12 +19,15 @@ export const TANPA_ISI = "(Tanpa isi)";
 // yang justru PERLU baris ini supaya saldo rekening dan utang kartunya
 // bergerak. Jadi barisnya tetap ada dan tetap mengubah saldo; yang berubah
 // cuma: dia tidak lagi dihitung sebagai uang keluar di laporan.
-// Ada dua cara baris bayar tagihan bisa muncul, dan dua-duanya harus kena:
-//   - ditulis tangan atau dari importir Gmail -> judulnya berawalan "Bayar CC"
-//   - tombol "Bayar" di halaman Akun -> backend yang nulis barisnya, dengan
-//     judul "CC Payment" dan kategori "Pembayaran CC". Type aslinya
-//     "cc_payment", tapi sudah dinormalkan jadi "expense" waktu dibaca (di
-//     web maupun mobile), jadi yang bisa dipercaya cuma kategorinya.
+// Satu aturan buat semua: judulnya berawalan "Bayar CC". Berlaku buat yang
+// ditulis tangan, yang dari importir Gmail, maupun yang ditulis backend waktu
+// tombol "Bayar Tagihan" ditekan.
+//
+// Kategori "Pembayaran CC" tetap dicek sebagai jaring pengaman. Tombol itu
+// dulu nulis judul "CC Payment", yang tidak kena aturan di atas -- tanpa cek
+// ini, baris-baris lama bakal kehitung sebagai uang keluar lagi. Type aslinya
+// "cc_payment" tidak bisa dipakai: web maupun mobile sama-sama menormalkannya
+// jadi "expense" waktu membaca.
 export const isCcBillPayment = (t) => {
   if (!t) return false;
   const title = String(t.title || "").trim().toLowerCase();

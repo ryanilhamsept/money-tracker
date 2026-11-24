@@ -593,18 +593,11 @@ function extractAmount(body) {
   return candidates[0].val;
 }
 
-// Tanggal transaksi hampir selalu format "DD Bulan YYYY" (Indo atau Inggris),
-// jadi cukup ambil kemunculan pertama pola itu di body -- biasanya muncul
-// duluan di bagian atas email sebelum breakdown/rincian lain.
-// Kalau body-nya nggak nyebut jam eksplisit (banyak e-receipt Grab cuma
-// nulis tanggal doang), pakai jam email diterima (header Date) sebagai
-// pendekatan -- biasanya cuma beda semenit-dua dari jam transaksi asli.
+// Pola "DD Bulan YYYY", lalu "DD-MM-YYYY" sebagai cadangan. Dicari kandidat
+// pertama yang BENERAN valid, bukan yang pertama ketemu regex. Jam diambil
+// dari 60 karakter sesudah tanggalnya, atau dari header Date kalau emailnya
+// nggak nyebut jam.
 function extractDateTime(body, dateHeader) {
-  // Cari SEMUA kemunculan pola "DD Bulan YYYY", bukan cuma yang pertama --
-  // teks acak (mis. potongan nomor terminal diikuti label 3 huruf lalu angka
-  // lain, semacam "...79 RRN 6246...") bisa keebetulan cocok duluan tapi
-  // gagal di-parse sebagai bulan asli. Ambil kandidat PERTAMA yang beneran
-  // valid, jangan langsung nyerah di kandidat pertama yang ditemukan regex.
   const dateRe = /(\d{1,2})\s+([A-Za-z]{3,9})\s+(\d{2,4})/g;
   let dm;
   let date = null;
@@ -618,8 +611,6 @@ function extractDateTime(body, dateHeader) {
     }
   }
 
-  // Fallback: sebagian bank (mis. Kartu Kredit BCA) nulis tanggal numerik
-  // "DD-MM-YYYY" / "DD/MM/YYYY", nggak pake nama bulan sama sekali.
   if (!date) {
     const numDm = body.match(/(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})/);
     if (numDm) {

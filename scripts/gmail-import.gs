@@ -503,6 +503,20 @@ function extractLabelledAmount(body, label) {
 }
 
 function extractAmount(body) {
+  // QRIS Tap (MRT, Transjakarta) lewat Livin' by Mandiri: banknya nahan dana
+  // di awal perjalanan ("Nominal Tertahan" Rp 14.000), lalu mengembalikan
+  // sisanya begitu tap keluar ("Dana Dikembalikan" Rp 9.000). Yang benar-benar
+  // keluar dari rekening cuma "Biaya Perjalanan" (Rp 5.000).
+  //
+  // Harus dicek lebih dulu: pencarian umum di bawah mencari kata "nominal",
+  // dan "Nominal Tertahan" kena duluan -- jadi yang tercatat jumlah yang
+  // ditahan, bukan ongkos aslinya.
+  const trip = body.match(/Biaya\s+Perjalanan[\s\S]{0,40}?Rp\.?\s?([\d.,]{3,})/i);
+  if (trip) {
+    const tripVal = parseRupiah(trip[1]);
+    if (tripVal > 0) return tripVal;
+  }
+
   const candidates = [];
   const re = /Rp\.?\s?([\d.,]{3,})|IDR\s?([\d,]+\.\d{2})/gi;
   let m;

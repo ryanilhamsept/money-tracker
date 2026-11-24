@@ -200,13 +200,36 @@ function debugDumpBodies() {
 function processTransactionEmails() {
   const list = Gmail.Users.Messages.list('me', { q: GMAIL_QUERY, maxResults: 50 });
   const messages = list.messages || [];
+
+  // Gmail mengembalikan daftarnya dari yang PALING BARU. Untuk satu transaksi
+  // yang dikabarkan dua email -- QRIS kartu kredit BNI dikirimi wondr dan BNI
+  // Credit Card sekaligus, atau satu perjalanan Grab dikirimi banknya dan
+  // Grab sendiri -- yang diproses duluan jadi yang tercatat, dan yang kedua
+  // ditolak penyaring duplikat. Mengikuti urutan bawaan Gmail berarti yang
+  // menang justru email yang dikirim BELAKANGAN.
+  //
+  // Jadi diurutkan dulu dari yang paling lama: yang datang duluan yang
+  // tercatat, sisanya dilewati. Pengambilannya tetap satu kali per email --
+  // sama seperti sebelumnya, cuma dipisah dari pemrosesannya.
+  const fetched = [];
   messages.forEach(function (m) {
     if (isProcessed(m.id)) return;
     try {
-      const full = Gmail.Users.Messages.get('me', m.id, { format: 'full' });
+      fetched.push(Gmail.Users.Messages.get('me', m.id, { format: 'full' }));
+    } catch (e) {
+      Logger.log('Error fetching message ' + m.id + ': ' + e);
+    }
+  });
+
+  fetched.sort(function (a, b) {
+    return Number(a.internalDate || 0) - Number(b.internalDate || 0);
+  });
+
+  fetched.forEach(function (full) {
+    try {
       handleMessage(full);
     } catch (e) {
-      Logger.log('Error processing message ' + m.id + ': ' + e);
+      Logger.log('Error processing message ' + full.id + ': ' + e);
     }
   });
 }

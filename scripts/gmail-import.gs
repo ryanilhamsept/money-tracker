@@ -490,7 +490,7 @@ function extractTitle(body, subject, bank) {
   }
 
   const labelRe = new RegExp(
-    '(?:Merchant\\s*\\/\\s*ATM|Merchant|Order from|Pesanan dari|Nama Produk|' +
+    '(?:Merchant\\s*\\/\\s*ATM|Merchant(?!\\s*Location)|Order from|Pesanan dari|Nama Produk|' +
       RECIPIENT_LABELS +
       ')\\s*:?\\s*\\n?\\s*([^\\n]{2,60})',
     'i'

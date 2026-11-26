@@ -10,7 +10,7 @@ const OWNER_NAME = /ryan\s*ilham(?:\s*septiyanto)?/i;
 
 const RECIPIENT_LABELS =
   'Beneficiary Name|Nama Penerima|Penerima|Nama Tujuan|Tujuan Pembayaran|' +
-  'Pembayaran Ke|Kepada|Recipient|bluAccount';
+  'Pembayaran Ke|Payment to|Kepada|Recipient|bluAccount';
 
 function isTransferToSelf(body) {
   const re = new RegExp('(?:' + RECIPIENT_LABELS + ')\\s*:?\\s*\\n?\\s*([^\\n]{2,80})', 'gi');
@@ -495,7 +495,7 @@ function remapKnownMerchant(name) {
 }
 
 function paidByCreditCard(body) {
-  const m = body.match(/Sumber\s*dana\s*:?\s*\n?([\s\S]{0,160})/i);
+  const m = body.match(/(?:Sumber\s*dana|Source\s*of\s*Fund)\s*:?\s*\n?([\s\S]{0,160})/i);
   if (!m) return false;
   return /mastercard|visa|kartu\s*kredit|credit\s*card|\bjcc\b|\bkki\b/i.test(m[1]);
 }

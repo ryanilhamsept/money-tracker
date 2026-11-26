@@ -78,8 +78,14 @@ const getTransactionAccountEffects = (accounts, transaction) => {
         // normal account expense (opposite direction of a Spend CC purchase).
         // Card is identified from the title (e.g. "Bayar CC BCA") since
         // danaDipakai alone doesn't say which card.
+        //
+        // Baris yang ditulis tombol "Bayar Tagihan" sumbernya nama kartunya
+        // SENDIRI, bukan rekening pembayarnya -- jadi pencarian di atas dan
+        // pencarian di sini menunjuk akun yang sama, dan efeknya kejumlah dua
+        // kali. Menghapus pembayaran Rp 1 juta jadi mengembalikan utang
+        // kartunya Rp 2 juta.
         const targetCard = findCreditCardForSource(accounts, transaction.title);
-        if (targetCard) {
+        if (targetCard && targetCard.id !== (payingAccount && payingAccount.id)) {
             const sign = isIncome ? -1 : 1;
             effects.push({ account: targetCard, amount: amount * sign });
         }

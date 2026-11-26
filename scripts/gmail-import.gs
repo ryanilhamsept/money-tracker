@@ -293,11 +293,14 @@ function parseTransactionEmail(body, subject, bank, dateHeader) {
   if (isTransferToSelf(body)) return 'SKIP_MARK_READ';
 
   const ccBill = body.match(
-    /Jenis Transaksi\s*\|?\s*:?\s*\|?\s*Kartu Kredit\s*&\s*Paylater\s*-\s*([A-Za-z]+)/i
+    /(?:Jenis Transaksi|Transaction Type)\s*\|?\s*:?\s*\|?\s*(?:Kartu Kredit|Credit Card)\s*&\s*Paylater\s*-\s*([A-Za-z]+)/i
   );
   if (ccBill) {
     const cardName = ccBill[1].toUpperCase();
-    const paid = extractLabelledAmount(body, 'Total Bayar') || extractAmount(body);
+    const paid =
+      extractLabelledAmount(body, 'Total Bayar') ||
+      extractLabelledAmount(body, 'Total Payment') ||
+      extractAmount(body);
     const when = extractDateTime(body, dateHeader);
 
     return {
@@ -311,7 +314,7 @@ function parseTransactionEmail(body, subject, bank, dateHeader) {
     };
   }
 
-  if (bank.dana !== 'Spend CC' && /kartu kredit/i.test(body) && /tagihan/i.test(body) && /(?:bayar|pembayaran)/i.test(body)) {
+  if (bank.dana !== 'Spend CC' && /(?:kartu kredit|credit card)/i.test(body) && /(?:tagihan|total bill)/i.test(body) && /(?:bayar|pembayaran|payment)/i.test(body)) {
     return 'SKIP_MARK_READ';
   }
 

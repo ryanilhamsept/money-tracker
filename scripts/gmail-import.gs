@@ -256,7 +256,24 @@ function getEmailBody(message) {
 function parseTransactionEmail(body, subject, bank, dateHeader) {
 
   if (/pengembalian dana|refund/i.test(body)) {
-    return 'SKIP_MARK_READ';
+    const refundAmount = extractAmount(body);
+    if (!refundAmount) return 'SKIP_MARK_READ';
+
+    const refundWhen = extractDateTime(body, dateHeader);
+    const refundReason = body.match(
+      /["\u201C\u201D]([^"\u201C\u201D\n]{3,60})["\u201C\u201D]/
+    );
+
+    return {
+      title: refundReason ? 'Refund ' + refundReason[1].trim() : 'Refund ' + bank.source,
+      date: refundWhen.date || headerDateFallback(dateHeader),
+      time: refundWhen.time,
+      amount: refundAmount,
+      category: refundWhen.date ? 'Refund' : 'Perlu Dicek',
+      source: bank.source,
+      dana_dipakai: '',
+      type: 'income',
+    };
   }
 
   const incoming = body.match(

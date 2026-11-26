@@ -31,6 +31,7 @@ export const fundSources = [
   "Credit Card - BNI",
   "Blu",
   "Superbank",
+  "Cash",
 ];
 
 export const danaDipakaiOptions = [
@@ -40,6 +41,7 @@ export const danaDipakaiOptions = [
   "Spend CC",
   "Other",
   "Liburan",
+  "Gajian",
 ];
 
 export const goalIcons = [

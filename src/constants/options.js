@@ -39,6 +39,7 @@ export const fundSources = import.meta.env.VITE_FUND_SOURCES
         "Credit Card - BNI",
         "Blu",
         "Superbank",
+        "Cash",
     ];
 
 export const danaDipakaiOptions = import.meta.env.VITE_DANA_DIPAKAI_OPTIONS

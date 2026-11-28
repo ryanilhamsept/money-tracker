@@ -492,9 +492,32 @@ export default function App() {
     if (editingTransaction) {
       const isNewlyConverted = wantsInstallment && !editingTransaction.installmentTotalLoan;
       const baseTitle = form.title.trim();
+
+      // Angsuran pertama nempel di tagihan pertama SESUDAH belanja. Kartu
+      // tutup buku tiap tanggal `statementDay`, jadi belanja pada/sesudah
+      // tanggal itu baru ditagih bulan berikutnya -- belanja 28 Nov (tutup
+      // buku 25) angsuran ke-1 nya jatuh di Desember, bukan November.
+      //
+      // Jalur "transaksi baru" di bawah sudah lama menggeser tanggalnya;
+      // jalur ubah jadi cicilan ini belum, jadi seluruh jadwalnya maju
+      // sebulan. Mirror dari TransactionList.jsx (web).
+      const convertedCard = isNewlyConverted
+        ? findCreditCardForSource(accounts, form.source)
+        : null;
+      const convertedOffset = isNewlyConverted
+        ? getFirstInstallmentMonthOffset(
+            parseInt(String(form.date).split('-')[2], 10),
+            getStatementDay(convertedCard)
+          )
+        : 0;
+      const convertedFirstDate = isNewlyConverted
+        ? addMonthsToDate(form.date, convertedOffset)
+        : form.date;
+
       const payload = {
         ...form,
         id: editingTransaction.id,
+        date: convertedFirstDate,
         title: isNewlyConverted ? formatInstallmentTitle(baseTitle, 1) : form.title,
       };
       await updateTransaction(payload);
@@ -518,23 +541,13 @@ export default function App() {
 
       if (isNewlyConverted) {
           const term = Number(installmentDetails.remainingTerm) || 1;
-          const [yearStr, monthStr, dayStr] = payload.date.split('-');
-          const y = parseInt(yearStr, 10);
-          const m = parseInt(monthStr, 10) - 1;
-          const d = parseInt(dayStr, 10);
 
           for (let i = 1; i < term; i++) {
-              const nextDate = new Date(y, m + i, d);
-              const outY = nextDate.getFullYear();
-              const outM = String(nextDate.getMonth() + 1).padStart(2, '0');
-              const outD = String(nextDate.getDate()).padStart(2, '0');
-              const dateString = `${outY}-${outM}-${outD}`;
-
               await addTransaction({
                   ...payload,
                   id: generateId(),
                   title: formatInstallmentTitle(baseTitle, i + 1),
-                  date: dateString,
+                  date: addMonthsToDate(convertedFirstDate, i),
                   installmentTotalLoan: null,
               });
           }

@@ -22,6 +22,7 @@ import {
     fundSources,
 } from "../constants/options";
 import { withCurrentValue } from "../utils/optionList";
+import { getFirstInstallmentMonthOffset, getStatementDay } from "../utils/billingCycle";
 
 // Emoji + warna disamain persis sama mobile app (mobile/App.js CATEGORY_ICONS)
 // biar tampilan list transaksi konsisten di web & mobile.
@@ -148,8 +149,29 @@ export default function TransactionList({
 
         const baseTitle = editForm.title.trim();
 
+        // Angsuran pertama nempel di tagihan pertama SESUDAH belanja. Kartu
+        // tutup buku tiap tanggal `statementDay`, jadi belanja pada/sesudah
+        // tanggal itu baru ditagih bulan berikutnya -- belanja 28 Nov (tutup
+        // buku 25) angsuran ke-1 nya jatuh di Desember, bukan November.
+        //
+        // Jalur "transaksi baru" sudah lama menggeser tanggalnya; jalur ubah
+        // jadi cicilan ini belum, jadi seluruh jadwalnya maju sebulan.
+        const installmentCard = wantsInstallment
+            ? findCreditCardForSource(accounts, editForm.source)
+            : null;
+        const monthOffset = wantsInstallment
+            ? getFirstInstallmentMonthOffset(
+                  parseInt(String(editForm.date).split("-")[2], 10),
+                  getStatementDay(installmentCard)
+              )
+            : 0;
+        const firstDate = wantsInstallment
+            ? addMonthsToDate(editForm.date, monthOffset)
+            : editForm.date;
+
         const wasSaved = await updateTransaction(id, {
             ...editForm,
+            date: firstDate,
             title: wantsInstallment ? formatInstallmentTitle(baseTitle, 1) : editForm.title,
             danaDipakai: editForm.type === "income" ? "" : editForm.danaDipakai,
             installmentTotalLoan: wantsInstallment ? totalLoan : null,
@@ -182,7 +204,7 @@ export default function TransactionList({
                 const term = Number(installmentDetails.remainingTerm) || 1;
 
                 for (let i = 1; i < term; i++) {
-                    const dateString = addMonthsToDate(editForm.date, i);
+                    const dateString = addMonthsToDate(firstDate, i);
 
                     addTransaction({
                         ...editForm,

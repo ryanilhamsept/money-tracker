@@ -544,7 +544,7 @@ export default function Accounts({
                         </div>
                         <div className="space-y-1">
                             <label className="text-xs font-bold text-slate-600">
-                                Tanggal Jatuh Tempo (tanggal di bulan)
+                                Tanggal Tutup Buku (tanggal cetak tagihan)
                             </label>
                             <input
                                 value={editCardVal.dueDate}
@@ -605,7 +605,7 @@ export default function Accounts({
                                                 Used {formatCurrency(used)} / {formatCurrency(totalLimit)}
                                             </span>
                                             {account.dueDate ? (
-                                                <span>Due Day {account.dueDate}</span>
+                                                <span>Tutup buku tgl {account.dueDate}</span>
                                             ) : null}
                                         </div>
                                         {usedDrift !== 0 && (
@@ -1490,8 +1490,11 @@ export default function Accounts({
 
                                         <div className="space-y-2">
                                             <label className="text-sm font-bold text-slate-700">
-                                                Tanggal Jatuh Tempo (tanggal di bulan)
+                                                Tanggal Tutup Buku (tanggal cetak tagihan)
                                             </label>
+                                            <p className="text-[11px] font-semibold text-slate-400">
+                                                Belanja pada atau sesudah tanggal ini masuk tagihan bulan berikutnya. Bukan tanggal jatuh tempo pembayaran.
+                                            </p>
                                             <input
                                                 value={newAccount.dueDate}
                                                 onChange={(e) =>

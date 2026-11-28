@@ -546,7 +546,7 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
               </View>
             </View>
             <View style={styles.editCardField}>
-              <Text style={styles.editCardLabel}>Tanggal Jatuh Tempo</Text>
+              <Text style={styles.editCardLabel}>Tanggal Tutup Buku (tanggal cetak tagihan)</Text>
               <TextInput
                 style={styles.editCardInput}
                 keyboardType="numeric"
@@ -575,7 +575,7 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
                   Used {formatCurrency(used)} / {formatCurrency(totalLimit)}
                 </Text>
                 {account.dueDate ? (
-                  <Text style={styles.remainingMetaText}>Due Day {account.dueDate}</Text>
+                  <Text style={styles.remainingMetaText}>Tutup buku tgl {account.dueDate}</Text>
                 ) : null}
               </View>
               {usedDrift !== 0 && (
@@ -1179,7 +1179,8 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
                   </View>
 
                   <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Tanggal Jatuh Tempo (tanggal di bulan)</Text>
+                    <Text style={styles.label}>Tanggal Tutup Buku (tanggal cetak tagihan)</Text>
+                    <Text style={styles.hint}>Belanja pada atau sesudah tanggal ini masuk tagihan bulan berikutnya. Bukan tanggal jatuh tempo pembayaran.</Text>
                     <TextInput
                       style={styles.input}
                       placeholder="25"
@@ -1389,6 +1390,7 @@ const styles = StyleSheet.create({
   editCardPanel: { backgroundColor: colors.surfaceMuted, borderRadius: 16, padding: 14, gap: 10 },
   editCardRow: { flexDirection: "row", gap: 10 },
   editCardField: { flex: 1, gap: 6 },
+  hint: { fontSize: 11, fontWeight: "600", color: "#7aa0b8", marginTop: -2, lineHeight: 15 },
   editCardLabel: { fontSize: 11, fontWeight: "700", color: "#9cbed4", textTransform: "uppercase" },
   editCardInput: { backgroundColor: "#083c5a", borderColor: "#0f5479", borderWidth: 1, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 8, color: "#e8f3fb", fontSize: 13, fontWeight: "700" },
   cardsPanel: { backgroundColor: "#0b5f8d", borderRadius: 24, padding: 20 },

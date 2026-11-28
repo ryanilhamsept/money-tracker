@@ -36,7 +36,7 @@ const NET_WORTH_GROUPS = [
 ];
 import { findCreditCardForSource } from "../utils/accountBalance";
 import { getOutstandingWindowStart, getStatementDay } from "../utils/billingCycle";
-import { recomputeCardUsed } from "../utils/creditCardUsed";
+import { recomputeCardUsed, splitCardOutstanding } from "../utils/creditCardUsed";
 import {
   getInstallmentBaseTitle,
   formatInstallmentTitle,
@@ -375,6 +375,12 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
     // kalau beda, yang benar hampir selalu barisnya. Mirror dari Accounts.jsx.
     const recomputedUsed = isCard ? recomputeCardUsed(account, accounts, transactions) : 0;
     const usedDrift = recomputedUsed - used;
+    // Utang kartu itu dua hal yang beda: yang sudah tercetak di tagihan
+    // (tinggal dibayar) dan yang belum ditagih sama sekali. Mirror dari
+    // Accounts.jsx (web).
+    const pecah = isCard
+      ? splitCardOutstanding(account, accounts, transactions)
+      : { ditagih: { total: 0 }, belumDitagih: { total: 0 } };
     const remaining = totalLimit - used;
     const usedPct = totalLimit > 0 ? Math.min(100, Math.max(0, (used / totalLimit) * 100)) : 0;
 
@@ -578,6 +584,18 @@ export default function AccountsScreen({ accounts, onAdd, onDelete, onUpdateBala
                   <Text style={styles.remainingMetaText}>Tutup buku tgl {account.dueDate}</Text>
                 ) : null}
               </View>
+              {pecah.ditagih.total + pecah.belumDitagih.total > 0 && (
+                <View style={styles.pecahRow}>
+                  <View style={styles.pecahBox}>
+                    <Text style={styles.pecahLabel}>TAGIHAN BERJALAN</Text>
+                    <Text style={styles.pecahNilai}>{formatCurrency(pecah.ditagih.total)}</Text>
+                  </View>
+                  <View style={styles.pecahBox}>
+                    <Text style={styles.pecahLabel}>BELUM DITAGIH</Text>
+                    <Text style={styles.pecahNilai}>{formatCurrency(pecah.belumDitagih.total)}</Text>
+                  </View>
+                </View>
+              )}
               {usedDrift !== 0 && (
                 <View style={styles.driftPanel}>
                   <Text style={styles.driftTitle}>
@@ -1382,6 +1400,10 @@ const styles = StyleSheet.create({
   remainingMetaText: { color: "rgba(255,255,255,0.7)", fontSize: 11, fontWeight: "700" },
   paymentButton: { backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 12, paddingVertical: 10, marginTop: 12 },
   paymentButtonText: { color: "#ffffff", fontSize: 13, fontWeight: "700", textAlign: "center" },
+  pecahRow: { flexDirection: "row", gap: 8, marginTop: 12 },
+  pecahBox: { flex: 1, backgroundColor: "rgba(255,255,255,0.1)", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8 },
+  pecahLabel: { color: "rgba(255,255,255,0.5)", fontSize: 10, fontWeight: "800" },
+  pecahNilai: { color: "#ffffff", fontSize: 14, fontWeight: "900", marginTop: 2 },
   driftPanel: { backgroundColor: "rgba(255,255,255,0.1)", borderRadius: 12, padding: 12, marginTop: 12 },
   driftTitle: { color: "#ffffff", fontSize: 12, fontWeight: "800" },
   driftNote: { color: "rgba(255,255,255,0.6)", fontSize: 11, fontWeight: "700", marginTop: 2 },

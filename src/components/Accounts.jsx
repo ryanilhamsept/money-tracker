@@ -19,7 +19,7 @@ import { payCreditCard } from "../services/api";
 import { formatCurrency, formatThousands, parseAmount } from "../utils/currency";
 import { findCreditCardForSource } from "../utils/accountBalance";
 import { getOutstandingWindowStart, getStatementDay } from "../utils/billingCycle";
-import { recomputeCardUsed } from "../utils/creditCardUsed";
+import { recomputeCardUsed, splitCardOutstanding } from "../utils/creditCardUsed";
 import {
     getInstallmentBaseTitle,
     formatInstallmentTitle,
@@ -579,6 +579,15 @@ export default function Accounts({
                                     transactions
                                 );
                                 const usedDrift = recomputedUsed - used;
+                                // Utang kartu itu dua hal yang beda: yang sudah
+                                // tercetak di tagihan (tinggal dibayar) dan yang
+                                // belum ditagih sama sekali. Satu angka gabungan
+                                // bikin dua-duanya susah dibaca.
+                                const pecah = splitCardOutstanding(
+                                    account,
+                                    accountsWithBalances,
+                                    transactions
+                                );
                                 const remaining = totalLimit - used;
                                 const usedPct = totalLimit > 0
                                     ? Math.min(100, Math.max(0, (used / totalLimit) * 100))
@@ -608,6 +617,26 @@ export default function Accounts({
                                                 <span>Tutup buku tgl {account.dueDate}</span>
                                             ) : null}
                                         </div>
+                                        {pecah.ditagih.total + pecah.belumDitagih.total > 0 && (
+                                            <div className="mt-3 grid grid-cols-2 gap-2">
+                                                <div className="rounded-xl bg-white/10 px-3 py-2">
+                                                    <p className="text-[10px] font-bold uppercase tracking-wide text-white/50">
+                                                        Tagihan berjalan
+                                                    </p>
+                                                    <p className="text-sm font-black">
+                                                        {formatCurrency(pecah.ditagih.total)}
+                                                    </p>
+                                                </div>
+                                                <div className="rounded-xl bg-white/10 px-3 py-2">
+                                                    <p className="text-[10px] font-bold uppercase tracking-wide text-white/50">
+                                                        Belum ditagih
+                                                    </p>
+                                                    <p className="text-sm font-black">
+                                                        {formatCurrency(pecah.belumDitagih.total)}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        )}
                                         {usedDrift !== 0 && (
                                             <div className="mt-3 rounded-xl bg-white/10 p-3">
                                                 <p className="text-xs font-bold text-white">

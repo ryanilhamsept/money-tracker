@@ -1,5 +1,5 @@
 // Dijalankan juga terhadap salinan web lewat scratchpad.
-import { recomputeCardUsed } from "./creditCardUsed.js";
+import { recomputeCardUsed, splitCardOutstanding } from "./creditCardUsed.js";
 
 let pass = 0, fail = 0;
 const check = (nama, dapat, harap) => {
@@ -86,6 +86,48 @@ check("skenario kartu CC BCA = Rp 4.735.699",
     belanja(159500, { title: "Location" }),
     belanja(311900, { title: "Toys Kingdom" }),
   ]), 4735699);
+
+// Pecah tagihan: sebelum tutup buku terakhir = sudah tercetak, sesudahnya =
+// belum ditagih. Tanggalnya dibikin relatif ke hari ini supaya tes tidak basi.
+const hariIniTgl = new Date().getDate();
+const pisah = (rows) => splitCardOutstanding(ccBca, akun, rows);
+const geser = (hariLalu) => {
+  const d = new Date();
+  d.setDate(d.getDate() - hariLalu);
+  return d.toISOString().slice(0, 10);
+};
+
+console.log("\npecah tagihan kartu: sudah ditagih vs belum");
+
+// Tutup buku tiap tanggal 25. Belanja kemarin dan belanja 40 hari lalu pasti
+// jatuh di sisi yang berbeda hanya kalau tutup bukunya terlewat di antaranya,
+// jadi yang diuji sifatnya: tiap baris masuk tepat satu keranjang, dan
+// jumlah dua keranjang itu sama dengan total utang kartunya.
+const campuran = [
+  belanja(399900, { title: "MANZONE", date: geser(1) }),
+  belanja(831820, { title: "SHOPEE.CO.ID", date: geser(10) }),
+  belanja(80000, { title: "Subway", date: geser(20) }),
+];
+const hasilPisah = pisah(campuran);
+check("tiap baris masuk tepat satu keranjang",
+  hasilPisah.ditagih.rows.length + hasilPisah.belumDitagih.rows.length, campuran.length);
+check("jumlah dua keranjang = total utang kartu",
+  hasilPisah.ditagih.total + hasilPisah.belumDitagih.total, recomputeCardUsed(ccBca, akun, campuran));
+
+// Dengan tanggal yang dipatok, sisi mana yang kena jadi pasti.
+const tetap = [
+  belanja(399900, { title: "MANZONE", date: "2026-11-26" }),
+  belanja(831820, { title: "SHOPEE.CO.ID", date: "2026-11-22" }),
+];
+const dua = splitCardOutstanding({ ...ccBca, dueDate: 25 }, akun, tetap);
+check("pemisahnya tanggal tutup buku terakhir yang sudah lewat",
+  dua.cycleStart.slice(-2), "25");
+
+check("kartu tanpa transaksi: dua keranjang kosong",
+  [pisah([]).ditagih.total, pisah([]).belumDitagih.total], [0, 0]);
+
+check("angsuran bertanggal jauh di depan masuk 'belum ditagih'",
+  pisah([belanja(480667, { title: "On cloud ke 6", date: "2027-03-05" })]).belumDitagih.total, 480667);
 
 console.log(`\n${pass} lolos, ${fail} gagal`);
 process.exit(fail ? 1 : 0);

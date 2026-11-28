@@ -25,7 +25,7 @@
 // pembayaran di app (bayarnya lewat myBCA), jadi itu bikin utang lama
 // kehitung lagi.
 
-import { getOutstandingWindowStart, getStatementDay } from "./billingCycle";
+import { getCurrentCycleStart, getOutstandingWindowStart, getStatementDay } from "./billingCycle";
 import { findCreditCardForSource } from "./accountBalance";
 import { isCcBillPayment } from "./report";
 
@@ -55,6 +55,37 @@ export const outstandingCardRows = (account, accounts = [], transactions = []) =
       t.date >= windowStart &&
       findCreditCardForSource(accounts, t.source)?.id === account.id
   );
+};
+
+// Utang kartu dipecah jadi dua: yang sudah masuk cetakan tagihan terakhir
+// (tinggal dibayar), dan yang belum ditagih sama sekali.
+//
+// Pemisahnya tanggal tutup buku terakhir yang sudah lewat. Belanja sebelum
+// tanggal itu sudah tercetak di tagihan dan jatuh tempo sebentar lagi;
+// belanja pada atau sesudahnya baru nongol di cetakan berikutnya.
+//
+// Angsuran cicilan yang tanggalnya masih di depan ikut masuk "belum ditagih"
+// -- memang belum ditagih, cuma sudah pasti datang.
+//
+// Khusus kartu kredit. Rekening biasa tidak punya siklus tagihan: uangnya
+// keluar saat itu juga, jadi tidak ada yang perlu dipisah.
+export const splitCardOutstanding = (account, accounts = [], transactions = []) => {
+  const rows = outstandingCardRows(account, accounts, transactions);
+  const cycleStart = getCurrentCycleStart(getStatementDay(account));
+
+  const bucket = (keep) => {
+    const isi = rows.filter((t) => keep(String(t.date || "")));
+    return {
+      rows: isi,
+      total: Math.max(0, Math.round(isi.reduce((sum, t) => sum + signedAmount(t), 0))),
+    };
+  };
+
+  return {
+    cycleStart,
+    ditagih: bucket((tanggal) => tanggal < cycleStart),
+    belumDitagih: bucket((tanggal) => tanggal >= cycleStart),
+  };
 };
 
 export const recomputeCardUsed = (account, accounts = [], transactions = []) => {
